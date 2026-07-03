@@ -212,3 +212,5 @@ Every other Claude setup asks you to learn a framework first. This one doesn't:
 3. Ask it to read `MASTER-PROMPT.md`.
 
 It does the rest.
+
+Drop a 🌟 if if helped.

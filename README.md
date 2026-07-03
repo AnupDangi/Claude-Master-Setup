@@ -1,4 +1,5 @@
 # Claude Master Setup
+<img width="2110" height="700" alt="image" src="https://github.com/user-attachments/assets/3727d6e4-4953-424f-9d1b-175a2b7f5532" />
 
 The last Claude Code setup you'll need before starting any project. Clone it, drop in your requirements docs, and let Claude build the engineering foundation for you.
 

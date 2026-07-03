@@ -4,6 +4,23 @@ The last Claude Code setup you'll need before starting any project. Clone it, dr
 
 https://github.com/AnupDangi/Claude-Master-Setup
 
+## New to Claude? Start here
+
+Take these three, in order, before anything else. This is the minimum anyone should know before touching this repo:
+
+1. [Claude 101](https://anthropic.skilljar.com/claude-101)
+2. [Claude Code 101](https://anthropic.skilljar.com/claude-code-101)
+3. [Claude Code in Action](https://anthropic.skilljar.com/claude-code-in-action)
+
+Everything below is optional, for going deeper — MCP servers, agent skills, subagents — if you want to build and deploy your own applications with Claude Code:
+
+4. [Introduction to Model Context Protocol](https://anthropic.skilljar.com/introduction-to-model-context-protocol)
+5. [Model Context Protocol: Advanced Topics](https://anthropic.skilljar.com/model-context-protocol-advanced-topics)
+6. [Introduction to Agent Skills](https://anthropic.skilljar.com/introduction-to-agent-skills)
+7. [Introduction to Subagents](https://anthropic.skilljar.com/introduction-to-subagents)
+
+Also worth a look: [antigravity-awesome-skills](https://github.com/sickn33/antigravity-awesome-skills) — a curated skills list.
+
 ## What's inside
 
 - **`MASTER-PROMPT.md`** — a bootstrap prompt that turns a PRD + PTR into a full engineering foundation (architecture, `CLAUDE.md`, `docs/`, roadmap, Git strategy)

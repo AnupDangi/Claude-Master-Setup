@@ -21,6 +21,29 @@ Everything below is optional, for going deeper — MCP servers, agent skills, su
 
 Also worth a look: [antigravity-awesome-skills](https://github.com/sickn33/antigravity-awesome-skills) — a curated skills list.
 
+## Install the skill library
+
+Before cloning anything else, add the [ECC](https://github.com/affaan-m/ECC) plugin marketplace to Claude Code. It ships 277 skills and 67 subagents (planner, architect, security-reviewer, code-reviewer, tdd-guide, and more) that this setup leans on:
+
+```
+/plugin marketplace add https://github.com/affaan-m/ECC
+/plugin install ecc@ecc
+```
+
+Or add it directly to `~/.claude/settings.json`:
+
+```json
+{
+  "extraKnownMarketplaces": {
+    "ecc": {
+      "source": { "source": "github", "repo": "affaan-m/ECC" }
+    }
+  }
+}
+```
+
+Also add [antigravity-awesome-skills](https://github.com/sickn33/antigravity-awesome-skills) the same way if you want its skill set too.
+
 ## What's inside
 
 - **`MASTER-PROMPT.md`** — a bootstrap prompt that turns a PRD + PTR into a full engineering foundation (architecture, `CLAUDE.md`, `docs/`, roadmap, Git strategy)
@@ -78,6 +101,34 @@ The context profiles in `.claude/context/` act as lightweight skills — tell Cl
 "Use .claude/context/research.md, figure out why auth is flaky."
 ```
 → Claude explores first, documents findings, and holds off on code until the cause is clear.
+
+## Example: planning with skills
+
+Once `PRD.md` and `PTR.md` are in the repo, use ECC's planning skill instead of freeform chat:
+
+```
+"Use ecc:planner to break PRD.md and PTR.md into an implementation plan."
+```
+→ Claude reads both docs, proposes an architecture and a build order, and asks clarification questions before any code gets written — same discipline `MASTER-PROMPT.md` enforces.
+
+## Example: spawning multiple subagents
+
+For independent chunks of work — backend, frontend, tests — spawn subagents in parallel instead of doing each serially:
+
+```
+"Spawn three subagents in parallel: one to build the API routes,
+one to build the UI, one to write the test suite. Then integrate their output."
+```
+→ Claude launches each subagent with its own scoped context, waits for all three, then wires the results together. Use this workflow per feature as you build out the product — plan once, fan out the independent pieces, integrate, repeat.
+
+## Security review
+
+Run this before merging or shipping anything:
+
+```
+"Run ecc:security-reviewer on the changes in this PR."
+```
+→ Flags injection, auth issues, secrets, and unsafe crypto (OWASP Top 10), with fixes suggested, not just findings. Pair it with `.claude/context/review.md` when you want severity-ranked output on the whole PR, not just the security angle.
 
 ## Why use this
 

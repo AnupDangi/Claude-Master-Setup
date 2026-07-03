@@ -23,7 +23,11 @@ Also worth a look: [antigravity-awesome-skills](https://github.com/sickn33/antig
 
 ## Install the skill library
 
-Before cloning anything else, add the [ECC](https://github.com/affaan-m/ECC) plugin marketplace to Claude Code. It ships 277 skills and 67 subagents (planner, architect, security-reviewer, code-reviewer, tdd-guide, and more) that this setup leans on:
+Before cloning anything else, install both skill marketplaces. Together they're the reason this setup can move fast — you're not writing skills from scratch, you're pointing Claude at ones that already exist.
+
+### ECC — the harness itself
+
+[ECC](https://github.com/affaan-m/ECC) is 277 skills and 67 subagents (planner, architect, security-reviewer, code-reviewer, tdd-guide, and more) — the agents and hooks this setup relies on.
 
 ```
 /plugin marketplace add https://github.com/affaan-m/ECC
@@ -42,7 +46,14 @@ Or add it directly to `~/.claude/settings.json`:
 }
 ```
 
-Also add [antigravity-awesome-skills](https://github.com/sickn33/antigravity-awesome-skills) the same way if you want its skill set too.
+### antigravity-awesome-skills — the big library
+
+[antigravity-awesome-skills](https://github.com/sickn33/antigravity-awesome-skills) is 1,423+ skills covering design, backend, testing, security, infra, product, and marketing — this is the "bunch of skills" library:
+
+```
+/plugin marketplace add sickn33/antigravity-awesome-skills
+/plugin install antigravity-awesome-skills
+```
 
 ## What's inside
 
@@ -111,6 +122,29 @@ Once `PRD.md` and `PTR.md` are in the repo, use ECC's planning skill instead of 
 ```
 → Claude reads both docs, proposes an architecture and a build order, and asks clarification questions before any code gets written — same discipline `MASTER-PROMPT.md` enforces.
 
+## Example: UI/UX design with antigravity skills
+
+Once `antigravity-awesome-skills` is installed, invoke its design skills by name and track the work as you go:
+
+```
+"Use ui-ux-pro-max to design the dashboard layout — pick a color
+palette and font pairing, then explain the choice."
+```
+→ Claude pulls from the skill's built-in database (50+ styles, 97 palettes, 57 font pairings, 99 UX guidelines) instead of guessing, and gives a reasoned pick, not a random one.
+
+```
+"Use antigravity-design-expert for a glassmorphism landing page with
+GSAP scroll animation."
+```
+→ Claude builds the interactive, spatial UI with the motion patterns the skill specifies, instead of a flat static page.
+
+To track multi-step design work instead of losing it in chat scrollback, ask Claude to log it as tasks:
+
+```
+"Break the dashboard redesign into tasks and update status as you finish each one."
+```
+→ Claude creates one task per component, marks each `in_progress`/`completed` as it goes, so progress survives context compaction and long sessions.
+
 ## Example: spawning multiple subagents
 
 For independent chunks of work — backend, frontend, tests — spawn subagents in parallel instead of doing each serially:
@@ -121,14 +155,53 @@ one to build the UI, one to write the test suite. Then integrate their output."
 ```
 → Claude launches each subagent with its own scoped context, waits for all three, then wires the results together. Use this workflow per feature as you build out the product — plan once, fan out the independent pieces, integrate, repeat.
 
-## Security review
+## Code review, three ways
 
-Run this before merging or shipping anything:
+Run one of these before merging, depending on what you actually need checked:
 
+**1. General quality pass** — logic, edge cases, readability, test coverage:
+```
+"Use .claude/context/review.md and review this PR."
+```
+→ Severity-ranked findings (critical → low), grouped by file, with suggested fixes.
+
+**2. Security-focused pass** — injection, auth, secrets, unsafe crypto:
 ```
 "Run ecc:security-reviewer on the changes in this PR."
 ```
-→ Flags injection, auth issues, secrets, and unsafe crypto (OWASP Top 10), with fixes suggested, not just findings. Pair it with `.claude/context/review.md` when you want severity-ranked output on the whole PR, not just the security angle.
+→ Flags OWASP Top 10 issues specifically, with fixes suggested, not just findings.
+
+**3. Language-specific pass** — idioms and framework misuse a generic review misses:
+```
+"Run ecc:python-reviewer on api/" # or react-reviewer, go-reviewer, etc.
+```
+→ Catches issues specific to the stack (e.g. async/await misuse, hook dependency bugs, ORM N+1 queries) that a general reviewer would skip.
+
+Stack all three on anything touching auth, payments, or user input — cheap insurance before it's in production.
+
+## Built for speed: multiple worktrees
+
+This is a full harness, not a single config file — skills, subagents, hooks, and context modes all wired together so you can build fast and ship fast without waiting on one linear session. The piece that makes that safe: git worktrees.
+
+```
+"Start a worktree for the payments feature."
+```
+→ Claude checks out an isolated copy of the repo on its own branch. Run a second one for a bug fix in parallel — separate working directory, separate branch, zero risk of one session's half-finished edits colliding with another's. Merge each back when it's done.
+
+This is what turns "one task at a time" into "however many independent features you're juggling right now."
+
+## Why MASTER-PROMPT.md matters
+
+Most Claude setups get you a config file. `MASTER-PROMPT.md` gets you an actual engineering foundation, generated once from `PRD.md` + `PTR.md`, before a single line of implementation code exists:
+
+- **Architecture review** — the tech stack and design get challenged (scalability, security, cost, complexity), not accepted as-is
+- **Risk assessment** — contradictions, missing requirements, and unrealistic assumptions surface before they become rewrites
+- **`CLAUDE.md`** — the permanent memory of the project: conventions, standards, Definition of Done, when Claude should ask instead of assume
+- **Full `docs/` set** — `ARCHITECTURE.md`, `DATABASE.md`, `API.md`, `SECURITY.md`, `TESTING.md`, `DEPLOYMENT.md`, and more, all consistent with each other because one process generated them together
+- **Git, branch, and worktree strategy** — so parallel work (see above) has a plan behind it, not improvisation
+- **Implementation roadmap** — the order to build in, decided before building starts
+
+The point: every future Claude session — yours or a teammate's — starts from a repository that already knows what it is, instead of re-deriving it from a chat history that doesn't exist anymore.
 
 ## Why use this
 

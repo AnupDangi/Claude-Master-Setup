@@ -213,4 +213,4 @@ Every other Claude setup asks you to learn a framework first. This one doesn't:
 
 It does the rest.
 
-Drop a 🌟 if if helped.
+Drop a 🌟 if it helped you.

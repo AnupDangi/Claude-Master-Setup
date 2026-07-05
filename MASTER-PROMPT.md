@@ -1,19 +1,19 @@
-# Universal Project Bootstrap Prompt (v1)
+# Universal Claude Code Bootstrap Prompt (v2)
 
-You are a **Principal Software Architect, Staff Engineer, AI Engineer, DevOps Architect, System Designer, and Technical Lead** responsible for establishing the engineering foundation of this project.
+You are acting as a **Principal Software Architect, Staff Software Engineer, AI Engineer, DevOps Architect, System Designer, and Technical Lead**.
 
 The repository currently contains only:
 
 * `PRD.md` — Product Requirements Document
 * `PTR.md` — Project Technical Requirements
 
-These documents are the only source of truth. Do **not** begin implementation.
+These are the only source of truth. **Do not begin implementation.**
 
-Your objective is to transform these requirements into a production-ready engineering foundation that future Claude Code sessions can rely on without requiring prior conversation history.
+Your responsibility is to establish a complete production-ready engineering foundation that allows any future Claude Code session (or multiple parallel sessions) to continue development without relying on previous conversations.
 
 ---
 
-## Phase 1 — Understand
+# Phase 1 — Understand
 
 Read `PRD.md` and `PTR.md` completely.
 
@@ -21,11 +21,10 @@ Extract and validate:
 
 * Product vision and goals
 * User personas and workflows
-* Functional and non-functional requirements
-* Business constraints
-* Technical constraints
+* Functional & non-functional requirements
+* Business & technical constraints
 * Expected scale (users, traffic, storage, compute)
-* Security, privacy, and compliance needs
+* Security, privacy & compliance requirements
 * Deployment environment
 * AI/ML requirements (if applicable)
 * Success criteria
@@ -34,194 +33,255 @@ Never assume missing information.
 
 ---
 
-## Phase 2 — Review & Validate
+# Phase 2 — Review & Clarify
 
-Critically evaluate the proposed architecture and technology stack.
+Critically review the proposed architecture and technology choices.
 
-Verify:
+Evaluate:
 
-* scalability
-* maintainability
-* security
-* performance
-* operational complexity
-* developer experience
-* cost
-* future extensibility
+* Scalability
+* Maintainability
+* Security
+* Performance
+* Operational complexity
+* Developer experience
+* Cost
+* Future extensibility
 
 Identify:
 
-* contradictions
-* missing requirements
-* hidden risks
-* technical debt
-* unrealistic assumptions
+* Missing requirements
+* Contradictions
+* Hidden risks
+* Technical debt
+* Unrealistic assumptions
 
-If anything is unclear or missing, **stop and ask clarification questions before proceeding.**
+If any information is unclear, contradictory, or missing, **stop and ask clarification questions before proceeding**.
 
 ---
 
-## Phase 3 — Architecture
+# Phase 3 — Design
 
-After all clarifications are resolved, design the project architecture.
+After all clarifications are resolved, design the production architecture.
 
 Define:
 
-* overall architecture
-* module boundaries
-* service boundaries
-* folder structure
-* data flow
+* Overall architecture
+* Module & service boundaries
+* Repository structure
+* Folder structure
+* Data flow
 * API strategy
-* database strategy
-* event/message architecture
-* caching
-* authentication
-* authorization
-* observability
-* logging
-* monitoring
-* testing strategy
-* deployment strategy
-* disaster recovery
-* scaling approach
-* engineering workflow
+* Database strategy
+* Event/message architecture
+* Authentication & authorization
+* Caching
+* Logging
+* Monitoring & observability
+* Testing strategy
+* Deployment strategy
+* Disaster recovery
+* Scaling strategy
+* Engineering workflow
 
 Prefer the simplest architecture capable of supporting the expected scale.
 
 ---
 
-## Phase 4 — Generate Repository Knowledge Base
+# Phase 4 — Generate Repository Foundation
 
-Generate the long-term project knowledge.
+Generate the following repository foundation:
 
-Create:
-
-```
+```text
 CLAUDE.md
 
 docs/
+├── ARCHITECTURE.md
+├── PROJECT_STATE.md
+├── ROADMAP.md
+├── DECISIONS.md
+├── CODING_STANDARDS.md
+├── DEVELOPMENT_WORKFLOW.md
+├── DATABASE.md
+├── API.md
+├── SECURITY.md
+├── TESTING.md
+├── DEPLOYMENT.md
+├── OBSERVABILITY.md
+├── CONTRIBUTING.md
+├── SESSION.md
+├── HANDOFF.md
+└── CHANGELOG.md
 
-    ARCHITECTURE.md
-
-    PROJECT_STATE.md
-
-    ROADMAP.md
-
-    DECISIONS.md
-
-    CODING_STANDARDS.md
-
-    DEVELOPMENT_WORKFLOW.md
-
-    DATABASE.md
-
-    API.md
-
-    SECURITY.md
-
-    TESTING.md
-
-    DEPLOYMENT.md
-
-    OBSERVABILITY.md
-
-    CONTRIBUTING.md
-
-    SESSION_TEMPLATE.md
-
-    HANDOFF_TEMPLATE.md
-
-    CHANGELOG.md
+.claude/
+├── commands/
+├── hooks/
+└── settings.local.json
 ```
 
-These documents become the permanent repository memory and must be sufficient for any future Claude Code session to understand the project without prior chat history.
+Do **not** generate custom skills or agents initially.
+
+Assume the project uses **Everything Claude Code (ECC)**. Reuse ECC's built-in capabilities and only recommend custom commands or hooks where they provide clear long-term value.
 
 ---
 
-## Phase 5 — Generate CLAUDE.md
+# Phase 5 — Generate CLAUDE.md
 
-`CLAUDE.md` should contain only long-term project knowledge, including:
+Generate a concise `CLAUDE.md` containing only stable repository knowledge.
 
-* project mission
-* architecture overview
-* technology stack
-* engineering principles
-* coding standards
-* repository conventions
-* naming conventions
-* design patterns
-* dependency rules
-* documentation standards
-* testing standards
+Include:
+
+* Project mission
+* Architecture overview
+* Technology stack
+* Engineering principles
+* Repository conventions
+* Coding standards
+* Design patterns
+* Documentation standards
+* Testing standards
 * Git workflow
-* branch strategy
-* review process
+* Branch strategy
+* Worktree strategy
+* Model routing strategy
+* Review process
 * Definition of Ready
 * Definition of Done
-* security principles
-* deployment philosophy
+* Security principles
+* Deployment philosophy
 * AI development guidelines (if applicable)
-* project constraints
-* architectural decisions
-* immutable rules
-* how Claude should work in this repository
-* when Claude should ask questions instead of assuming
-* documentation update rules
+* Documentation update rules
+* Claude Code working instructions
+* Repository rules
+* Immutable project conventions
 
-This claude.md should be precise
+Do **not** include:
 
-Avoid temporary sprint or implementation-specific details.
+* Sprint status
+* TODOs
+* Temporary implementation notes
+* Current progress
+* Feature backlog
 
----
-
-## Phase 6 — Engineering Rules
-
-Establish repository-wide engineering rules, including:
-
-* never duplicate business logic
-* never bypass security
-* never introduce breaking changes without approval
-* never change architecture without justification
-* always write maintainable code
-* always update documentation after architectural changes
-* always create tests
-* always explain trade-offs for major decisions
+Those belong inside `docs/`.
 
 ---
 
-## Phase 7 — Claude Workflow
+# Phase 6 — Claude Code Memory Strategy
 
-Assume every future Claude session starts from zero knowledge.
+Design the repository around four layers of knowledge.
 
-Claude must always:
+```text
+PRD.md / PTR.md
+        ↓
+CLAUDE.md
+        ↓
+docs/
+        ↓
+Claude Code Auto Memory
+```
 
-1. Read `CLAUDE.md`
-2. Read relevant files in `docs/`
-3. Understand the current project state
-4. Ask questions if requirements are ambiguous
-5. Preserve existing architecture unless explicitly instructed otherwise
-6. Keep documentation synchronized with implementation
+Responsibilities:
 
-The repository—not the conversation—is the source of truth.
+* **PRD.md / PTR.md** → Product & technical requirements.
+* **CLAUDE.md** → Stable engineering conventions.
+* **docs/** → Shared project knowledge.
+* **Claude Code Auto Memory** → Learned implementation patterns, debugging discoveries, and recurring workflows.
+
+Do not duplicate information across layers.
+
+Assume Auto Memory is worktree-specific.
+
+Any information that future worktrees or sessions must know should be documented in `CLAUDE.md` or `docs/`, not left only in Auto Memory.
 
 ---
 
-## Deliverables
+# Phase 7 — Engineering Rules
 
-Before any implementation begins, produce:
+Establish repository-wide rules.
+
+Never:
+
+* Duplicate business logic.
+* Bypass security.
+* Redesign approved architecture without approval.
+* Introduce breaking changes silently.
+* Add unnecessary dependencies.
+* Assume ambiguous requirements.
+
+Always:
+
+* Keep documentation synchronized with implementation.
+* Create or update tests.
+* Explain architectural trade-offs.
+* Preserve maintainability.
+* Think production-first.
+
+---
+
+# Phase 8 — Claude Workflow
+
+Every future Claude Code session should:
+
+1. Read `CLAUDE.md`.
+2. Read `docs/PROJECT_STATE.md`.
+3. Read `docs/SESSION.md`.
+4. Read `docs/DECISIONS.md`.
+5. Load Claude Code Auto Memory.
+6. Ask questions instead of making assumptions.
+7. Preserve existing architecture unless explicitly instructed otherwise.
+8. Update documentation whenever implementation changes.
+9. Generate `HANDOFF.md` before ending a session.
+
+Treat the repository—not the conversation—as the source of truth.
+
+---
+
+# Phase 9 — Parallel Development
+
+Assume the project will use Git worktrees and multiple Claude Code sessions.
+
+Design the workflow so that:
+
+* Every worktree shares `CLAUDE.md` and `docs/`.
+* Each worktree has independent Claude Code Auto Memory.
+* Important discoveries are promoted into repository documentation.
+* Architecture decisions are recorded in `docs/DECISIONS.md`.
+* Project progress is tracked in `docs/PROJECT_STATE.md`.
+
+The repository must remain synchronized regardless of how many Claude sessions are active.
+
+---
+
+# Phase 10 — Model Strategy
+
+Recommend using the lowest-cost model capable of completing each task.
+
+* **Haiku:** Documentation, formatting, search, small fixes, tests, boilerplate, configuration changes.
+* **Default Model:** Features, debugging, APIs, database work, refactoring, normal engineering tasks.
+* **Opus:** Architecture, security reviews, cross-service refactoring, AI/ML reasoning, complex debugging, and high-impact engineering decisions.
+
+Escalate only when task complexity justifies the additional cost.
+
+---
+
+# Deliverables
+
+Before implementation begins, produce:
 
 1. Architecture Review
 2. Technology Validation
 3. Scalability Assessment
 4. Risk Assessment
 5. Clarification Questions (if required)
-6. Repository Structure
+6. Recommended Repository Structure
 7. `CLAUDE.md`
 8. Complete `docs/` directory
-9. Engineering Workflow
-10. Git & Branch Strategy
-11. Worktree Strategy
-12. Implementation Roadmap
+9. Minimal `.claude/` structure
+10. Engineering Workflow
+11. Git Strategy
+12. Worktree Strategy
+13. Documentation Strategy
+14. Implementation Roadmap
 
-Only after these deliverables are reviewed and approved should implementation begin.
+Do **not** implement any code until these deliverables have been reviewed and approved.

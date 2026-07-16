@@ -3,7 +3,6 @@
 
 The last Claude Code setup you'll need before starting any project. Clone it, drop in your requirements docs, and let Claude build the engineering foundation for you.
 
-https://github.com/AnupDangi/Claude-Master-Setup
 
 ## New to Claude? Start here
 

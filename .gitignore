@@ -1,0 +1,17 @@
+# Secrets & local env
+.env
+.env.*
+!.env.example
+
+# Harness local state (worktree-local, not shared)
+.claude/state/
+/tmp/harness_*
+
+# Common build/deps (extend per stack on bootstrap)
+node_modules/
+dist/
+build/
+__pycache__/
+.pytest_cache/
+target/
+*.log

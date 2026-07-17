@@ -1,0 +1,122 @@
+{
+  "_comment": "Curated map of common tools to known MCP servers. The mcp-scout reads this first, then falls back to a web search. Verify package names/URLs before adding — this is a starting point, not gospel. Add project-specific entries as you discover them. Secrets are ALWAYS env-var references, never literals.",
+  "_schema": {
+    "aliases": "list of names/keywords that should match this tool",
+    "purpose": "what the server gives Claude",
+    "transport": "stdio | http",
+    "config": "the object to place under mcpServers.<name> in .mcp.json",
+    "env": "environment variables the user must set (referenced as ${VAR} in config)",
+    "scope_hint": "project | user — where it usually belongs",
+    "security": "least-privilege guidance"
+  },
+  "servers": {
+    "filesystem": {
+      "aliases": ["filesystem", "files", "local files", "read directory"],
+      "purpose": "Read/write files in explicitly allowed directories.",
+      "transport": "stdio",
+      "config": { "type": "stdio", "command": "npx", "args": ["-y", "@modelcontextprotocol/server-filesystem", "${WORKSPACE_DIR:-.}"], "env": {} },
+      "env": [],
+      "scope_hint": "user",
+      "security": "Pass only the directories Claude needs. Never pass '/' or your home directory."
+    },
+    "github": {
+      "aliases": ["github", "gh", "pull request", "issues", "repo"],
+      "purpose": "Read/manage GitHub repos, issues, and PRs.",
+      "transport": "http",
+      "config": { "type": "http", "url": "https://api.githubcopilot.com/mcp/", "headers": { "Authorization": "Bearer ${GITHUB_PAT}" } },
+      "env": ["GITHUB_PAT"],
+      "scope_hint": "user",
+      "security": "Use a fine-grained PAT. Grant repo:read only unless Claude must push."
+    },
+    "postgres": {
+      "aliases": ["postgres", "postgresql", "pg", "database", "sql"],
+      "purpose": "Inspect schema and run queries against Postgres.",
+      "transport": "stdio",
+      "config": { "type": "stdio", "command": "npx", "args": ["-y", "@modelcontextprotocol/server-postgres"], "env": { "POSTGRES_CONNECTION_STRING": "${DATABASE_URL}" } },
+      "env": ["DATABASE_URL"],
+      "scope_hint": "project",
+      "security": "Connect with a READ-ONLY database user unless writes are required."
+    },
+    "sqlite": {
+      "aliases": ["sqlite", "sqlite3", "local db"],
+      "purpose": "Query a local SQLite database file.",
+      "transport": "stdio",
+      "config": { "type": "stdio", "command": "npx", "args": ["-y", "@modelcontextprotocol/server-sqlite", "${SQLITE_DB_PATH}"], "env": {} },
+      "env": ["SQLITE_DB_PATH"],
+      "scope_hint": "project",
+      "security": "Point only at the intended .db file."
+    },
+    "playwright": {
+      "aliases": ["playwright", "browser", "e2e", "web automation", "puppeteer"],
+      "purpose": "Drive a real browser for testing and scraping.",
+      "transport": "stdio",
+      "config": { "type": "stdio", "command": "npx", "args": ["-y", "@playwright/mcp"], "env": {} },
+      "env": [],
+      "scope_hint": "user",
+      "security": "Browser automation can reach any URL — review targets in automated flows."
+    },
+    "sentry": {
+      "aliases": ["sentry", "error tracking", "exceptions"],
+      "purpose": "Read Sentry issues and error events.",
+      "transport": "http",
+      "config": { "type": "http", "url": "https://mcp.sentry.dev/mcp" },
+      "env": [],
+      "scope_hint": "project",
+      "security": "OAuth on first connect; no static secret in the file."
+    },
+    "notion": {
+      "aliases": ["notion", "docs", "wiki", "knowledge base"],
+      "purpose": "Read/write Notion pages and databases.",
+      "transport": "http",
+      "config": { "type": "http", "url": "https://mcp.notion.com/mcp" },
+      "env": [],
+      "scope_hint": "user",
+      "security": "OAuth on first connect; token stored in user state, not the repo."
+    },
+    "stripe": {
+      "aliases": ["stripe", "payments", "billing", "checkout"],
+      "purpose": "Query Stripe objects and docs.",
+      "transport": "http",
+      "config": { "type": "http", "url": "https://mcp.stripe.com", "headers": { "Authorization": "Bearer ${STRIPE_API_KEY}" } },
+      "env": ["STRIPE_API_KEY"],
+      "scope_hint": "project",
+      "security": "Use a RESTRICTED/read-only key. Never a live secret key with full scope."
+    },
+    "context7": {
+      "aliases": ["context7", "library docs", "api reference", "up to date docs"],
+      "purpose": "Pull current, version-accurate library documentation into context.",
+      "transport": "http",
+      "config": { "type": "http", "url": "https://mcp.context7.com/mcp" },
+      "env": [],
+      "scope_hint": "user",
+      "security": "Read-only docs source; low risk."
+    },
+    "fetch": {
+      "aliases": ["fetch", "web fetch", "http", "url"],
+      "purpose": "Fetch and convert web pages to text.",
+      "transport": "stdio",
+      "config": { "type": "stdio", "command": "npx", "args": ["-y", "@modelcontextprotocol/server-fetch"], "env": {} },
+      "env": [],
+      "scope_hint": "user",
+      "security": "Can reach arbitrary URLs; be mindful of SSRF in automated flows."
+    },
+    "supabase": {
+      "aliases": ["supabase", "postgres saas", "supabase db"],
+      "purpose": "Manage a Supabase project (DB, auth, storage).",
+      "transport": "stdio",
+      "config": { "type": "stdio", "command": "npx", "args": ["-y", "@supabase/mcp-server-supabase@latest", "--read-only"], "env": { "SUPABASE_ACCESS_TOKEN": "${SUPABASE_ACCESS_TOKEN}" } },
+      "env": ["SUPABASE_ACCESS_TOKEN"],
+      "scope_hint": "project",
+      "security": "Keep the --read-only flag unless writes are required; pin the version."
+    },
+    "linear": {
+      "aliases": ["linear", "tickets", "issues tracker"],
+      "purpose": "Read/manage Linear issues and projects.",
+      "transport": "http",
+      "config": { "type": "http", "url": "https://mcp.linear.app/mcp" },
+      "env": [],
+      "scope_hint": "user",
+      "security": "OAuth on first connect."
+    }
+  }
+}

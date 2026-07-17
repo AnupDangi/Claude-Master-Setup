@@ -195,21 +195,6 @@ Start minimal, add capability only when a real need appears:
 
 Full guide in [`docs/SETUP.md`](docs/SETUP.md).
 
-## Going further (optional)
-
-The harness is complete on its own. If you want a bigger prebuilt skill/agent library
-on top, these community marketplaces plug in without changing anything here:
-
-- [ECC](https://github.com/affaan-m/ECC) — 277 skills / 67 subagents.
-- [antigravity-awesome-skills](https://github.com/sickn33/antigravity-awesome-skills) — 1,400+ skills.
-
-```
-/plugin marketplace add https://github.com/affaan-m/ECC
-/plugin install ecc@ecc
-```
-
-These are additive. Nothing in this repo depends on them.
-
----
+--
 
 Drop a 🌟 if it helped you.

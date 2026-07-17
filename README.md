@@ -78,7 +78,10 @@ my-project/
 
 ## The build loop
 
-The loop is the product. Full spec in [`docs/LOOP.md`](docs/LOOP.md).
+The loop is the product. Full spec in [`docs/LOOP.md`](docs/LOOP.md). It has
+been run end-to-end with real subagents against a throwaway project — see
+[`docs/VALIDATION.md`](docs/VALIDATION.md) for what was tested and the
+honest limitations found.
 
 ```
 SELECT → PLAN → [approve plan] → BUILD → VALIDATE (hard gate)

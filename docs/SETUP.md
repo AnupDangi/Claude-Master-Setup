@@ -86,6 +86,36 @@ edit the `step` lines in `scripts/validate.sh` — e.g. point `test` at your exa
 command, or add an integration-test stage. For a docs-only repo, set
 `HARNESS_ALLOW_NO_STACK=1`.
 
+## Installation scope: project, user, or session
+
+- **Project level (default).** `.claude/agents/`, `.claude/commands/`,
+  `.claude/hooks/`, `.claude/settings.json`, and `scripts/` all live in the
+  project repo root and apply only when Claude Code runs from there.
+  Committed and shared with the team — this is what this repo ships as-is.
+
+- **User level (global, every project).** Copy the agent and command
+  definitions into your user config directory:
+  ```bash
+  cp .claude/agents/*.md ~/.claude/agents/
+  cp .claude/commands/*.md ~/.claude/commands/
+  ```
+  The 9 subagents and 9 commands are now available in any project you open,
+  without cloning this repo into it. `scripts/validate.sh` is stack-specific
+  by nature, so it still needs to exist per-project — copy `scripts/` into
+  each project you want the hard gate in, or package this whole harness as a
+  Claude Code plugin (see Stage 5 below) so one `/plugin install` sets up a
+  new project in a single command instead of a manual copy.
+
+- **Session level (try before installing, or a true one-off).** Two ways,
+  neither touches your global config:
+  - `claude --settings .claude/settings.json` (run from this repo, or point
+    at a copy of the file) loads the harness's permissions and hooks for that
+    one session only.
+  - Or simplest: `cd` into a clone or `git worktree add` of this repo and run
+    `claude` there. Nothing is installed anywhere — the harness applies only
+    because you're standing inside its directory, for as long as that
+    session lasts.
+
 ## Staged growth path
 
 Start minimal; add capability only when a real need appears.

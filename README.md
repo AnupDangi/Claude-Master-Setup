@@ -1,216 +1,158 @@
 # Claude Master Setup
+
 <img width="2110" height="700" alt="image" src="https://github.com/user-attachments/assets/3727d6e4-4953-424f-9d1b-175a2b7f5532" />
 
-The last Claude Code setup you'll need before starting any project. Clone it, drop in your requirements docs, and let Claude build the engineering foundation for you.
+A **self-contained Claude Code harness**. Clone it, drop in your requirements, and it
+runs an engineered build loop — plan → build → validate → review → commit — with
+specialist subagents and hard quality gates. No plugin marketplace required: it works
+with only the files in this repo.
 
+```
+/bootstrap   # PRD + PTR  → architecture, CLAUDE.md, docs/, roadmap  (no code yet)
+/loop        # runs the build loop until the roadmap is done, gates and all
+```
 
 ## New to Claude? Start here
 
-Take these three, in order, before anything else. This is the minimum anyone should know before touching this repo:
+Take these three, in order, before anything else:
 
 1. [Claude 101](https://anthropic.skilljar.com/claude-101)
 2. [Claude Code 101](https://anthropic.skilljar.com/claude-code-101)
 3. [Claude Code in Action](https://anthropic.skilljar.com/claude-code-in-action)
 
-Everything below is optional, for going deeper — MCP servers, agent skills, subagents — if you want to build and deploy your own applications with Claude Code:
+Going deeper — MCP, skills, subagents:
 
 4. [Introduction to Model Context Protocol](https://anthropic.skilljar.com/introduction-to-model-context-protocol)
 5. [Model Context Protocol: Advanced Topics](https://anthropic.skilljar.com/model-context-protocol-advanced-topics)
 6. [Introduction to Agent Skills](https://anthropic.skilljar.com/introduction-to-agent-skills)
 7. [Introduction to Subagents](https://anthropic.skilljar.com/introduction-to-subagents)
 
-Also worth a look: [antigravity-awesome-skills](https://github.com/sickn33/antigravity-awesome-skills) — a curated skills list.
+## What's inside
 
-## Install the skill library
+```
+CLAUDE.md                 # permanent project memory + how the harness works
+MASTER-PROMPT.md          # the /bootstrap prompt: PRD+PTR → engineering foundation
+.claude/
+├── agents/               # 9 subagents (orchestrator, planner, architect,
+│                         #   implementer, validator, reviewer, security,
+│                         #   docs-writer, mcp-scout)
+├── commands/             # 9 slash commands (/loop, /plan, /validate, /review,
+│                         #   /mcp-add, /bootstrap, /handoff, /status, /ship)
+├── hooks/                # fail-safe shell hooks (guard, protect, track, remind)
+├── context/              # optional mode profiles (dev, review, research)
+├── state/                # loop state (gitignored, worktree-local)
+└── settings.json         # permissions + hooks — self-contained, no plugin
+docs/                     # LOOP, AGENTS, MCP, SETUP + full per-project doc set
+scripts/
+├── validate.sh           # the gate: format, lint, typecheck, test, build (auto-detected)
+├── detect-stack.sh       # stack/package-manager detection
+├── install.sh            # one-shot setup
+├── self-check.sh         # verify the harness is wired correctly
+└── mcp-catalog.json      # curated tool → MCP-server map
+```
 
-Before cloning anything else, install both skill marketplaces. Together they're the reason this setup can move fast — you're not writing skills from scratch, you're pointing Claude at ones that already exist.
+No signup, no config wizard. Just files Claude Code already knows how to read.
 
-### ECC — the harness itself
+## Quick start
 
-[ECC](https://github.com/affaan-m/ECC) is 277 skills and 67 subagents (planner, architect, security-reviewer, code-reviewer, tdd-guide, and more) — the agents and hooks this setup relies on.
+```bash
+git clone https://github.com/AnupDangi/Claude-Master-Setup.git my-project
+cd my-project
+bash scripts/install.sh      # makes scripts/hooks executable, seeds .env & state
+claude                       # start Claude Code — hooks & permissions load automatically
+bash scripts/self-check.sh   # verify the harness
+```
+
+Then add your requirements and bootstrap:
+
+```
+my-project/
+├── PRD.md   # Product Requirements Document
+└── PTR.md   # Project Technical Requirements
+```
+
+```
+/bootstrap    # generates architecture, CLAUDE.md, docs/, and a build roadmap — no code yet
+/loop         # builds the roadmap, one validated increment at a time
+```
+
+## The build loop
+
+The loop is the product. Full spec in [`docs/LOOP.md`](docs/LOOP.md).
+
+```
+SELECT → PLAN → [approve plan] → BUILD → VALIDATE (hard gate)
+       → REVIEW → [approve merge] → COMMIT → update docs → LOOP
+```
+
+- **Two human gates** (approve the plan, approve the merge) + **one automated gate**
+  (validation). None can be skipped.
+- **Validation hard-blocks.** RED means the loop returns to BUILD and will not
+  advance. GREEN is binary — no "green with warnings," no skipping a check to pass.
+- **One shippable unit per iteration.** New scope goes on the roadmap, not into the
+  current task.
+- Stop anytime; resume with `/loop`. The **repository** remembers where it was, not
+  the chat.
+
+## Subagents
+
+Nine least-privilege specialists in `.claude/agents/` ([reference](docs/AGENTS.md)).
+Only `implementer` writes feature code; the reviewers and validator are read-only;
+`mcp-scout` only touches `.mcp.json`. Each runs in its own context and returns a
+summary, keeping the main thread focused and cheap. Models are matched to the job —
+Haiku for docs, Sonnet for building/reviewing, Opus for architecture/security/planning.
+
+## Adding tools (MCP)
+
+When a task needs an external service, run `/mcp-add <tool>`. The **mcp-scout** checks
+`scripts/mcp-catalog.json`, then the web, and **asks before** wiring anything into
+`.mcp.json` — always with `${ENV_VAR}` references (never literal secrets) and
+least-privilege scopes. Details in [`docs/MCP.md`](docs/MCP.md).
+
+```
+/mcp-add postgres     # → "add the Postgres MCP server? it needs DATABASE_URL"
+```
+
+## Parallel work: git worktrees
+
+Once you're juggling independent features, run each in its own worktree:
+
+```bash
+git worktree add ../myproj-payments feat/payments
+cd ../myproj-payments && claude    # its own loop, shared docs/, isolated auto-memory
+```
+
+Two loops run without colliding. See [`docs/DEVELOPMENT_WORKFLOW.md`](docs/DEVELOPMENT_WORKFLOW.md).
+
+## Growth path
+
+Start minimal, add capability only when a real need appears:
+
+1. **Solo, single stream** — `/bootstrap` → `/loop`. A complete workflow on day one.
+2. **Add tools** — `/mcp-add` when a task needs a DB, GitHub, or a browser.
+3. **Parallelize** — git worktrees for independent features.
+4. **Loosen autonomy** — auto-approve GATE 1 for low-risk tasks in a trusted project
+   (validation gate always stays on).
+5. **Bundle & share** — package your stabilized agents/commands as a Claude Code
+   plugin; add stack-specific reviewers as the codebase grows.
+
+Full guide in [`docs/SETUP.md`](docs/SETUP.md).
+
+## Going further (optional)
+
+The harness is complete on its own. If you want a bigger prebuilt skill/agent library
+on top, these community marketplaces plug in without changing anything here:
+
+- [ECC](https://github.com/affaan-m/ECC) — 277 skills / 67 subagents.
+- [antigravity-awesome-skills](https://github.com/sickn33/antigravity-awesome-skills) — 1,400+ skills.
 
 ```
 /plugin marketplace add https://github.com/affaan-m/ECC
 /plugin install ecc@ecc
 ```
 
-Or add it directly to `~/.claude/settings.json`:
+These are additive. Nothing in this repo depends on them.
 
-```json
-{
-  "extraKnownMarketplaces": {
-    "ecc": {
-      "source": { "source": "github", "repo": "affaan-m/ECC" }
-    }
-  }
-}
-```
-
-### antigravity-awesome-skills — the big library
-
-[antigravity-awesome-skills](https://github.com/sickn33/antigravity-awesome-skills) is 1,423+ skills covering design, backend, testing, security, infra, product, and marketing — this is the "bunch of skills" library:
-
-```
-/plugin marketplace add sickn33/antigravity-awesome-skills
-/plugin install antigravity-awesome-skills
-```
-
-## What's inside
-
-- **`MASTER-PROMPT.md`** — a bootstrap prompt that turns a PRD + PTR into a full engineering foundation (architecture, `CLAUDE.md`, `docs/`, roadmap, Git strategy)
-- **`.claude/settings.json`** — hooks pre-wired (quality gates, permissions) so Claude behaves correctly out of the box
-- **`.claude/context/`** — mode profiles (`dev.md`, `research.md`, `review.md`) that switch how Claude works: building, investigating, or reviewing
-
-No platform, no signup, no config wizard. Just files Claude Code already knows how to read.
-
-## Quick start
-
-### 1. Install
-
-```bash
-git clone https://github.com/AnupDangi/Claude-Master-Setup.git my-project
-cd my-project
-claude
-```
-
-Claude Code picks up `.claude/settings.json` automatically — hooks and permissions are live, no setup step needed.
-
-### 2. Bootstrap a new project
-
-Add your own requirement docs to the repo:
-
-```
-my-project/
-├── PRD.md   # Product Requirements Document
-├── PTR.md   # Project Technical Requirements
-└── ...
-```
-
-Then tell Claude:
-
-```
-Read MASTER-PROMPT.md and follow it using PRD.md and PTR.md.
-```
-
-Claude reads both documents, asks clarifying questions on anything ambiguous, then generates the full foundation — architecture review, `CLAUDE.md`, complete `docs/` folder, Git/branch strategy, implementation roadmap — before writing any implementation code. Nothing starts until you approve the plan.
-
-## Example: switching modes with skills
-
-The context profiles in `.claude/context/` act as lightweight skills — tell Claude which one to use and it adopts that mode for the task:
-
-```
-"Use .claude/context/review.md for this PR."
-```
-→ Claude reviews thoroughly, ranks issues by severity, and suggests fixes instead of just building.
-
-```
-"Use .claude/context/dev.md, implement the login form."
-```
-→ Claude writes code first, runs tests, keeps commits atomic.
-
-```
-"Use .claude/context/research.md, figure out why auth is flaky."
-```
-→ Claude explores first, documents findings, and holds off on code until the cause is clear.
-
-## Example: planning with skills
-
-Once `PRD.md` and `PTR.md` are in the repo, use ECC's planning skill instead of freeform chat:
-
-```
-"Use ecc:planner to break PRD.md and PTR.md into an implementation plan."
-```
-→ Claude reads both docs, proposes an architecture and a build order, and asks clarification questions before any code gets written — same discipline `MASTER-PROMPT.md` enforces.
-
-## Example: UI/UX design with antigravity skills
-
-Once `antigravity-awesome-skills` is installed, invoke its design skills by name and track the work as you go:
-
-```
-"Use ui-ux-pro-max to design the dashboard layout — pick a color
-palette and font pairing, then explain the choice."
-```
-→ Claude pulls from the skill's built-in database (50+ styles, 97 palettes, 57 font pairings, 99 UX guidelines) instead of guessing, and gives a reasoned pick, not a random one.
-
-```
-"Use antigravity-design-expert for a glassmorphism landing page with
-GSAP scroll animation."
-```
-→ Claude builds the interactive, spatial UI with the motion patterns the skill specifies, instead of a flat static page.
-
-To track multi-step design work instead of losing it in chat scrollback, ask Claude to log it as tasks:
-
-```
-"Break the dashboard redesign into tasks and update status as you finish each one."
-```
-→ Claude creates one task per component, marks each `in_progress`/`completed` as it goes, so progress survives context compaction and long sessions.
-
-## Example: spawning multiple subagents
-
-For independent chunks of work — backend, frontend, tests — spawn subagents in parallel instead of doing each serially:
-
-```
-"Spawn three subagents in parallel: one to build the API routes,
-one to build the UI, one to write the test suite. Then integrate their output."
-```
-→ Claude launches each subagent with its own scoped context, waits for all three, then wires the results together. Use this workflow per feature as you build out the product — plan once, fan out the independent pieces, integrate, repeat.
-
-## Code review, three ways
-
-Run one of these before merging, depending on what you actually need checked:
-
-**1. General quality pass** — logic, edge cases, readability, test coverage:
-```
-"Use .claude/context/review.md and review this PR."
-```
-→ Severity-ranked findings (critical → low), grouped by file, with suggested fixes.
-
-**2. Security-focused pass** — injection, auth, secrets, unsafe crypto:
-```
-"Run ecc:security-reviewer on the changes in this PR."
-```
-→ Flags OWASP Top 10 issues specifically, with fixes suggested, not just findings.
-
-**3. Language-specific pass** — idioms and framework misuse a generic review misses:
-```
-"Run ecc:python-reviewer on api/" # or react-reviewer, go-reviewer, etc.
-```
-→ Catches issues specific to the stack (e.g. async/await misuse, hook dependency bugs, ORM N+1 queries) that a general reviewer would skip.
-
-Stack all three on anything touching auth, payments, or user input — cheap insurance before it's in production.
-
-## Built for speed: multiple worktrees
-
-This is a full harness, not a single config file — skills, subagents, hooks, and context modes all wired together so you can build fast and ship fast without waiting on one linear session. The piece that makes that safe: git worktrees.
-
-```
-"Start a worktree for the payments feature."
-```
-→ Claude checks out an isolated copy of the repo on its own branch. Run a second one for a bug fix in parallel — separate working directory, separate branch, zero risk of one session's half-finished edits colliding with another's. Merge each back when it's done.
-
-This is what turns "one task at a time" into "however many independent features you're juggling right now."
-
-## Why MASTER-PROMPT.md matters
-
-Most Claude setups get you a config file. `MASTER-PROMPT.md` gets you an actual engineering foundation, generated once from `PRD.md` + `PTR.md`, before a single line of implementation code exists:
-
-- **Architecture review** — the tech stack and design get challenged (scalability, security, cost, complexity), not accepted as-is
-- **Risk assessment** — contradictions, missing requirements, and unrealistic assumptions surface before they become rewrites
-- **`CLAUDE.md`** — the permanent memory of the project: conventions, standards, Definition of Done, when Claude should ask instead of assume
-- **Full `docs/` set** — `ARCHITECTURE.md`, `DATABASE.md`, `API.md`, `SECURITY.md`, `TESTING.md`, `DEPLOYMENT.md`, and more, all consistent with each other because one process generated them together
-- **Git, branch, and worktree strategy** — so parallel work (see above) has a plan behind it, not improvisation
-- **Implementation roadmap** — the order to build in, decided before building starts
-
-The point: every future Claude session — yours or a teammate's — starts from a repository that already knows what it is, instead of re-deriving it from a chat history that doesn't exist anymore.
-
-## Why use this
-
-Every other Claude setup asks you to learn a framework first. This one doesn't:
-
-1. Clone the repo.
-2. Give Claude your PRD and PTR.
-3. Ask it to read `MASTER-PROMPT.md`.
-
-It does the rest.
+---
 
 Drop a 🌟 if it helped you.

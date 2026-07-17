@@ -114,14 +114,23 @@ docs/
 └── CHANGELOG.md
 
 .claude/
-├── commands/
-├── hooks/
-└── settings.local.json
+├── agents/        # 9 self-contained subagents (already shipped — see docs/AGENTS.md)
+├── commands/      # 9 slash commands (already shipped — see docs/SETUP.md)
+├── hooks/         # fail-safe shell hooks (already shipped)
+├── state/         # loop state (gitignored, worktree-local)
+└── settings.json  # permissions + hooks, self-contained (no external plugin)
 ```
 
-Do **not** generate custom skills or agents initially.
+This harness is **self-contained**. The subagents, commands, hooks, and validation
+gate already live in this repo — do **not** depend on any external plugin
+marketplace. Reuse the shipped agents (`orchestrator`, `planner`, `architect`,
+`implementer`, `validator`, `reviewer`, `security`, `docs-writer`, `mcp-scout`)
+rather than inventing new ones; add a new agent only where it provides clear
+long-term value, and register it per `docs/AGENTS.md`.
 
-Assume the project uses **Everything Claude Code (ECC)**. Reuse ECC's built-in capabilities and only recommend custom commands or hooks where they provide clear long-term value.
+Wire `scripts/validate.sh` to this project's real stack so the validation gate is
+meaningful, and generate `docs/ROADMAP.md` as an ordered list of small, shippable
+tasks the build loop (`docs/LOOP.md`) can consume.
 
 ---
 
@@ -234,6 +243,12 @@ Every future Claude Code session should:
 9. Generate `HANDOFF.md` before ending a session.
 
 Treat the repository—not the conversation—as the source of truth.
+
+Once the foundation is approved, development proceeds through the **build loop**
+(`docs/LOOP.md`), run with `/loop`: SELECT → PLAN → approve → BUILD → VALIDATE
+(hard gate) → REVIEW → approve → COMMIT → update state → repeat. When a task needs
+an external tool (database, GitHub, browser, payments), use `/mcp-add` so the
+`mcp-scout` checks for an MCP server and wires it in with consent (see `docs/MCP.md`).
 
 ---
 

@@ -126,16 +126,12 @@ code-review, Antigravity skills). **Local** also drops hooks,
 `scripts/validate.sh`, and docs into the current repo (needed for the hard
 validation gate). Re-running is safe: existing dirs are timestamp-backed up.
 
-### Recommended companions (auto by default)
+### Recommended companions
 
-`--global` / `--local` **auto-install** companions when the `claude` CLI is on
-your PATH (marketplace add + `claude plugin install … --scope user`). That is
-the non-interactive equivalent of typing `/plugin …` inside Claude Code.
-
-```bash
-npx claude-master-setup --global                 # harness + companions
-npx claude-master-setup --global --skip-companions   # harness only
-```
+`--global` / `--local` **merge** companion marketplaces + `enabledPlugins` into
+`settings.json`. They do **not** spawn a shell or download plugins (keeps the
+npm package free of shell/network installer behavior). Print the `claude plugin …`
+commands and run them yourself (or use `/plugin` in Claude Code).
 
 | Plugin | Why |
 |---|---|
@@ -145,7 +141,9 @@ npx claude-master-setup --global --skip-companions   # harness only
 | **antigravity-awesome-skills** | Large curated skill library |
 
 Details: [`docs/COMPANIONS.md`](docs/COMPANIONS.md). Restart Claude Code after
-install, then `/learn-codebase` once per repo (claude-mem) before `/loop`.
+plugin install, then `/learn-codebase` once per repo (claude-mem) before `/loop`.
+
+Scanner notes: [`docs/NPM_SECURITY.md`](docs/NPM_SECURITY.md).
 
 Other install paths (same harness files):
 

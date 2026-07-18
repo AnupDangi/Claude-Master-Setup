@@ -14,7 +14,7 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const readline = require('readline');
-const { spawnSync } = require('child_process');
+// Install is filesystem copy + settings merge only; companion install is printed.
 
 const PKG_ROOT = path.resolve(__dirname, '..');
 const pkg = require('../package.json');
@@ -49,8 +49,6 @@ const args = process.argv.slice(2);
 const hasGlobal = args.includes('--global') || args.includes('-g');
 const hasLocal = args.includes('--local') || args.includes('-l');
 const hasHelp = args.includes('--help') || args.includes('-h');
-const skipCompanions = args.includes('--skip-companions');
-const forceCompanions = args.includes('--with-companions');
 const scaffoldIdx = args.findIndex((a) => a === '--scaffold' || a === '-s');
 const wantsScaffold = scaffoldIdx !== -1;
 
@@ -86,25 +84,20 @@ function printHelp() {
     ${cyan}-l, --local${reset}               Install into ./.claude + project scripts/docs
     ${cyan}-c, --config-dir <path>${reset}   Custom Claude config dir (with --global)
     ${cyan}-s, --scaffold [dir]${reset}      Legacy: copy full harness into a directory
-    ${cyan}--with-companions${reset}         Also run claude plugin marketplace/install (default on --global)
-    ${cyan}--skip-companions${reset}         Only merge settings.json; do not call claude plugin CLI
     ${cyan}-h, --help${reset}                Show this help
 
   ${yellow}Examples:${reset}
     ${dim}# Interactive (asks global vs local)${reset}
     npx claude-master-setup
 
-    ${dim}# Global — agents + commands + auto-install companions${reset}
+    ${dim}# Global — agents + commands + settings merge${reset}
     npx claude-master-setup --global
-
-    ${dim}# Global without downloading plugins${reset}
-    npx claude-master-setup --global --skip-companions
 
     ${dim}# Local — full harness in this project${reset}
     npx claude-master-setup --local
 
   ${yellow}What gets installed:${reset}
-    ${dim}global${reset}  agents/  commands/  claude-master-setup/ + companion plugins (if claude CLI present)
+    ${dim}global${reset}  agents/  commands/  claude-master-setup/ + settings.json merge
     ${dim}local${reset}   .claude/  scripts/  docs/  CLAUDE.md  MASTER-PROMPT.md
 `);
 }
@@ -166,15 +159,67 @@ function chmodHooksAndScripts(claudeDir, projectRoot) {
   }
 }
 
+/** Pure-Node project seed (mkdir, copy, chmod, write seed files). */
+function seedProject(projectRoot) {
+  console.log('  Seeding project harness state…');
+  chmodHooksAndScripts(path.join(projectRoot, '.claude'), projectRoot);
+  console.log(`  ${green}✓${reset} scripts and hooks are executable`);
+
+  const envExample = path.join(projectRoot, '.env.example');
+  const envFile = path.join(projectRoot, '.env');
+  if (fs.existsSync(envExample) && !fs.existsSync(envFile)) {
+    fs.copyFileSync(envExample, envFile);
+    console.log(`  ${green}✓${reset} created .env from .env.example (fill in your secrets)`);
+  }
+
+  const giPath = path.join(projectRoot, '.gitignore');
+  if (!fs.existsSync(giPath)) fs.writeFileSync(giPath, '', 'utf8');
+  let gi = fs.readFileSync(giPath, 'utf8');
+  const lines = gi.split(/\r?\n/);
+  const patterns = ['.env', '.env.*', '!.env.example', '.claude/state/', '/tmp/harness_*'];
+  let changed = false;
+  for (const pat of patterns) {
+    if (!lines.includes(pat)) {
+      gi = gi.endsWith('\n') || gi === '' ? `${gi}${pat}\n` : `${gi}\n${pat}\n`;
+      changed = true;
+    }
+  }
+  if (changed) fs.writeFileSync(giPath, gi, 'utf8');
+  console.log(`  ${green}✓${reset} .gitignore updated (secrets and local state excluded)`);
+
+  const stateDir = path.join(projectRoot, '.claude', 'state');
+  fs.mkdirSync(stateDir, { recursive: true });
+  const loopPath = path.join(stateDir, 'loop.json');
+  if (!fs.existsSync(loopPath)) {
+    fs.writeFileSync(
+      loopPath,
+      JSON.stringify(
+        {
+          iteration: 0,
+          phase: 'idle',
+          task: null,
+          validate_attempts: 0,
+          max_validate_retries: 3,
+          task_graph: null,
+          task_complexity: null,
+        },
+        null,
+        2
+      ) + '\n',
+      'utf8'
+    );
+  }
+  console.log(`  ${green}✓${reset} loop state initialized`);
+  console.log(`  ${green}✓${reset} node ${process.version}`);
+}
+
 /**
  * Global: wire agents + commands into Claude Code user config.
  * Hooks stay project-local (they need $CLAUDE_PROJECT_DIR/scripts).
  */
 function installGlobal() {
-  const configDir =
-    expandTilde(explicitConfigDir) ||
-    expandTilde(process.env.CLAUDE_CONFIG_DIR) ||
-    path.join(os.homedir(), '.claude');
+  // Prefer --config-dir; otherwise ~/.claude under the user home directory.
+  const configDir = expandTilde(explicitConfigDir) || path.join(os.homedir(), '.claude');
   const label = configDir.replace(os.homedir(), '~');
 
   console.log(`  Installing to ${cyan}${label}${reset}\n`);
@@ -217,14 +262,7 @@ function installGlobal() {
   console.log(`  ${green}✓${reset} Installed claude-master-setup/ (docs + references)`);
 
   mergeCompanionSettings(configDir);
-
-  // settings.json only *enables* plugins; claude plugin CLI downloads them.
-  const shouldInstallCompanions = forceCompanions || (!skipCompanions && true);
-  if (shouldInstallCompanions) {
-    installCompanionsViaClaudeCli();
-  } else {
-    printCompanionNextSteps();
-  }
+  printCompanionNextSteps();
 
   console.log(`  ${green}Done!${reset} Launch Claude Code and run ${cyan}/status${reset} or ${cyan}/loop${reset}.
 
@@ -239,10 +277,7 @@ const COMPANION_MARKETPLACES = {
     source: { source: 'github', repo: 'thedotmack/claude-mem' },
   },
   'antigravity-awesome-skills': {
-    source: {
-      source: 'git',
-      url: 'https://github.com/sickn33/antigravity-awesome-skills.git',
-    },
+    source: { source: 'github', repo: 'sickn33/antigravity-awesome-skills' },
   },
 };
 
@@ -302,74 +337,6 @@ function printCompanionNextSteps() {
 }
 
 /**
- * Auto-complete companions via non-interactive Claude Code CLI.
- * Equivalent to /plugin marketplace add + /plugin install (no TUI).
- */
-function installCompanionsViaClaudeCli() {
-  const which = spawnSync('bash', ['-lc', 'command -v claude'], { encoding: 'utf8' });
-  if (which.status !== 0 || !String(which.stdout || '').trim()) {
-    console.log(
-      `  ${yellow}!${reset} claude CLI not found — skipped auto companion install.`
-    );
-    printCompanionNextSteps();
-    return;
-  }
-
-  console.log(`  ${dim}Installing companions via claude plugin CLI…${reset}\n`);
-
-  const marketplaces = [
-    ['thedotmack/claude-mem', 'thedotmack'],
-    ['sickn33/antigravity-awesome-skills', 'antigravity-awesome-skills'],
-  ];
-  for (const [source, label] of marketplaces) {
-    const r = spawnSync('claude', ['plugin', 'marketplace', 'add', source], {
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'pipe'],
-    });
-    if (r.status === 0) {
-      console.log(`  ${green}✓${reset} Marketplace: ${label}`);
-    } else {
-      const err = `${r.stderr || r.stdout || ''}`.trim().split('\n')[0] || 'failed';
-      // already-added is fine
-      if (/already|exists|duplicate/i.test(`${r.stderr || ''}${r.stdout || ''}`)) {
-        console.log(`  ${green}✓${reset} Marketplace: ${label} ${dim}(already added)${reset}`);
-      } else {
-        console.log(`  ${yellow}!${reset} Marketplace ${label}: ${err}`);
-      }
-    }
-  }
-
-  const plugins = [
-    'claude-mem@thedotmack',
-    'superpowers@claude-plugins-official',
-    'code-review@claude-plugins-official',
-    'antigravity-awesome-skills@antigravity-awesome-skills',
-  ];
-  for (const plugin of plugins) {
-    const r = spawnSync(
-      'claude',
-      ['plugin', 'install', plugin, '--scope', 'user'],
-      { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }
-    );
-    if (r.status === 0) {
-      console.log(`  ${green}✓${reset} Plugin: ${plugin}`);
-    } else {
-      const blob = `${r.stderr || ''}${r.stdout || ''}`;
-      if (/already installed|already enabled/i.test(blob)) {
-        console.log(`  ${green}✓${reset} Plugin: ${plugin} ${dim}(already installed)${reset}`);
-      } else {
-        const err = blob.trim().split('\n').filter(Boolean).slice(-1)[0] || 'failed';
-        console.log(`  ${yellow}!${reset} Plugin ${plugin}: ${err}`);
-      }
-    }
-  }
-
-  console.log(`
-  ${dim}Restart Claude Code so new plugins load. Then:${reset} ${cyan}/learn-codebase${reset} ${dim}(once per repo)${reset}
-`);
-}
-
-/**
  * Local: full project harness under ./.claude + scripts/docs at project root.
  */
 function installLocal() {
@@ -380,7 +347,6 @@ function installLocal() {
   console.log(`  Installing to ${cyan}./.claude${reset} (this project)\n`);
 
   // Running --local inside the harness repo itself: source === dest.
-  // Backing up .claude would rename away the only copy of the package files.
   if (projectRoot === pkgRoot) {
     console.log(
       `  ${yellow}You are inside the Claude Master Setup source repo.${reset}\n` +
@@ -392,11 +358,7 @@ function installLocal() {
       process.exitCode = 1;
       return;
     }
-    chmodHooksAndScripts(claudeDir, projectRoot);
-    const installSh = path.join(projectRoot, 'scripts', 'install.sh');
-    if (fs.existsSync(installSh)) {
-      spawnSync('bash', [installSh], { cwd: projectRoot, stdio: 'inherit' });
-    }
+    seedProject(projectRoot);
     console.log(`  ${green}Done!${reset} Run ${cyan}claude${reset} here, or ${cyan}/loop${reset} in this repo.\n`);
     return;
   }
@@ -407,8 +369,7 @@ function installLocal() {
     return;
   }
 
-  // Copy source to a temp dir first so backupIfExists can never delete our source
-  // when someone has linked/copied the package oddly.
+  // Copy via temp so backupIfExists never deletes our package source.
   const tmpClaude = fs.mkdtempSync(path.join(os.tmpdir(), 'cms-claude-'));
   try {
     copyRecursive(srcClaude, tmpClaude);
@@ -429,7 +390,6 @@ function installLocal() {
     if (!fs.existsSync(src)) continue;
     const dest = path.join(projectRoot, item);
     if (fs.existsSync(dest) && fs.statSync(dest).isDirectory()) {
-      // merge/overwrite scripts & docs contents for a clean harness update
       if (item === 'scripts' || item === 'docs') {
         copyRecursive(src, dest);
         console.log(`  ${green}✓${reset} Updated ${item}/`);
@@ -444,7 +404,6 @@ function installLocal() {
     console.log(`  ${green}✓${reset} Installed ${item}`);
   }
 
-  // gitignore template (npm strips .gitignore from packages)
   const giDest = path.join(projectRoot, '.gitignore');
   if (!fs.existsSync(giDest)) {
     const giSrc = path.join(PKG_ROOT, 'templates', 'gitignore');
@@ -456,32 +415,17 @@ function installLocal() {
     console.log(`  ${dim}skip (already exists): .gitignore${reset}`);
   }
 
-  chmodHooksAndScripts(claudeDir, projectRoot);
-
-  const installSh = path.join(projectRoot, 'scripts', 'install.sh');
-  if (fs.existsSync(installSh)) {
-    const result = spawnSync('bash', [installSh], { cwd: projectRoot, stdio: 'inherit' });
-    if (result.status !== 0) {
-      console.error(`\n  ${yellow}scripts/install.sh reported errors — see above.${reset}`);
-      process.exitCode = result.status || 1;
-      return;
-    }
-  }
+  seedProject(projectRoot);
 
   console.log(`
   ${green}Done!${reset} In this project run ${cyan}claude${reset}, then ${cyan}/bootstrap${reset} → ${cyan}/loop${reset}.
-  Verify: ${cyan}bash scripts/self-check.sh${reset}
+  Verify: ${cyan}scripts/self-check.sh${reset}
 `);
 
-  // Companions are user-scoped (~/.claude); same auto-install as --global.
-  if (forceCompanions || !skipCompanions) {
-    const userClaude = path.join(os.homedir(), '.claude');
-    fs.mkdirSync(userClaude, { recursive: true });
-    mergeCompanionSettings(userClaude);
-    installCompanionsViaClaudeCli();
-  } else {
-    printCompanionNextSteps();
-  }
+  const userClaude = path.join(os.homedir(), '.claude');
+  fs.mkdirSync(userClaude, { recursive: true });
+  mergeCompanionSettings(userClaude);
+  printCompanionNextSteps();
 }
 
 /** Legacy: scaffold harness into an explicit directory (old npx behavior). */
@@ -501,10 +445,7 @@ function installScaffold(target) {
 
 function promptLocation() {
   const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
-  const configDir =
-    expandTilde(explicitConfigDir) ||
-    expandTilde(process.env.CLAUDE_CONFIG_DIR) ||
-    path.join(os.homedir(), '.claude');
+  const configDir = expandTilde(explicitConfigDir) || path.join(os.homedir(), '.claude');
   const globalLabel = configDir.replace(os.homedir(), '~');
 
   console.log(`  ${yellow}Where would you like to install?${reset}
@@ -524,7 +465,7 @@ function promptLocation() {
 function main() {
   if (process.platform === 'win32') {
     console.error(
-      `  ${yellow}This harness uses bash hooks/scripts. Prefer macOS/Linux or WSL.${reset}`
+      `  ${yellow}Hooks/scripts expect a Unix shell. Prefer macOS/Linux or WSL.${reset}`
     );
   }
 

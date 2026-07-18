@@ -5,6 +5,13 @@
 
 ## [Unreleased]
 
+## [0.2.8] — 2026-07-18
+### Added
+- Project-level statusline for clones / Claude Code cloud: `.claude/settings.json`
+  wires `python3 \"$CLAUDE_PROJECT_DIR/.claude/statusline.sh\"` so the bar shows
+  without a global `~/.claude` install. Session + 5h/7d rate-limit bars; `--local`
+  preserves an existing project statusline.
+
 ## [0.2.7] — 2026-07-18
 ### Added
 - Ship `statusline.sh` (model / branch / project / context bar / cost). Global

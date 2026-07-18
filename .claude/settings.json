@@ -111,5 +111,9 @@
         "id": "harness:stop-validate-reminder"
       }
     ]
+  },
+  "statusLine": {
+    "type": "command",
+    "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/statusline.sh\""
   }
 }

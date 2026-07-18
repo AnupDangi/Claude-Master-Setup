@@ -1,6 +1,6 @@
 {
   "name": "claude-master-setup",
-  "version": "0.2.7",
+  "version": "0.2.8",
   "description": "Autonomous software engineering harness for Claude Code — plan, build, validate, review, and commit in an engineered loop with specialist subagents and hard quality gates.",
   "bin": {
     "claude-master-setup": "bin/cli.js"

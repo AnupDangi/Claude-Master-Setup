@@ -1,4 +1,9 @@
 #!/usr/bin/env python3
+"""Claude Code status line — model, git, project, session/5h/7d bars, cost.
+
+Works for user (~/.claude) and project-level / cloud clones via
+$CLAUDE_PROJECT_DIR/.claude/statusline.sh in settings.json.
+"""
 
 import json
 import os
@@ -9,6 +14,7 @@ try:
     data = json.load(sys.stdin)
 except Exception:
     data = {}
+
 
 def lookup(paths, default=""):
     for path in paths:
@@ -24,57 +30,73 @@ def lookup(paths, default=""):
             return obj
     return default
 
-model = lookup([
-    ("model", "display_name"),
-    ("model", "name")
-], "Claude")
 
-cost = lookup([
-    ("cost", "total_cost_usd"),
-    ("cost", "total_usd"),
-    ("session", "cost")
-], 0)
+model = lookup(
+    [
+        ("model", "display_name"),
+        ("model", "name"),
+    ],
+    "Claude",
+)
 
-context = lookup([
-    ("context_window", "used_percentage"),
-    ("context", "percentage"),
-    ("workspace", "current_dir", "context_percentage")
-], 0)
+cost = lookup(
+    [
+        ("cost", "total_cost_usd"),
+        ("cost", "total_usd"),
+        ("session", "cost"),
+    ],
+    0,
+)
+
+context = lookup(
+    [
+        ("context_window", "used_percentage"),
+        ("context", "percentage"),
+    ],
+    0,
+)
 
 try:
     context = int(float(context))
-except:
+except Exception:
     context = 0
 
-five_hour = lookup([("rate_limits", "five_hour", "used_percentage")], None)
-seven_day = lookup([("rate_limits", "seven_day", "used_percentage")], None)
 
 def to_pct(value):
     try:
         return max(0, min(100, int(float(value))))
-    except:
+    except Exception:
         return None
 
-five_hour = to_pct(five_hour)
-seven_day = to_pct(seven_day)
 
-# Git branch
+five_hour = to_pct(lookup([("rate_limits", "five_hour", "used_percentage")], None))
+seven_day = to_pct(lookup([("rate_limits", "seven_day", "used_percentage")], None))
+
+cwd = lookup(
+    [
+        ("workspace", "current_dir"),
+        ("cwd",),
+    ],
+    os.getcwd(),
+)
+
 try:
     branch = subprocess.check_output(
-        ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+        ["git", "-C", cwd, "rev-parse", "--abbrev-ref", "HEAD"],
         stderr=subprocess.DEVNULL,
-        text=True
+        text=True,
     ).strip()
-except:
+except Exception:
     branch = ""
 
-project = os.path.basename(os.getcwd())
+project = os.path.basename(str(cwd).rstrip(os.sep)) or "project"
 
 RESET = "\033[0m"
 DIM = "\033[90m"
 GREEN = "\033[32m"
 YELLOW = "\033[33m"
 RED = "\033[31m"
+
 
 def color_for(pct):
     if pct >= 80:
@@ -83,7 +105,9 @@ def color_for(pct):
         return YELLOW
     return GREEN
 
+
 PARTIALS = " ▏▎▍▌▋▊▉"  # index 0..7 eighths of a block
+
 
 def make_bar(pct, blocks=10):
     pct = max(0, min(100, pct))
@@ -97,7 +121,6 @@ def make_bar(pct, blocks=10):
     if partial_idx > 0 and empty_count > 0:
         filled_str += PARTIALS[partial_idx]
         empty_count -= 1
-    # a nonzero pct should always show at least a sliver, even if rounding hit 0
     elif pct > 0 and full == 0:
         filled_str = PARTIALS[1]
         empty_count -= 1
@@ -105,26 +128,19 @@ def make_bar(pct, blocks=10):
     color = color_for(pct)
     return f"{color}{filled_str}{DIM}{'░' * empty_count}{RESET}"
 
-parts = []
 
-parts.append(f"🤖 {model}")
-
+parts = [f"🤖 {model}"]
 if branch:
     parts.append(f"🌿 {branch}")
-
 parts.append(f"📁 {project}")
-
 parts.append(f"session {make_bar(context)} {context}%")
-
 if five_hour is not None:
     parts.append(f"⏳5h {make_bar(five_hour, blocks=5)} {five_hour}%")
-
 if seven_day is not None:
     parts.append(f"🗓️7d {make_bar(seven_day, blocks=5)} {seven_day}%")
-
 try:
     parts.append(f"💰 ${float(cost):.2f}")
-except:
+except Exception:
     pass
 
 print(" | ".join(parts))

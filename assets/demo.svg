@@ -1,0 +1,122 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 920">
+  <defs>
+    <style>
+      .bg { fill: #1a1b26; }
+      .border { fill: #24283b; }
+      .titlebar { fill: #1f2335; }
+      .btn-r { fill: #f7768e; }
+      .btn-y { fill: #e0af68; }
+      .btn-g { fill: #9ece6a; }
+      .t { font-family: 'SF Mono', 'Fira Code', 'JetBrains Mono', Consolas, monospace; }
+      .prompt { fill: #7aa2f7; }
+      .cmd { fill: #c0caf5; }
+      .cyan { fill: #7dcfff; }
+      .green { fill: #9ece6a; }
+      .yellow { fill: #e0af68; }
+      .dim { fill: #565f89; }
+      .white { fill: #c0caf5; }
+      .purple { fill: #bb9af7; }
+    </style>
+  </defs>
+
+  <rect class="border" width="960" height="920" rx="12"/>
+  <rect class="bg" x="1" y="1" width="958" height="918" rx="11"/>
+
+  <rect class="titlebar" x="1" y="1" width="958" height="36" rx="11"/>
+  <rect class="bg" x="1" y="26" width="958" height="12"/>
+  <circle class="btn-r" cx="24" cy="19" r="7"/>
+  <circle class="btn-y" cx="48" cy="19" r="7"/>
+  <circle class="btn-g" cx="72" cy="19" r="7"/>
+  <text x="480" y="24" text-anchor="middle" class="t dim" font-size="13">Terminal - claude-master-setup demo</text>
+
+  <g transform="translate(32, 60)">
+
+    <text class="t dim" font-size="11" y="0">-- INSTALL --</text>
+
+    <text class="t prompt" font-size="14" y="24">~</text>
+    <text class="t dim" font-size="14" x="16" y="24">$</text>
+    <text class="t cmd" font-size="14" x="36" y="24">npx claude-master-setup</text>
+
+    <text class="t yellow" font-size="14" y="52" xml:space="preserve">  Where would you like to install?</text>
+    <text class="t white" font-size="14" y="72" xml:space="preserve">  1) Global (~/.claude) - available in all projects</text>
+    <text class="t white" font-size="14" y="92" xml:space="preserve">  2) Local  (./.claude) - this project only</text>
+    <text class="t dim" font-size="14" y="112" xml:space="preserve">  Choice [1]:</text>
+    <text class="t cyan" font-size="14" x="120" y="112">1</text>
+
+    <text class="t green" font-size="14" y="140" xml:space="preserve">  &#10003; Installed agents/ (11 agents)</text>
+    <text class="t green" font-size="14" y="160" xml:space="preserve">  &#10003; Installed commands/ (10 commands)</text>
+    <text class="t green" font-size="14" y="180" xml:space="preserve">  &#10003; Installed claude-master-setup/ (docs + references)</text>
+    <text class="t green" font-size="14" y="200" xml:space="preserve">  &#10003; Updated settings.json (companions)</text>
+    <text class="t green" font-size="14" y="220" xml:space="preserve">  Done!</text>
+    <text class="t white" font-size="14" x="66" y="220"> Launch Claude Code -&gt; </text>
+    <text class="t cyan" font-size="14" x="268" y="220">/status</text>
+    <text class="t white" font-size="14" x="336" y="220"> or </text>
+    <text class="t cyan" font-size="14" x="372" y="220">/loop</text>
+
+    <text class="t dim" font-size="11" y="258">-- COMPANIONS (one-time, in Claude Code) --</text>
+
+    <text class="t prompt" font-size="14" y="282">claude</text>
+    <text class="t dim" font-size="14" x="64" y="282">&gt;</text>
+    <text class="t cmd" font-size="14" x="84" y="282">/plugin install claude-mem@thedotmack</text>
+    <text class="t green" font-size="14" y="306" xml:space="preserve">  &#10003; claude-mem - persistent session memory</text>
+
+    <text class="t prompt" font-size="14" y="330">claude</text>
+    <text class="t dim" font-size="14" x="64" y="330">&gt;</text>
+    <text class="t cmd" font-size="14" x="84" y="330">/plugin install superpowers@claude-plugins-official</text>
+    <text class="t green" font-size="14" y="354" xml:space="preserve">  &#10003; superpowers - brainstorm / TDD / debug</text>
+
+    <text class="t prompt" font-size="14" y="378">claude</text>
+    <text class="t dim" font-size="14" x="64" y="378">&gt;</text>
+    <text class="t cmd" font-size="14" x="84" y="378">/plugin install antigravity-awesome-skills</text>
+    <text class="t green" font-size="14" y="402" xml:space="preserve">  &#10003; antigravity skills - curated SKILL.md library</text>
+
+    <text class="t dim" font-size="11" y="440">-- LOCAL PROJECT + BUILD LOOP --</text>
+
+    <text class="t prompt" font-size="14" y="464">~/my-app</text>
+    <text class="t dim" font-size="14" x="88" y="464">$</text>
+    <text class="t cmd" font-size="14" x="108" y="464">npx claude-master-setup --local</text>
+
+    <text class="t green" font-size="14" y="488" xml:space="preserve">  &#10003; Installed .claude/ (agents, commands, hooks, settings)</text>
+    <text class="t green" font-size="14" y="508" xml:space="preserve">  &#10003; Installed scripts/ + docs/</text>
+    <text class="t white" font-size="14" y="528" xml:space="preserve">  Next: add PRD.md + PTR.md -&gt; </text>
+    <text class="t cyan" font-size="14" x="300" y="528">/bootstrap</text>
+    <text class="t white" font-size="14" x="400" y="528"> -&gt; </text>
+    <text class="t cyan" font-size="14" x="440" y="528">/loop</text>
+
+    <text class="t prompt" font-size="14" y="560">~/my-app</text>
+    <text class="t dim" font-size="14" x="88" y="560">$</text>
+    <text class="t cmd" font-size="14" x="108" y="560">claude</text>
+    <text class="t purple" font-size="14" x="180" y="560">  /loop</text>
+
+    <text class="t cyan" font-size="14" y="588" xml:space="preserve">  === HARNESS LOOP - iteration 1 ===</text>
+
+    <text class="t white" font-size="14" y="616" xml:space="preserve">  LOOP:  </text>
+    <text class="t green" font-size="14" x="90" y="616">SELECT &#10003;</text>
+    <text class="t white" font-size="14" x="190" y="616"> -&gt; </text>
+    <text class="t green" font-size="14" x="230" y="616">PLAN &#10003;</text>
+    <text class="t white" font-size="14" x="310" y="616"> -&gt; </text>
+    <text class="t green" font-size="14" x="350" y="616">BUILD &#10003;</text>
+    <text class="t white" font-size="14" x="440" y="616"> -&gt; </text>
+    <text class="t cyan" font-size="14" x="480" y="616">VALIDATE ~</text>
+    <text class="t white" font-size="14" x="590" y="616"> -&gt; </text>
+    <text class="t dim" font-size="14" x="630" y="616">REVIEW o</text>
+
+    <text class="t green" font-size="14" y="648" xml:space="preserve">  validate:  &#10003; test  12/12   PASS</text>
+    <text class="t green" font-size="14" y="668" xml:space="preserve">  validate:  &#10003; build         PASS</text>
+    <text class="t green" font-size="14" y="688" xml:space="preserve">  GATE: GREEN</text>
+
+    <text class="t white" font-size="14" y="720" xml:space="preserve">  &gt; NEXT: approve merge -&gt; COMMIT -&gt; next roadmap item</text>
+
+    <text class="t dim" font-size="11" y="758">-- STATUS --</text>
+
+    <text class="t prompt" font-size="14" y="782">~/my-app</text>
+    <text class="t dim" font-size="14" x="88" y="782">$</text>
+    <text class="t purple" font-size="14" x="108" y="782">/status</text>
+
+    <text class="t cyan" font-size="14" y="810" xml:space="preserve">  === PROJECT STATE ===</text>
+    <text class="t white" font-size="14" y="834" xml:space="preserve">  phase: idle   iteration: 1   validate_attempts: 0/3</text>
+    <text class="t green" font-size="14" y="858" xml:space="preserve">  Harness OK - ready for /loop</text>
+
+  </g>
+</svg>

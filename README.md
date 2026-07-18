@@ -1,13 +1,21 @@
 # Claude Master Setup
 
-<img width="1774" height="887" alt="image" src="https://github.com/user-attachments/assets/74f7bd9d-87fa-489b-9740-01161581791d" />
+[![npm version](https://img.shields.io/npm/v/claude-master-setup?style=for-the-badge&logo=npm&logoColor=white&color=CB3837)](https://www.npmjs.com/package/claude-master-setup)
+[![License](https://img.shields.io/badge/license-MIT-blue?style=for-the-badge)](LICENSE)
+[![GitHub](https://img.shields.io/badge/github-AnupDangi%2FClaude--Master--Setup-181717?style=for-the-badge&logo=github)](https://github.com/AnupDangi/Claude-Master-Setup)
 
+**Autonomous engineering harness for Claude Code** — plan, build, validate, review, and commit in a repeatable loop with specialist subagents and hard quality gates.
 
-An **autonomous software engineering harness for Claude Code**. Clone it, drop
-in your requirements, and it plans, builds, validates, reviews, documents, and
-commits work as a repeatable engineered loop — with specialist subagents and
-hard quality gates — instead of a sequence of one-off prompts. The core loop
-works from the files in this repo alone; optional companions (claude-mem,
+```bash
+npx claude-master-setup
+```
+
+![Claude Master Setup demo](assets/demo.svg)
+
+An **autonomous software engineering harness for Claude Code**. Drop in your
+requirements and it plans, builds, validates, reviews, documents, and commits
+work as an engineered loop — instead of a sequence of one-off prompts. The core
+loop works from the files in this repo alone; optional companions (claude-mem,
 superpowers, Antigravity skills) are recommended for a full Claude Code setup —
 see [`docs/COMPANIONS.md`](docs/COMPANIONS.md). Full vision in
 [`docs/VISION.md`](docs/VISION.md).

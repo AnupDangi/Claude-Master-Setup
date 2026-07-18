@@ -126,20 +126,15 @@ code-review, Antigravity skills). **Local** also drops hooks,
 `scripts/validate.sh`, and docs into the current repo (needed for the hard
 validation gate). Re-running is safe: existing dirs are timestamp-backed up.
 
-### Recommended companions (do this once)
+### Recommended companions (auto by default)
 
-The harness works alone. For the full “work like a real Claude setup” experience,
-install these plugins inside Claude Code after `npx claude-master-setup`:
+`--global` / `--local` **auto-install** companions when the `claude` CLI is on
+your PATH (marketplace add + `claude plugin install … --scope user`). That is
+the non-interactive equivalent of typing `/plugin …` inside Claude Code.
 
-```text
-/plugin marketplace add thedotmack/claude-mem
-/plugin install claude-mem@thedotmack
-
-/plugin install superpowers@claude-plugins-official
-/plugin install code-review@claude-plugins-official
-
-/plugin marketplace add sickn33/antigravity-awesome-skills
-/plugin install antigravity-awesome-skills
+```bash
+npx claude-master-setup --global                 # harness + companions
+npx claude-master-setup --global --skip-companions   # harness only
 ```
 
 | Plugin | Why |
@@ -149,8 +144,8 @@ install these plugins inside Claude Code after `npx claude-master-setup`:
 | **code-review** | Extra review depth next to `/review` |
 | **antigravity-awesome-skills** | Large curated skill library |
 
-Details: [`docs/COMPANIONS.md`](docs/COMPANIONS.md). After install, restart Claude Code,
-then `/learn-codebase` once per repo (claude-mem) before `/loop`.
+Details: [`docs/COMPANIONS.md`](docs/COMPANIONS.md). Restart Claude Code after
+install, then `/learn-codebase` once per repo (claude-mem) before `/loop`.
 
 Other install paths (same harness files):
 
@@ -262,16 +257,9 @@ changes often), and Claude Code's per-worktree auto-memory (continuous, local).
 
 **Companions** (claude-mem, superpowers, code-review, Antigravity skills) close
 gaps that the harness alone does not — especially persistent memory and process
-skills. Full install steps: [`docs/COMPANIONS.md`](docs/COMPANIONS.md). Short version:
-
-```
-/plugin marketplace add thedotmack/claude-mem
-/plugin install claude-mem@thedotmack
-/plugin install superpowers@claude-plugins-official
-/plugin install code-review@claude-plugins-official
-/plugin marketplace add sickn33/antigravity-awesome-skills
-/plugin install antigravity-awesome-skills
-```
+skills. `npx claude-master-setup --global` installs them via
+`claude plugin marketplace add` / `claude plugin install` when possible.
+Manual fallback: [`docs/COMPANIONS.md`](docs/COMPANIONS.md).
 
 Pair with the harness:
 

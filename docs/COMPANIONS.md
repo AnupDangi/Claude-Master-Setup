@@ -12,9 +12,52 @@ Claude Code engineering setup (persistent memory, process skills, skill library)
 | **code-review** | Deeper review pass alongside `/review` |
 | **antigravity-awesome-skills** | Large curated `SKILL.md` library (Antigravity / Claude Code) |
 
-## One-time setup (inside Claude Code)
+## Auto-complete (recommended)
 
-After `npx claude-master-setup --global` (or `--local`), restart Claude Code, then:
+`npx claude-master-setup --global` (and `--local`) will, by default:
+
+1. Merge marketplaces + `enabledPlugins` into `~/.claude/settings.json`
+2. Run the **non-interactive** Claude Code CLI (same as `/plugin …` but scriptable):
+
+```bash
+claude plugin marketplace add thedotmack/claude-mem
+claude plugin install claude-mem@thedotmack --scope user
+
+claude plugin install superpowers@claude-plugins-official --scope user
+claude plugin install code-review@claude-plugins-official --scope user
+
+claude plugin marketplace add sickn33/antigravity-awesome-skills
+claude plugin install antigravity-awesome-skills@antigravity-awesome-skills --scope user
+```
+
+Requires `claude` on your `PATH`. Skip with:
+
+```bash
+npx claude-master-setup --global --skip-companions
+```
+
+Force again later:
+
+```bash
+npx claude-master-setup --global --with-companions
+```
+
+Then **restart Claude Code** so plugins load. Per repo: `/learn-codebase` once (claude-mem).
+
+### Why settings.json alone is not enough
+
+| Layer | What it does |
+|---|---|
+| `extraKnownMarketplaces` + `enabledPlugins` in settings.json | Registers catalogs + marks plugins enabled |
+| `claude plugin marketplace add` | Clones the marketplace catalog locally |
+| `claude plugin install …` | Downloads plugin files into `~/.claude/plugins/cache/` |
+
+Forge documents Option B (settings merge). We do that **and** call the CLI so a
+new user does not have to type six `/plugin` lines by hand.
+
+## Manual (inside Claude Code TUI)
+
+If the CLI path fails:
 
 ```text
 /plugin marketplace add thedotmack/claude-mem
@@ -27,10 +70,6 @@ After `npx claude-master-setup --global` (or `--local`), restart Claude Code, th
 /plugin install antigravity-awesome-skills
 ```
 
-The installer also **merges** these marketplaces / enable flags into
-`~/.claude/settings.json` (Forge-style). You still run `/plugin install …`
-once so Claude Code downloads the plugin bits.
-
 ## Pairing with the harness
 
 1. `/bootstrap` (or open an existing repo)
@@ -38,33 +77,14 @@ once so Claude Code downloads the plugin bits.
 3. Keep `docs/PROJECT_STATE.md`, `docs/SESSION.md`, `docs/DECISIONS.md` as the
    durable source of truth — claude-mem is recall on top, not a replacement
 4. Use `/loop` for the build loop; use superpowers / Antigravity skills when
-   the task matches (brainstorming, debugging, domain skills)
+   the task matches
 
-## Manual settings.json (optional)
+## Enhance further (roadmap ideas)
 
-Same pattern Forge documents for its own plugin. Merge into `~/.claude/settings.json`:
-
-```json
-{
-  "extraKnownMarketplaces": {
-    "thedotmack": {
-      "source": { "source": "github", "repo": "thedotmack/claude-mem" }
-    },
-    "antigravity-awesome-skills": {
-      "source": {
-        "source": "git",
-        "url": "https://github.com/sickn33/antigravity-awesome-skills.git"
-      }
-    }
-  },
-  "enabledPlugins": {
-    "claude-mem@thedotmack": true,
-    "superpowers@claude-plugins-official": true,
-    "code-review@claude-plugins-official": true,
-    "antigravity-awesome-skills@antigravity-awesome-skills": true
-  }
-}
-```
-
-Then restart Claude Code and run the `/plugin install` lines above if anything
-is still missing.
+| Enhancement | Why |
+|---|---|
+| Ship **this harness as a marketplace plugin** (`.claude-plugin/`) | One `/plugin install claude-master-setup@…` like Forge Option B |
+| `--companions=minimal\|full` | Minimal = claude-mem + superpowers only |
+| Verify step | `claude plugin list` after install; print missing plugins |
+| Project-scope companions | `claude plugin install … --scope project` for team lockfiles |
+| Post-install `/learn-codebase` hint only when claude-mem succeeded | Cleaner UX |

@@ -49,6 +49,8 @@ const args = process.argv.slice(2);
 const hasGlobal = args.includes('--global') || args.includes('-g');
 const hasLocal = args.includes('--local') || args.includes('-l');
 const hasHelp = args.includes('--help') || args.includes('-h');
+const skipCompanions = args.includes('--skip-companions');
+const forceCompanions = args.includes('--with-companions');
 const scaffoldIdx = args.findIndex((a) => a === '--scaffold' || a === '-s');
 const wantsScaffold = scaffoldIdx !== -1;
 
@@ -84,20 +86,25 @@ function printHelp() {
     ${cyan}-l, --local${reset}               Install into ./.claude + project scripts/docs
     ${cyan}-c, --config-dir <path>${reset}   Custom Claude config dir (with --global)
     ${cyan}-s, --scaffold [dir]${reset}      Legacy: copy full harness into a directory
+    ${cyan}--with-companions${reset}         Also run claude plugin marketplace/install (default on --global)
+    ${cyan}--skip-companions${reset}         Only merge settings.json; do not call claude plugin CLI
     ${cyan}-h, --help${reset}                Show this help
 
   ${yellow}Examples:${reset}
     ${dim}# Interactive (asks global vs local)${reset}
     npx claude-master-setup
 
-    ${dim}# Global — agents + commands in ~/.claude${reset}
+    ${dim}# Global — agents + commands + auto-install companions${reset}
     npx claude-master-setup --global
+
+    ${dim}# Global without downloading plugins${reset}
+    npx claude-master-setup --global --skip-companions
 
     ${dim}# Local — full harness in this project${reset}
     npx claude-master-setup --local
 
   ${yellow}What gets installed:${reset}
-    ${dim}global${reset}  agents/  commands/  claude-master-setup/ (docs + prompt)
+    ${dim}global${reset}  agents/  commands/  claude-master-setup/ + companion plugins (if claude CLI present)
     ${dim}local${reset}   .claude/  scripts/  docs/  CLAUDE.md  MASTER-PROMPT.md
 `);
 }
@@ -210,7 +217,14 @@ function installGlobal() {
   console.log(`  ${green}✓${reset} Installed claude-master-setup/ (docs + references)`);
 
   mergeCompanionSettings(configDir);
-  printCompanionNextSteps();
+
+  // settings.json only *enables* plugins; claude plugin CLI downloads them.
+  const shouldInstallCompanions = forceCompanions || (!skipCompanions && true);
+  if (shouldInstallCompanions) {
+    installCompanionsViaClaudeCli();
+  } else {
+    printCompanionNextSteps();
+  }
 
   console.log(`  ${green}Done!${reset} Launch Claude Code and run ${cyan}/status${reset} or ${cyan}/loop${reset}.
 
@@ -272,18 +286,86 @@ function mergeCompanionSettings(configDir) {
 
 function printCompanionNextSteps() {
   console.log(`
-  ${yellow}Recommended companions${reset} ${dim}(one-time, inside Claude Code)${reset}:
+  ${yellow}Recommended companions${reset} ${dim}(run in terminal, or inside Claude Code)${reset}:
 
-    ${cyan}/plugin marketplace add thedotmack/claude-mem${reset}
-    ${cyan}/plugin install claude-mem@thedotmack${reset}
+    ${cyan}claude plugin marketplace add thedotmack/claude-mem${reset}
+    ${cyan}claude plugin install claude-mem@thedotmack --scope user${reset}
 
-    ${cyan}/plugin install superpowers@claude-plugins-official${reset}
-    ${cyan}/plugin install code-review@claude-plugins-official${reset}
+    ${cyan}claude plugin install superpowers@claude-plugins-official --scope user${reset}
+    ${cyan}claude plugin install code-review@claude-plugins-official --scope user${reset}
 
-    ${cyan}/plugin marketplace add sickn33/antigravity-awesome-skills${reset}
-    ${cyan}/plugin install antigravity-awesome-skills${reset}
+    ${cyan}claude plugin marketplace add sickn33/antigravity-awesome-skills${reset}
+    ${cyan}claude plugin install antigravity-awesome-skills@antigravity-awesome-skills --scope user${reset}
 
   ${dim}Full guide:${reset} ~/.claude/claude-master-setup/COMPANIONS.md
+`);
+}
+
+/**
+ * Auto-complete companions via non-interactive Claude Code CLI.
+ * Equivalent to /plugin marketplace add + /plugin install (no TUI).
+ */
+function installCompanionsViaClaudeCli() {
+  const which = spawnSync('bash', ['-lc', 'command -v claude'], { encoding: 'utf8' });
+  if (which.status !== 0 || !String(which.stdout || '').trim()) {
+    console.log(
+      `  ${yellow}!${reset} claude CLI not found — skipped auto companion install.`
+    );
+    printCompanionNextSteps();
+    return;
+  }
+
+  console.log(`  ${dim}Installing companions via claude plugin CLI…${reset}\n`);
+
+  const marketplaces = [
+    ['thedotmack/claude-mem', 'thedotmack'],
+    ['sickn33/antigravity-awesome-skills', 'antigravity-awesome-skills'],
+  ];
+  for (const [source, label] of marketplaces) {
+    const r = spawnSync('claude', ['plugin', 'marketplace', 'add', source], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    if (r.status === 0) {
+      console.log(`  ${green}✓${reset} Marketplace: ${label}`);
+    } else {
+      const err = `${r.stderr || r.stdout || ''}`.trim().split('\n')[0] || 'failed';
+      // already-added is fine
+      if (/already|exists|duplicate/i.test(`${r.stderr || ''}${r.stdout || ''}`)) {
+        console.log(`  ${green}✓${reset} Marketplace: ${label} ${dim}(already added)${reset}`);
+      } else {
+        console.log(`  ${yellow}!${reset} Marketplace ${label}: ${err}`);
+      }
+    }
+  }
+
+  const plugins = [
+    'claude-mem@thedotmack',
+    'superpowers@claude-plugins-official',
+    'code-review@claude-plugins-official',
+    'antigravity-awesome-skills@antigravity-awesome-skills',
+  ];
+  for (const plugin of plugins) {
+    const r = spawnSync(
+      'claude',
+      ['plugin', 'install', plugin, '--scope', 'user'],
+      { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }
+    );
+    if (r.status === 0) {
+      console.log(`  ${green}✓${reset} Plugin: ${plugin}`);
+    } else {
+      const blob = `${r.stderr || ''}${r.stdout || ''}`;
+      if (/already installed|already enabled/i.test(blob)) {
+        console.log(`  ${green}✓${reset} Plugin: ${plugin} ${dim}(already installed)${reset}`);
+      } else {
+        const err = blob.trim().split('\n').filter(Boolean).slice(-1)[0] || 'failed';
+        console.log(`  ${yellow}!${reset} Plugin ${plugin}: ${err}`);
+      }
+    }
+  }
+
+  console.log(`
+  ${dim}Restart Claude Code so new plugins load. Then:${reset} ${cyan}/learn-codebase${reset} ${dim}(once per repo)${reset}
 `);
 }
 
@@ -390,7 +472,16 @@ function installLocal() {
   ${green}Done!${reset} In this project run ${cyan}claude${reset}, then ${cyan}/bootstrap${reset} → ${cyan}/loop${reset}.
   Verify: ${cyan}bash scripts/self-check.sh${reset}
 `);
-  printCompanionNextSteps();
+
+  // Companions are user-scoped (~/.claude); same auto-install as --global.
+  if (forceCompanions || !skipCompanions) {
+    const userClaude = path.join(os.homedir(), '.claude');
+    fs.mkdirSync(userClaude, { recursive: true });
+    mergeCompanionSettings(userClaude);
+    installCompanionsViaClaudeCli();
+  } else {
+    printCompanionNextSteps();
+  }
 }
 
 /** Legacy: scaffold harness into an explicit directory (old npx behavior). */

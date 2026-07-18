@@ -17,7 +17,8 @@ Commands stay **intent-only**; this skill describes **how** to execute.
 5. **BUILD** — single writer, or parent implementer + ≤5 worktree children via
    `scripts/worktree-fanout.sh` when slices are file-disjoint.
 6. **VALIDATE** once on the merged tree (hard gate).
-7. **REVIEW** — reviewer + security in parallel when both apply.
+7. **REVIEW** — reviewer + security always run in parallel (security may use a
+   light pass for pure-docs changes).
 8. **GATE 2 → COMMIT → docs**.
 
 ## Caps

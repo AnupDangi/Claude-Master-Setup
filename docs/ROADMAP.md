@@ -26,7 +26,7 @@ Loop Engine described in [`LOOP_ENGINE.md`](LOOP_ENGINE.md). See
 built in one pass.
 
 ## Milestone 0 — Foundation (done)
-- [x] Self-contained loop harness: 9 agents, 9 commands, validation gate, MCP
+- [x] Self-contained loop harness: 11 agents, 10 commands, validation gate, MCP
       scout + catalog, fail-safe hooks (see `docs/VALIDATION.md`)
 - [x] Validation retry cap + `await-human-on-red` escalation (ADR-001)
 - [x] Vision/engine design docs: `VISION.md`, `LOOP_ENGINE.md`, `STATE_ENGINE.md`,
@@ -73,16 +73,12 @@ built in one pass.
 - [x] `/evaluate` command + `evaluator` agent (read-only, same rules as
       `reviewer`/`security`) per the design in `EVALUATION.md`
 - [x] Wire objective metrics first: Tests (`validate.sh` GATE + coverage if the
-      stack reports one), Iterations (git-log proxy), Documentation
-      completeness (template-fill ratio). Manual Interventions is explicitly
-      reported `not tracked` — it needs a persistent event log this harness
-      doesn't have (see Backlog), not just more prompt logic. LLM-judged
-      subjective metrics (Planning/Architecture/Security/Performance/doc
-      *quality*) are deliberately still out of scope — see `EVALUATION.md`
-- [ ] Feed `/evaluate` output into SELECT/Choose-Model decisions (the "Measure"
-      → "Update Memory" stages in `LOOP_ENGINE.md`) — blocked on the same
-      prerequisite as dynamic model routing: no Scheduler-level consumer
-      exists yet to feed scores into
+      stack reports one), Iterations (event log + git proxy), Documentation
+      completeness, and Manual Interventions from the persistent event log.
+      LLM-judged subjective metrics remain out of scope — see `EVALUATION.md`.
+- [x] Persist `/evaluate` scorecard and feed narrow signals into SELECT
+      (`last_scorecard.json`; tests/docs/manual-intervention bias). Full
+      value/risk Scheduler ranking remains backlog.
 
 ## Milestone 3 — Proof and packaging (deferred)
 - [ ] Benchmark suite: run the harness end-to-end against reference projects

@@ -53,7 +53,7 @@ Orchestrator (≤3 top-level)
   ├─ Planner → ≤3 research children (read-only)
   ├─ Implementer parent → ≤5 worktree writer children
   ├─ Validator (usually alone)
-  ├─ Reviewer + Security (parallel when both apply)
+  ├─ Reviewer + Security (always, parallel)
   └─ Docs-writer
 
 Evaluator (standalone /evaluate) → ≤3 collectors (read-only)

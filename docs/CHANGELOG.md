@@ -5,21 +5,7 @@
 
 ## [Unreleased]
 
-### Security
-- Control-plane path blocking: hooks, settings, agents, commands, `validate.sh` and
-  key loop scripts require `HARNESS_ALLOW_PROTECTED_EDITS=1`.
-- Hooks parse tool JSON with python3 (fixes embedded-quote bypass).
-- `docs/SECURITY.md`: honest limits — allowlists are UX, not a sandbox.
-
-### Changed
-- `MASTER-PROMPT.md` → **v3** (Phase 0 build-effort; brownfield; thin docs on `fast`).
-- `README.md` refreshed for v0.4 / AI OS / publish checklist on branch `v2-os`.
-
-### Fixed
-- **Statusline is user-level only:** always run `python3 "$HOME/.claude/statusline.sh"`.
-  Project `.claude/settings.json` no longer wires `$CLAUDE_PROJECT_DIR/.../statusline.sh`.
-  Project name/git resolve from `$CLAUDE_PROJECT_DIR` (repo root), not nested cwd.
-  Installer strips project `statusLine` and repairs tilde-only / project-path user configs.
+## [0.4.0] — 2026-07-19
 
 ### Added
 - **Build-effort value function (ADR-004):** `scripts/estimate-build-effort.sh` +
@@ -32,18 +18,31 @@
 - `scripts/loop-event.sh`, `lease.sh`, `budget-check.sh`, `write-scorecard.sh`
 - `docs/AI_OS.md`, `docs/BROWNFIELD.md`
 - `.github/workflows/harness-ci.yml`
+- npm lifecycle checks (`npm test`, `check:harness`, `prepack`) and CI package
+  dry-run; recursion guard prevents self-check → validate → npm-test loops.
 
 ### Fixed
+- **Statusline is user-level only:** always run `python3 "$HOME/.claude/statusline.sh"`.
+  Project settings no longer wire `$CLAUDE_PROJECT_DIR/.../statusline.sh`;
+  project name/git resolve from the project root.
 - **/loop session-burn:** default `max-iterations=1` per invocation; orchestrator
   must not auto-approve GATE 1/2 on "finish everything"; `loop.json` tracks
   `iterations_this_run` / `max_iterations_per_run`.
 
 ### Security
-- AI OS permissions model (`acceptEdits` + gates); `protect-paths.sh` **blocks**
-  `.env`/lockfiles/CI (override `HARNESS_ALLOW_PROTECTED_EDITS=1`).
+- Control-plane path blocking: hooks, settings, agents, commands, `validate.sh`
+  and key loop scripts require `HARNESS_ALLOW_PROTECTED_EDITS=1`.
+- Hooks parse tool JSON with Python (fixes embedded-quote bypass).
+- `self-check.sh` uses a private `mktemp` directory instead of predictable
+  shared `/tmp` filenames.
+- AI OS permissions model (`acceptEdits` + gates); allowlists are explicitly UX,
+  not a same-user sandbox.
 - `HARNESS_MAX_ITERATIONS_PER_RUN=1` in settings `env`.
 
 ### Changed
+- `MASTER-PROMPT.md` v3: Phase 0 build effort, brownfield path, thin docs on
+  `fast`, mandatory REVIEW + SECURITY.
+- `README.md` refreshed for v0.4 / AI OS / publish checklist.
 - Bootstrap supports brownfield (existing codebase) via `docs/BROWNFIELD.md`.
 - `/evaluate` persists scorecard; Manual Interventions from event log.
 - Bootstrap/architect: prefer coarse roadmaps (3–6 items for small apps).

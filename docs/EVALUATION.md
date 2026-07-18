@@ -1,12 +1,10 @@
 # Evaluation Framework
 
-**Status: partially built.** `/evaluate` and the `evaluator` subagent exist
-(`.claude/commands/evaluate.md`, `.claude/agents/evaluator.md`) and report
-**objective metrics only** — Tests, Iterations (a proxy), Documentation
-completeness, and an honest "not tracked" for Manual Interventions. The
-subjective metrics below (Planning, Architecture, Security quality,
-Performance) are still design-only, deliberately sequenced after the
-objective slice per `docs/ROADMAP.md` Milestone 2.
+**Status: objective slice built.** `/evaluate` and the `evaluator` report Tests,
+Iterations (loop events plus git as a secondary proxy), Documentation
+completeness, and Manual Interventions from the persistent event log. The
+scorecard is persisted for SELECT bias. Subjective metrics below (Planning,
+Architecture, Security quality, Performance) remain intentionally deferred.
 
 ## Why
 
@@ -66,10 +64,9 @@ the scorecard doesn't overstate its own precision:
 - **Read-only.** `evaluator` never fixes what it scores low on — same
   separation of concerns as `reviewer`/`security`. Keep this true for any
   subjective-metric extension too.
-- **Don't fabricate a metric.** `evaluator` reports "not tracked" for Manual
-  Interventions rather than guessing, and "not reported by this stack" for
-  coverage when the test runner doesn't produce one. Any new metric should
-  follow the same rule — a missing signal is not license to estimate one.
+- **Don't fabricate a metric.** Manual Interventions comes only from
+  `scripts/loop-event.sh`; coverage says "not reported by this stack" when the
+  test runner does not produce it. A missing signal is not license to estimate.
 - **Manual Interventions** is fed by `scripts/loop-event.sh` (see
   [`AI_OS.md`](AI_OS.md)). Orchestrator must emit events for the metric to move.
 - **Score before you build the corpus.** A single benchmark run against one
@@ -81,11 +78,9 @@ the scorecard doesn't overstate its own precision:
 
 ## Continuous improvement loop
 
-`/evaluate`'s output is designed to be the natural input to the Loop Engine's
-**Measure** and **Update Memory** stages (`LOOP_ENGINE.md`): a scheduler that
-knows an iteration scored low on Planning could weight more architect
-involvement into the next SELECT decision, instead of that signal being
-discarded after the human reads it once. Nothing consumes `/evaluate`'s output
-automatically yet — that's `docs/ROADMAP.md` Milestone 2's third item, and it's
-gated on the Scheduler existing to consume it, same as dynamic model routing
-is gated on named agent variants existing.
+`/evaluate` persists `.claude/state/last_scorecard.json`; the orchestrator reads
+it during SELECT. Current feedback is deliberately narrow: RED tests bias toward
+fix/test work, low documentation completeness biases toward already-existing
+docs work, and high manual interventions favors smaller slices or escalation.
+The scorecard never invents roadmap items. Rich value/risk ranking remains a
+future full Scheduler capability.

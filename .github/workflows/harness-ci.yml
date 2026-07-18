@@ -19,6 +19,11 @@ jobs:
       - name: Self-check
         run: bash scripts/self-check.sh
 
+      - name: npm test + package dry-run
+        run: |
+          npm test
+          npm pack --dry-run
+
       - name: Loop event log smoke
         run: |
           bash scripts/loop-event.sh select '{"task":"ci-smoke"}'

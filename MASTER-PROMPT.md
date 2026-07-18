@@ -314,17 +314,16 @@ Before implementation begins, produce:
 1. Build-effort estimate (tier + score) confirmed with human
 2. Architecture Review
 3. Technology Validation
-3. Scalability Assessment
-4. Risk Assessment
-5. Clarification Questions (if required)
-6. Recommended Repository Structure
-7. `CLAUDE.md`
-8. Complete `docs/` directory
-9. Minimal `.claude/` structure
-10. Engineering Workflow
-11. Git Strategy
-12. Worktree Strategy
+4. Scalability Assessment
+5. Risk Assessment
+6. Clarification Questions (if required)
+7. Recommended Repository Structure
+8. `CLAUDE.md`
+9. Tier-appropriate `docs/` directory
+10. Existing `.claude/` harness preserved and configured
+11. Engineering Workflow
+12. Git and Worktree Strategy
 13. Documentation Strategy
-14. Implementation Roadmap
+14. Outcome-sized Implementation Roadmap
 
 Do **not** implement any code until these deliverables have been reviewed and approved.

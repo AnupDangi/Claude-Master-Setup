@@ -37,8 +37,8 @@ with the wrong cwd.
   of copied files changes in a way users would notice.
 - `npx github:user/repo` always pulls the **current default-branch HEAD** —
   there's no version pinning by default. If you want installs to be
-  reproducible, tag releases (`git tag v0.2.0`, push the tag) and tell users
-  to install via `npx github:AnupDangi/Claude-Master-Setup#v0.2.0` (append
+  reproducible, tag releases (`git tag v0.4.0`, push the tag) and tell users
+  to install via `npx github:AnupDangi/Claude-Master-Setup#v0.4.0` (append
   `#<tag>`) instead of the bare form.
 - Tagging and pushing tags is a real, visible action on the shared repo —
   confirm before pushing, same as any other push.
@@ -47,7 +47,7 @@ with the wrong cwd.
 
 Nothing about `npx github:...` requires this. Publish only if you want the
 shorter `npx claude-master-setup` (no `github:` prefix, and a version can be
-pinned the normal npm way, e.g. `npx claude-master-setup@0.2.0`).
+pinned the normal npm way, e.g. `npx claude-master-setup@0.4.0`).
 
 **Publish checklist (before every release):**
 - ✅ `LICENSE`, `package.json` metadata (`license`, `author`, `keywords`,
@@ -58,6 +58,9 @@ pinned the normal npm way, e.g. `npx claude-master-setup@0.2.0`).
   `.gitignore` alone).
 - ✅ `.npmignore` excludes `.claude/state/`, `settings.local.json`, and
   local `test-harness/` so they never ship.
+- ✅ `prepack` intentionally runs the full harness self-check for both
+  `npm pack` and `npm publish`; `npm test` uses a recursion guard because
+  `self-check.sh` normally asks `validate.sh` to invoke the stack test command.
 - ✅ `npm pack --dry-run` lists `templates/gitignore` and does **not** list
   `test-harness/`.
 - ✅ Fresh scaffold **from outside this repo** (nested dirs inherit this
@@ -67,9 +70,14 @@ pinned the normal npm way, e.g. `npx claude-master-setup@0.2.0`).
 
 **Publish steps:**
 ```bash
+npm run check:harness
+npm test
+npm pack --dry-run
+npm publish --dry-run --access public
 npm whoami                      # must be logged in
-npm version patch               # or set version in package.json (e.g. 0.1.1)
-npm publish                     # add --access public if using a scoped name
+git tag v0.4.0                  # after approving the exact commit
+git push origin v2-os --tags
+npm publish --access public
 ```
 
 **After publishing:**
@@ -106,7 +114,7 @@ Two ways any of the 11 agents runs:
 | `implementer-opus` | Never directly, same reason — the orchestrator picks it automatically when `task_complexity` is `large`. To get it for a specific task, ask the orchestrator to reclassify that task's complexity, not to switch agents | Same job, Opus tier |
 | `validator` | `/validate` | GREEN/RED right now, outside the loop |
 | `reviewer` | `/review [paths]` | Severity-ranked quality findings |
-| `security` | Auto-added to `/review` when the diff touches auth/input/secrets/payments/uploads; or ask explicitly | Severity-ranked security findings |
+| `security` | Runs every loop REVIEW; full OWASP pass for auth/input/data/network/secrets/payments/uploads, light pass for pure docs | Severity-ranked security findings |
 | `docs-writer` | `/handoff`, or automatic at COMMIT | Synced `PROJECT_STATE.md`/`CHANGELOG.md`/etc. |
 | `mcp-scout` | `/mcp-add <tool>` | A checked, consented `.mcp.json` entry |
 | `evaluator` | `/evaluate` | The objective-metrics scorecard |

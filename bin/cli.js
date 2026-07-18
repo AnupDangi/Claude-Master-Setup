@@ -438,14 +438,29 @@ function mergeCompanionSettings(configDir) {
   console.log(`  ${green}✓${reset} Updated settings.json (companion marketplaces + plugins)`);
 }
 
-const USER_STATUSLINE_CMD = 'python3 "$HOME/.claude/statusline.sh"';
+function statusLineCommandFor(configDir) {
+  const homeClaude = path.join(os.homedir(), '.claude');
+  if (path.resolve(configDir) === path.resolve(homeClaude)) {
+    return 'python3 "$HOME/.claude/statusline.sh"';
+  }
+  // Custom --config-dir: use an absolute path so the command works even when
+  // CLAUDE_CONFIG_DIR / XDG paths differ from $HOME/.claude.
+  const script = path.join(path.resolve(configDir), 'statusline.sh').replace(/"/g, '\\"');
+  return `python3 "${script}"`;
+}
 
-function isUserStatusLineCommand(cmd) {
+function isUserStatusLineCommand(cmd, configDir) {
   if (!cmd || typeof cmd !== 'string') return false;
-  return (
-    cmd.includes('$HOME/.claude/statusline.sh') ||
-    cmd.includes('${HOME}/.claude/statusline.sh')
-  ) && cmd.includes('python3');
+  if (!cmd.includes('python3') || !cmd.includes('statusline.sh')) return false;
+  if (cmd.includes('CLAUDE_PROJECT_DIR')) return false;
+  const homeClaude = path.join(os.homedir(), '.claude');
+  if (path.resolve(configDir) === path.resolve(homeClaude)) {
+    return (
+      cmd.includes('$HOME/.claude/statusline.sh') ||
+      cmd.includes('${HOME}/.claude/statusline.sh')
+    );
+  }
+  return cmd.includes(path.resolve(configDir));
 }
 
 function isProjectStatusLineCommand(cmd) {
@@ -505,7 +520,8 @@ function installStatusline(configDir, opts = {}) {
   } catch {
     /* best-effort */
   }
-  console.log(`  ${green}✓${reset} Installed ~/.claude/statusline.sh`);
+  const destLabel = path.resolve(configDir) === path.resolve(homeClaude) ? '~/.claude/statusline.sh' : dest;
+  console.log(`  ${green}✓${reset} Installed ${destLabel}`);
 
   const settingsPath = path.join(configDir, 'settings.json');
   let settings = {};
@@ -520,23 +536,23 @@ function installStatusline(configDir, opts = {}) {
     }
   }
 
+  const desired = statusLineCommandFor(configDir);
   const existing = settings.statusLine && settings.statusLine.command;
-  if (isUserStatusLineCommand(existing)) {
-    console.log(`  ${dim}keep: settings.json statusLine → $HOME/.claude${reset}`);
+  if (isUserStatusLineCommand(existing, configDir) && existing === desired) {
+    console.log(`  ${dim}keep: settings.json statusLine → ${desired}${reset}`);
     return;
   }
 
   settings.statusLine = {
     type: 'command',
-    command: USER_STATUSLINE_CMD,
+    command: desired,
   };
   fs.writeFileSync(settingsPath, `${JSON.stringify(settings, null, 2)}\n`, 'utf8');
+  const label = path.resolve(configDir) === path.resolve(homeClaude) ? '~/.claude' : configDir;
   if (existing) {
-    console.log(
-      `  ${green}✓${reset} Fixed statusLine → ${cyan}${USER_STATUSLINE_CMD}${reset}`
-    );
+    console.log(`  ${green}✓${reset} Fixed statusLine → ${cyan}${desired}${reset}`);
   } else {
-    console.log(`  ${green}✓${reset} Enabled statusLine in ~/.claude/settings.json`);
+    console.log(`  ${green}✓${reset} Enabled statusLine in ${label}/settings.json`);
   }
 }
 

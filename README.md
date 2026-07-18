@@ -259,9 +259,10 @@ changes often), and Claude Code's per-worktree auto-memory (continuous, local).
 
 **Companions** (claude-mem, superpowers, code-review, Antigravity skills) close
 gaps that the harness alone does not — especially persistent memory and process
-skills. `npx claude-master-setup --global` installs them via
-`claude plugin marketplace add` / `claude plugin install` when possible.
-Manual fallback: [`docs/COMPANIONS.md`](docs/COMPANIONS.md).
+skills. `npx claude-master-setup --global` **merges companion flags into
+`~/.claude/settings.json` and prints** the `claude plugin marketplace add` /
+`claude plugin install` commands for you to run — it does **not** spawn those
+installs itself. Manual steps: [`docs/COMPANIONS.md`](docs/COMPANIONS.md).
 
 Pair with the harness:
 

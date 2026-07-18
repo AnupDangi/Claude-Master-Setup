@@ -27,8 +27,10 @@ the real publish remains an explicit human action.
   harness CI, hard protected-path hooks, and brownfield bootstrap.
 - Build-effort dial (ADR-004): `fast|standard|rigorous` from PRD/PTR; review and
   security remain mandatory on all tiers.
-- User-level-only statusline; project name/git resolve from project root.
+- User-level-only statusline; `--config-dir` wires `statusLine` to that dir’s
+  script (default install still uses `$HOME/.claude`).
 - npm package v0.4.0 metadata, allowlisted files, MIT license, zero dependencies.
+  CI also runs on push to `v2-os`.
 
 ## In progress
 - None. Branch `v2-os` is ready for final push/tag/publish approval.

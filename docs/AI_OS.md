@@ -83,16 +83,6 @@ Generic / known patterns → **fast** (thin docs, outcome-first). Novel / multi-
 high-risk → **rigorous**. **VALIDATE + REVIEW + SECURITY always run.** Full spec:
 [`BUILD_EFFORT.md`](BUILD_EFFORT.md).
 
-## Build effort (complexity dial)
-
-```bash
-bash scripts/estimate-build-effort.sh --write
-```
-
-See [`BUILD_EFFORT.md`](BUILD_EFFORT.md). Lower score → build generic software
-faster (thin docs, outcome-first). Higher score → full multi-phase harness.
-**Never** skip review or security.
-
 ## Brownfield bootstrap
 
 When `PRD.md`/`PTR.md` are missing but a codebase exists (`package.json`,

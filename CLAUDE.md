@@ -54,7 +54,7 @@ skills, hierarchical subagents, worktree fan-out) in
 
 ```
 SELECT → DISCOVER → PLAN → [gate: approve plan] → BUILD → VALIDATE (hard gate)
-       → REVIEW → [gate: approve merge] → COMMIT → update state → LOOP
+       → REVIEW + SECURITY → [gate: approve merge] → COMMIT → update state → LOOP
 ```
 
 - Run it with `/loop`. The **orchestrator** subagent drives it and delegates.

@@ -48,17 +48,15 @@ built in one pass.
       dependencies) — `npx github:AnupDangi/Claude-Master-Setup [target-dir]`
       copies `.claude/`, `docs/`, `scripts/`, `CLAUDE.md`, `MASTER-PROMPT.md`,
       `.env.example` into the target (skipping anything already there) and
-      runs `scripts/install.sh`, exactly what a manual git-clone install does.
-      Works without publishing to the npm registry. Tested end-to-end into a
-      scratch directory; the result passed `scripts/self-check.sh`. This is a
-      separate distribution mechanism from the Claude Code plugin/marketplace
-      packaging in Milestone 3 below — that one is about `.claude-plugin/`
-      manifests, this one is about `npx`/npm.
-      **Publish-ready, not yet published:** `LICENSE` (MIT) added,
-      `package.json` has full metadata, name confirmed free (`npm view` →
-      404), `npm publish --dry-run` succeeds (71 files, ~75 kB). The one
-      remaining step needs the user's own `npm login` — no one else can
-      authenticate that. See `docs/OPERATIONS.md`.
+      seeds state via `bin/cli.js` `seedProject()` (does not call
+      `scripts/install.sh`; git-clone installs still use that script).
+      Works without publishing via `npx github:…`. Tested end-to-end into a
+      scratch directory; the result passed `scripts/self-check.sh`. Separate
+      from Claude Code plugin/marketplace packaging in Milestone 3.
+      **v0.4.0 publish-ready locally:** `LICENSE` (MIT), full `package.json`
+      metadata, `npm publish --dry-run` succeeds (~91 files, ~125 kB). Registry
+      latest is still `0.2.8` until a maintainer runs `npm publish`. See
+      `docs/OPERATIONS.md`.
 
 ## Milestone 1 — Loop Engine: Scheduler (done)
 - [x] Dynamic model routing: built the one high-value pair —

@@ -104,10 +104,12 @@ Per-slice smoke tests are advisory. Only integration VALIDATE advances the loop.
 - Merge conflict → stop; list conflict files; await human
 - `validate_attempts` ≥ max → `await-human-on-red` (unchanged)
 
-## Metrics (optional later)
+## Metrics
 
-Track when an event log exists: `skills_applied`, `orch_parallel`,
-`nested_parallel`, `worktree_fanout_size`, `validate_attempts`.
+Persist via `scripts/loop-event.sh` / `.claude/state/events.jsonl`:
+`skills_applied`, `orch_parallel`, `nested_parallel`, `worktree_fanout_size`,
+`validate_attempts`, plus SELECT/PLAN/BUILD/VALIDATE/REVIEW/SECURITY/COMMIT
+phase events. See `docs/AI_OS.md`.
 
 ## Related docs
 

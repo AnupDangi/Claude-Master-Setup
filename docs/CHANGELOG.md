@@ -22,9 +22,15 @@
   dry-run; recursion guard prevents self-check → validate → npm-test loops.
 
 ### Fixed
-- **Statusline is user-level only:** always run `python3 "$HOME/.claude/statusline.sh"`.
-  Project settings no longer wire `$CLAUDE_PROJECT_DIR/.../statusline.sh`;
-  project name/git resolve from the project root.
+- **`--config-dir` statusline:** custom config dirs now wire `statusLine.command`
+  to that directory's `statusline.sh` (no longer hardcodes `$HOME/.claude`).
+- Docs/CI publish hygiene: companion install wording, OPERATIONS/ROADMAP npm
+  pack facts, CI push on `v2-os`, loop diagrams include SECURITY, ADR-004 /
+  AI_OS build-effort section dedupe.
+- **Statusline is user-level only:** default install still runs
+  `python3 "$HOME/.claude/statusline.sh"`. Project settings no longer wire
+  `$CLAUDE_PROJECT_DIR/.../statusline.sh`; project name/git resolve from the
+  project root.
 - **/loop session-burn:** default `max-iterations=1` per invocation; orchestrator
   must not auto-approve GATE 1/2 on "finish everything"; `loop.json` tracks
   `iterations_this_run` / `max_iterations_per_run`.

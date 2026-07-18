@@ -153,21 +153,3 @@
 - Consequences: Faster outcome delivery on generic work; fuller process on hard
   work. Heuristic keywords can mis-tier — override and architect challenge fix
   that. Agents must not interpret `fast` as skipping review/security.
-
-## ADR-004: Build-effort value function (fast vs rigorous harness dial)
-- Date: 2026-07-19
-- Status: accepted
-- Context: Generic builds (CLI, todo, typical ecommerce, API wrappers) were paying
-  full markdown-scaffold cost; complex builds (game clones, train+ship LLMs) need
-  full multi-phase rigor. Users need a **project-level** dial based on their
-  PRD/PTR/intent, separate from per-task `task_complexity`.
-- Options considered:
-  (A) Always full docs — safe but slow for known patterns.
-  (B) Always thin docs — fast but risky for complex/novel systems.
-  (C) Estimator value function → `fast|standard|rigorous` with invariants that
-      VALIDATE + REVIEW + SECURITY never turn off.
-- Decision: (C). `scripts/estimate-build-effort.sh` + `docs/BUILD_EFFORT.md`;
-  bootstrap runs `--write`; human override via `HARNESS_BUILD_EFFORT_TIER`.
-- Consequences: Faster outcome delivery on generic work; clearer expectations on
-  hard work. Heuristic scores can misclassify — override required. Agents must not
-  interpret `fast` as permission to skip gates.

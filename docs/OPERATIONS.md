@@ -9,13 +9,16 @@ than one agent at a time.
 
 ### How it works today
 
-`package.json` + `bin/cli.js` (no dependencies). `npx
-github:AnupDangi/Claude-Master-Setup [target-dir]` clones the repo fresh into
-npx's cache, runs `bin/cli.js`, which copies `.claude/`, `docs/`, `scripts/`,
-`CLAUDE.md`, `MASTER-PROMPT.md`, `.env.example` into the target (skipping
-anything already there) and then runs `scripts/install.sh` — the same script
-a manual git-clone install runs. This works **without publishing to the npm
-registry** at all.
+`package.json` + `bin/cli.js` (no dependencies, no lifecycle scripts).
+`npx claude-master-setup@0.4.0 [target-dir]` (or `npx
+github:AnupDangi/Claude-Master-Setup` from a tagged/default branch) runs
+`bin/cli.js`, which copies `.claude/`, `docs/`, `scripts/`, `CLAUDE.md`,
+`MASTER-PROMPT.md`, `.env.example` into the target (skipping anything already
+there) and **seeds project state inline** via `seedProject()` — it does **not**
+invoke `scripts/install.sh`. The git-clone path still uses
+`bash scripts/install.sh` for the same end state. Current pack is ~91 files /
+~125 kB (`npm pack --dry-run`). Works **without** publishing when using the
+GitHub URL.
 
 ### Local development loop
 
@@ -28,8 +31,7 @@ cd /tmp/some-scratch-dir && bash scripts/self-check.sh   # confirm the result is
 ```
 
 This is exactly how it was verified when built — don't skip the actual run;
-a syntax-valid script can still copy the wrong files or call `install.sh`
-with the wrong cwd.
+a syntax-valid script can still copy the wrong files or seed state incorrectly.
 
 ### Versioning discipline
 

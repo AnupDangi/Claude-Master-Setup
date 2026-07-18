@@ -59,7 +59,7 @@ see each of those fan out further under their own caps.
 1. Same branch / same worktree: **at most one writer**.
 2. Parallel writers: **only via git worktrees** (≤5 under one implementer parent).
 3. Nested children never commit past GATE 2. Parent implementer owns integration;
-   orchestrator owns VALIDATE → REVIEW → GATE 2 → COMMIT.
+   orchestrator owns VALIDATE → REVIEW + SECURITY → GATE 2 → COMMIT.
 4. Fan out only when slices are **file-disjoint**. Shared hot modules → serialize.
 5. No mid-BUILD expansion beyond the GATE 1–approved fan-out map (deviation → stop
    for approval).

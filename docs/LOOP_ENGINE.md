@@ -12,7 +12,7 @@ A single-task, linear state machine, run by the `orchestrator` subagent via
 `/loop`:
 
 ```
-SELECT → PLAN → [GATE 1] → BUILD → VALIDATE (hard gate) → REVIEW → [GATE 2] → COMMIT → LOOP
+SELECT → DISCOVER → PLAN → [GATE 1] → BUILD → VALIDATE (hard gate) → REVIEW + SECURITY → [GATE 2] → COMMIT → LOOP
 ```
 
 - **SELECT** is one step, not a scheduler: read `docs/ROADMAP.md` +

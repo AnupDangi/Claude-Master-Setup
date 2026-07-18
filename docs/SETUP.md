@@ -130,9 +130,10 @@ cheapest point to correct a wrong assumption.
   (Had a test failed, you'd see a precise RED report and BUILD would retry —
   up to `HARNESS_MAX_VALIDATE_RETRIES`, default 3 — before stopping to ask
   you, rather than looping forever.)
-- **REVIEW** — `reviewer` checks edge cases (0-byte file? a directory passed
-  by mistake?) and reports findings, severity-ranked. No `security` this
-  time — nothing here touches auth, input-trust boundaries, or secrets.
+- **REVIEW + SECURITY** — `reviewer` checks edge cases (0-byte file? a
+  directory passed by mistake?) and reports findings, severity-ranked.
+  `security` still runs every iteration (a light pass is OK when nothing
+  touches auth, input-trust boundaries, or secrets).
 - **GATE 2** — you see the diff, the GREEN result, and the review findings.
   **You type "approve"** (or ask for a fix first).
 - **COMMIT** — one commit (e.g. `feat: add wordcount CLI with counts`);

@@ -52,13 +52,18 @@ pinned the normal npm way, e.g. `npx claude-master-setup@0.2.0`).
 **Publish checklist (before every release):**
 - ✅ `LICENSE`, `package.json` metadata (`license`, `author`, `keywords`,
   `repository`, `homepage`, `bugs`, `bin`, **`files`**).
-- ✅ Explicit `"files"` allowlist so `.gitignore` is always packed (npm’s
-  gitignore-fallback omits the `.gitignore` file itself).
+- ✅ Explicit `"files"` allowlist; scaffold gitignore is
+  `templates/gitignore` (npm **strips** `.gitignore` from installed
+  packages even when present in the tarball — never rely on packing
+  `.gitignore` alone).
 - ✅ `.npmignore` excludes `.claude/state/`, `settings.local.json`, and
   local `test-harness/` so they never ship.
-- ✅ `npm pack --dry-run` lists `.gitignore` and does **not** list
+- ✅ `npm pack --dry-run` lists `templates/gitignore` and does **not** list
   `test-harness/`.
-- ✅ Fresh scaffold: `npx . /tmp/cms-smoke && bash /tmp/cms-smoke/scripts/self-check.sh`
+- ✅ Fresh scaffold **from outside this repo** (nested dirs inherit this
+  package name and break `npx`):  
+  `cd /tmp && npx . /tmp/cms-smoke && bash /tmp/cms-smoke/scripts/self-check.sh`  
+  Confirm `/tmp/cms-smoke/.gitignore` includes `node_modules/`.
 
 **Publish steps:**
 ```bash

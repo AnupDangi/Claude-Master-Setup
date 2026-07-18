@@ -7,8 +7,11 @@
  *
  * Usage:
  *   npx claude-master-setup [target-dir]
- *   npx claude-master-setup@0.1.1 [target-dir]
+ *   npx claude-master-setup@0.1.2 [target-dir]
  *   npx github:AnupDangi/Claude-Master-Setup [target-dir]
+ *
+ * Note: npm strips `.gitignore` from installed packages, so the scaffold
+ * template lives at templates/gitignore and is written as `.gitignore`.
  */
 const fs = require('fs');
 const path = require('path');
@@ -22,7 +25,6 @@ const COPY_ITEMS = [
   'CLAUDE.md',
   'MASTER-PROMPT.md',
   '.env.example',
-  '.gitignore',
 ];
 // Runtime/local state and editor-local files never get copied into a new install.
 const SKIP_RELATIVE = new Set([
@@ -70,6 +72,27 @@ function copyRecursive(src, dest) {
   }
 }
 
+function installGitignore(dest) {
+  const destPath = path.join(dest, '.gitignore');
+  if (fs.existsSync(destPath)) {
+    console.log('  skip (already exists): .gitignore');
+    return true;
+  }
+  // Prefer templates/gitignore — survives npm install (npm strips .gitignore).
+  const candidates = [
+    path.join(PKG_ROOT, 'templates', 'gitignore'),
+    path.join(PKG_ROOT, '.gitignore'),
+  ];
+  for (const src of candidates) {
+    if (!fs.existsSync(src)) continue;
+    fs.copyFileSync(src, destPath);
+    console.log('  + .gitignore');
+    return true;
+  }
+  console.log('  ! missing from package (skipped): .gitignore');
+  return false;
+}
+
 function main() {
   const arg = process.argv[2];
 
@@ -98,11 +121,9 @@ function main() {
 
   console.log(`Claude Master Setup — installing into ${dest}\n`);
 
-  let missing = [];
   for (const item of COPY_ITEMS) {
     const srcPath = path.join(PKG_ROOT, item);
     if (!fs.existsSync(srcPath)) {
-      missing.push(item);
       console.log(`  ! missing from package (skipped): ${item}`);
       continue;
     }
@@ -115,10 +136,10 @@ function main() {
     console.log(`  + ${item}`);
   }
 
-  if (missing.includes('.gitignore')) {
+  if (!installGitignore(dest)) {
     console.error(
-      '\nPackage is incomplete: .gitignore was not published. ' +
-        'Reinstall a newer version (0.1.1+) or open an issue.'
+      '\nPackage is incomplete: gitignore template missing. ' +
+        'Reinstall claude-master-setup@0.1.2+ or open an issue.'
     );
   }
 
@@ -133,7 +154,6 @@ function main() {
     return;
   }
 
-  // install.sh already prints next steps; keep a one-line pointer for npx users.
   if (target !== '.') {
     console.log(`\nScaffold ready. cd ${target} then open Claude Code.`);
   } else {

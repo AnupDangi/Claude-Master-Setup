@@ -4,7 +4,7 @@
 `~/.claude` or `./.claude` and merges recommended plugin flags into
 `settings.json`. That requires filesystem writes by design.
 
-## What this package does *not* do (0.2.4+)
+## What this package does *not* do (current v0.4 installer)
 
 - No `child_process` / shell execution in `bin/cli.js`
 - No `process.env` reads in the installer (use `--config-dir`; Claude CLI
@@ -24,8 +24,8 @@ plugins is a **separate, user-run** step via the Claude Code CLI or `/plugin`
 | Alert | Expected? | Why |
 |---|---|---|
 | Filesystem access | Yes | Installer must write agents/commands/docs |
-| Shell access | No (fixed in 0.2.4+) | Removed from CLI |
-| Environment variable access | No (fixed in 0.2.4+) | Removed from CLI |
+| Shell access | No | CLI copies/merges files with Node APIs only |
+| Environment variable access | No | Uses explicit flags + standard home lookup |
 | URL strings | Minimal | CLI avoids hardcoded fetches |
 | AI / installer anomaly | Possible | Heuristic for “copies files to home” |
 

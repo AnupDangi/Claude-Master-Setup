@@ -9,13 +9,16 @@ than one agent at a time.
 
 ### How it works today
 
-`package.json` + `bin/cli.js` (no dependencies). `npx
-github:AnupDangi/Claude-Master-Setup [target-dir]` clones the repo fresh into
-npx's cache, runs `bin/cli.js`, which copies `.claude/`, `docs/`, `scripts/`,
-`CLAUDE.md`, `MASTER-PROMPT.md`, `.env.example` into the target (skipping
-anything already there) and then runs `scripts/install.sh` — the same script
-a manual git-clone install runs. This works **without publishing to the npm
-registry** at all.
+`package.json` + `bin/cli.js` (no dependencies, no lifecycle scripts).
+`npx claude-master-setup@0.4.0 [target-dir]` (or `npx
+github:AnupDangi/Claude-Master-Setup` from a tagged/default branch) runs
+`bin/cli.js`, which copies `.claude/`, `docs/`, `scripts/`, `CLAUDE.md`,
+`MASTER-PROMPT.md`, `.env.example` into the target (skipping anything already
+there) and **seeds project state inline** via `seedProject()` — it does **not**
+invoke `scripts/install.sh`. The git-clone path still uses
+`bash scripts/install.sh` for the same end state. Current pack is ~91 files /
+~125 kB (`npm pack --dry-run`). Works **without** publishing when using the
+GitHub URL.
 
 ### Local development loop
 
@@ -28,8 +31,7 @@ cd /tmp/some-scratch-dir && bash scripts/self-check.sh   # confirm the result is
 ```
 
 This is exactly how it was verified when built — don't skip the actual run;
-a syntax-valid script can still copy the wrong files or call `install.sh`
-with the wrong cwd.
+a syntax-valid script can still copy the wrong files or seed state incorrectly.
 
 ### Versioning discipline
 
@@ -37,8 +39,8 @@ with the wrong cwd.
   of copied files changes in a way users would notice.
 - `npx github:user/repo` always pulls the **current default-branch HEAD** —
   there's no version pinning by default. If you want installs to be
-  reproducible, tag releases (`git tag v0.2.0`, push the tag) and tell users
-  to install via `npx github:AnupDangi/Claude-Master-Setup#v0.2.0` (append
+  reproducible, tag releases (`git tag v0.4.0`, push the tag) and tell users
+  to install via `npx github:AnupDangi/Claude-Master-Setup#v0.4.0` (append
   `#<tag>`) instead of the bare form.
 - Tagging and pushing tags is a real, visible action on the shared repo —
   confirm before pushing, same as any other push.
@@ -47,7 +49,7 @@ with the wrong cwd.
 
 Nothing about `npx github:...` requires this. Publish only if you want the
 shorter `npx claude-master-setup` (no `github:` prefix, and a version can be
-pinned the normal npm way, e.g. `npx claude-master-setup@0.2.0`).
+pinned the normal npm way, e.g. `npx claude-master-setup@0.4.0`).
 
 **Publish checklist (before every release):**
 - ✅ `LICENSE`, `package.json` metadata (`license`, `author`, `keywords`,
@@ -58,6 +60,9 @@ pinned the normal npm way, e.g. `npx claude-master-setup@0.2.0`).
   `.gitignore` alone).
 - ✅ `.npmignore` excludes `.claude/state/`, `settings.local.json`, and
   local `test-harness/` so they never ship.
+- ✅ `prepack` intentionally runs the full harness self-check for both
+  `npm pack` and `npm publish`; `npm test` uses a recursion guard because
+  `self-check.sh` normally asks `validate.sh` to invoke the stack test command.
 - ✅ `npm pack --dry-run` lists `templates/gitignore` and does **not** list
   `test-harness/`.
 - ✅ Fresh scaffold **from outside this repo** (nested dirs inherit this
@@ -67,9 +72,14 @@ pinned the normal npm way, e.g. `npx claude-master-setup@0.2.0`).
 
 **Publish steps:**
 ```bash
+npm run check:harness
+npm test
+npm pack --dry-run
+npm publish --dry-run --access public
 npm whoami                      # must be logged in
-npm version patch               # or set version in package.json (e.g. 0.1.1)
-npm publish                     # add --access public if using a scoped name
+git tag v0.4.0                  # after approving the exact commit
+git push origin v2-os --tags
+npm publish --access public
 ```
 
 **After publishing:**
@@ -106,7 +116,7 @@ Two ways any of the 11 agents runs:
 | `implementer-opus` | Never directly, same reason — the orchestrator picks it automatically when `task_complexity` is `large`. To get it for a specific task, ask the orchestrator to reclassify that task's complexity, not to switch agents | Same job, Opus tier |
 | `validator` | `/validate` | GREEN/RED right now, outside the loop |
 | `reviewer` | `/review [paths]` | Severity-ranked quality findings |
-| `security` | Auto-added to `/review` when the diff touches auth/input/secrets/payments/uploads; or ask explicitly | Severity-ranked security findings |
+| `security` | Runs every loop REVIEW; full OWASP pass for auth/input/data/network/secrets/payments/uploads, light pass for pure docs | Severity-ranked security findings |
 | `docs-writer` | `/handoff`, or automatic at COMMIT | Synced `PROJECT_STATE.md`/`CHANGELOG.md`/etc. |
 | `mcp-scout` | `/mcp-add <tool>` | A checked, consented `.mcp.json` entry |
 | `evaluator` | `/evaluate` | The objective-metrics scorecard |
@@ -118,42 +128,48 @@ time so the classification reflects it.
 
 ## Part 3 — Building with a swarm of agents
 
-"Swarm" can mean two different things here, and only one is safe with how
-this harness is built.
+Full capability/parallelism protocol:
+[`CAPABILITY_ORCHESTRATION.md`](CAPABILITY_ORCHESTRATION.md) (ADR-003).
 
-### Safe to run in parallel
+"Swarm" means three different things here — only some are safe.
 
-Anything **read-only** can run side by side, because there's no file it
-could collide on:
-- Multiple research/investigation agents at once (this is how this repo's
-  own harness got explored at the start of a session — several read-only
-  agents each covering a different area).
-- `reviewer` + `security` already run together conceptually during REVIEW.
+### Hierarchical caps (built)
+
+| Parent | Max parallel children | Kind |
+|---|---|---|
+| Orchestrator | 3 (`HARNESS_MAX_PARALLEL_ORCH`) | Top-level specialists |
+| Planner | 3 (`HARNESS_MAX_PARALLEL_PLANNER`) | Read-only research |
+| Implementer (parent) | 5 (`HARNESS_MAX_PARALLEL_IMPLEMENTER`) | Writers in **separate worktrees** |
+| Evaluator | 3 (`HARNESS_MAX_PARALLEL_EVALUATOR`) | Read-only collectors |
+
+Caps are per parent. Nested children never bypass GATE 2.
+
+### Safe to run in parallel (same worktree)
+
+Anything **read-only** can run side by side:
+- Planner's ≤3 research subagents; evaluator's ≤3 collectors.
+- `reviewer` + `security` during REVIEW (orchestrator launches both together).
 - `/evaluate` in one worktree while `/loop` runs in another — `evaluator`
-  never writes.  
+  never writes.
 
-### Not safe, and why this harness doesn't do it
+### Not safe: multi-writer on the same branch
 
 Running multiple `implementer`/`implementer-opus` instances **concurrently
-on the same branch**, even on "different" tasks, risks:
-- Two agents editing the same file at once → conflicts or silently
-  overwritten work.
-- Two concurrent `scripts/validate.sh` runs → non-deterministic results,
-  interleaved logs.
-- Breaking the two-gate model — GATE 1 approves a specific plan; there's no
-  meaningful approval for work a second agent is already doing in parallel.
+on the same branch** risks conflicting edits, interleaved `validate.sh`, and
+broken gates. That remains forbidden.
 
-This is exactly why `docs/LOOP.md`'s SELECT step is single-task: one
-implementer variant, building one task, gated twice, every time. That
-constraint isn't an oversight — it's the thing that makes the gates mean
-anything.
+### Safe parallel writers: worktree fan-out (intra-task)
 
-### The harness's actual "swarm" pattern: parallel worktrees
+When GATE 1 approves a file-disjoint `fanout` map, the **parent** implementer
+creates ≤5 worktrees via `scripts/worktree-fanout.sh`, runs one child writer
+per worktree, merges into the integration branch, then the orchestrator runs
+**one** VALIDATE on the merged tree. See
+[`CAPABILITY_ORCHESTRATION.md`](CAPABILITY_ORCHESTRATION.md).
 
-See `docs/DEVELOPMENT_WORKFLOW.md`. Each `git worktree` gets its own branch,
-its own `orchestrator` running its own `/loop`, and its own auto-memory — so
-N independent features build in parallel without ever touching the same
-files:
+### Multi-feature swarm: parallel worktrees + `/loop`
+
+See `docs/DEVELOPMENT_WORKFLOW.md`. Independent roadmap items still scale as
+N worktrees, each with its own `/loop`:
 
 ```bash
 git worktree add ../myproj-payments feat/payments
@@ -161,20 +177,34 @@ git worktree add ../myproj-notifications feat/notifications
 # one `claude` session per worktree, each running /loop independently
 ```
 
-This is the harness's real horizontal scaling: N loops, N branches, N sets of
-gates — never N agents racing on one branch.
+### If you want faster iteration
 
-### If you want faster iteration, not more concurrency
-
-The actual lever is better slicing of the *next* task, not more agents on
-the current one: Task Graphs (built — `docs/LOOP_ENGINE.md`) already let
-`planner` break an oversized item into an ordered sub-task list under one
-approval. The not-yet-built Scheduler would go further and pick which of
-several *independent* roadmap items to run next — still one implementer
-variant per task, just a smarter choice of which task.
+1. Approve a worktree `fanout` when slices are file-disjoint (≤5 writers).
+2. Let planner/evaluator use nested research/collectors (≤3 each).
+3. Inject local skills via DISCOVER (≤3 per Task).
+4. For independent features, use separate `/loop` worktrees — not one branch
+   with many writers.
 
 ---
 
+## Part 4 — Why a `/loop` can run for an hour (and how to stop it)
+
+This is **not** usually an infinite loop in code. Typical cause:
+
+1. Bootstrap wrote a **fine-grained** roadmap (10–20 items).
+2. Human said "complete the end version" / "finish everything".
+3. Orchestrator **auto-approved** gates and kept SELECT→COMMIT for every item.
+4. Each item costs a full PLAN (often minutes) + BUILD + VALIDATE + REVIEW.
+5. Session/API limit kills the agent mid-iteration — no playable demo yet.
+
+Mitigations (built in):
+
+- `/loop` default **`max-iterations=1`** — stop after one COMMIT; run again.
+- Raise deliberately: `/loop max-iterations=3`.
+- Never treat "finish everything" as skip-GATE permission.
+- Bootstrap: coarse milestones for small apps.
+
 See also: `docs/SETUP.md` (day-to-day usage), `docs/AGENTS.md` (full agent
 reference), `docs/MODEL_ROUTING.md` (the `implementer`/`implementer-opus`
-mechanism), `docs/DEVELOPMENT_WORKFLOW.md` (worktrees in full).
+mechanism), `docs/DEVELOPMENT_WORKFLOW.md` (worktrees in full),
+`docs/CAPABILITY_ORCHESTRATION.md` (skills + fan-out).

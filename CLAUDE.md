@@ -48,20 +48,24 @@ If a future worktree or session must know something, it goes in `CLAUDE.md` or
 
 ## The build loop
 
-The loop is the product. Full spec in `docs/LOOP.md`. One iteration:
+The loop is the product. Full spec in `docs/LOOP.md`. Capability layer (local
+skills, hierarchical subagents, worktree fan-out) in
+`docs/CAPABILITY_ORCHESTRATION.md`. One iteration:
 
 ```
-SELECT → PLAN → [gate: approve plan] → BUILD → VALIDATE (hard gate)
-       → REVIEW → [gate: approve merge] → COMMIT → update state → LOOP
+SELECT → DISCOVER → PLAN → [gate: approve plan] → BUILD → VALIDATE (hard gate)
+       → REVIEW + SECURITY → [gate: approve merge] → COMMIT → update state → LOOP
 ```
 
 - Run it with `/loop`. The **orchestrator** subagent drives it and delegates.
+- Commands state **intent**; orchestrator chooses skills / fan-out / specialists.
 - **Two human gates** (approve the plan; approve the merge) and **one automated
   gate** (validation). None may be skipped.
 - **Validation hard-blocks.** If `scripts/validate.sh` is RED, the loop returns to
   BUILD and will not advance. GREEN is binary — never "green with warnings".
 - **One shippable unit per iteration.** New scope goes on the roadmap, not into the
-  current task.
+  current task. Parallel writers only via worktrees under an approved fan-out map.
+
 
 ## The subagents
 
@@ -85,7 +89,9 @@ Defined in `.claude/agents/`. Full reference in `docs/AGENTS.md`.
 
 `/bootstrap` `/loop` `/plan` `/validate` `/review` `/mcp-add` `/handoff`
 `/status` `/ship` `/evaluate` — defined in `.claude/commands/`, documented in
-`docs/SETUP.md`.
+`docs/SETUP.md`. Brownfield bootstrap: `docs/BROWNFIELD.md`. AI OS control
+plane (events, leases, budget, scorecard): `docs/AI_OS.md`. Build-effort dial
+(fast vs rigorous from PRD/PTR): `docs/BUILD_EFFORT.md`.
 
 ## MCP tools
 
@@ -128,8 +134,10 @@ scheduler-driven) design in [`docs/MODEL_ROUTING.md`](docs/MODEL_ROUTING.md).
 ## Definition of Done (before COMMIT)
 
 - Code **and** tests written; `scripts/validate.sh` is GREEN.
-- Reviewer (and security, if relevant) findings resolved — no open Critical/High.
-- Docs updated: `PROJECT_STATE.md`, `CHANGELOG.md`, and any changed surface doc.
+- **Reviewer and security** findings resolved — no open Critical/High (security
+  runs every iteration; light pass OK on pure docs).
+- Docs updated: `PROJECT_STATE.md`, `CHANGELOG.md`, and any changed surface doc
+  (keep terse on `fast` build-effort tier — see `docs/BUILD_EFFORT.md`).
 - Commit is atomic with a conventional message.
 
 ---

@@ -12,7 +12,7 @@ A single-task, linear state machine, run by the `orchestrator` subagent via
 `/loop`:
 
 ```
-SELECT → PLAN → [GATE 1] → BUILD → VALIDATE (hard gate) → REVIEW → [GATE 2] → COMMIT → LOOP
+SELECT → DISCOVER → PLAN → [GATE 1] → BUILD → VALIDATE (hard gate) → REVIEW + SECURITY → [GATE 2] → COMMIT → LOOP
 ```
 
 - **SELECT** is one step, not a scheduler: read `docs/ROADMAP.md` +
@@ -117,11 +117,33 @@ implemented. Treat this section as a design target that future iterations pick
 off the roadmap one slice at a time — the same "one shippable unit per
 iteration" rule in `CLAUDE.md` applies to building the engine itself.
 
+## Capability-driven orchestration (built — Milestone 4)
+
+Separate from the Scheduler target above, the harness now has a **capability
+layer** on top of the existing loop (ADR-003). Full spec:
+[`CAPABILITY_ORCHESTRATION.md`](CAPABILITY_ORCHESTRATION.md).
+
+What it adds without changing the phase machine:
+
+- **DISCOVER** — filesystem index of local Claude Code skills (project, user,
+  best-effort plugins); no web/marketplace search inside the loop.
+- **Hierarchical subagents** — orchestrator ≤3 top-level; planner/evaluator may
+  each spawn ≤3 nested read-only children; implementer parent may spawn ≤5
+  **worktree** writer children under a GATE 1–approved fan-out map.
+- **Structured Task prompts** — every L0/L1 Task uses `docs/templates/AGENT_TASK.md`.
+- **Worktree fan-out** — `scripts/worktree-fanout.sh`; same-branch multi-writer
+  remains forbidden (`OPERATIONS.md`).
+
+This is **built**. It is not the Scheduler (value/risk ranking across many
+roadmap items) — that gap table above still applies.
+
 ## Command philosophy
 
 Today's commands already map to complete workflows, not raw primitives:
 `/bootstrap` (repository analysis → architecture → docs → roadmap) and `/loop`
-(select → plan → build → validate → review → commit). Any future `/run` or
-`/evaluate` command should keep that shape — one command, one complete
-outcome — rather than exposing scheduler internals as separate commands a user
-has to sequence by hand.
+(select → plan → build → validate → review → commit). Commands stay
+**intent-only**; skill discovery, nested fan-out, and worktree parallelism are
+orchestrator/specialist concerns (see `CAPABILITY_ORCHESTRATION.md`). Any future
+`/run` command should keep that shape — one command, one complete outcome —
+rather than exposing scheduler internals as separate commands a user has to
+sequence by hand.

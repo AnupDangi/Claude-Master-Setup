@@ -1,17 +1,24 @@
 {
   "name": "claude-master-setup",
-  "version": "0.2.8",
-  "description": "Autonomous software engineering harness for Claude Code — plan, build, validate, review, and commit in an engineered loop with specialist subagents and hard quality gates.",
+  "version": "0.4.0",
+  "description": "AI OS harness for Claude Code — build-effort dial, engineered loop (plan/build/validate/review/security/commit), local skills, worktree fan-out, event log, leases, and hard quality gates.",
   "bin": {
     "claude-master-setup": "bin/cli.js"
+  },
+  "scripts": {
+    "test": "HARNESS_SELF_CHECK_SKIP_VALIDATE=1 bash scripts/self-check.sh && node --check bin/cli.js",
+    "check:harness": "bash scripts/self-check.sh",
+    "prepack": "bash scripts/self-check.sh && node --check bin/cli.js"
   },
   "files": [
     ".claude/agents",
     ".claude/commands",
     ".claude/context",
     ".claude/hooks",
+    ".claude/skills",
     ".claude/statusline.sh",
     ".claude/settings.json",
+    ".github/workflows",
     "assets",
     "bin",
     "docs",

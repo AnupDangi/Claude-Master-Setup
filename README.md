@@ -21,9 +21,14 @@ see [`docs/COMPANIONS.md`](docs/COMPANIONS.md). Full vision in
 [`docs/VISION.md`](docs/VISION.md).
 
 ```
-/bootstrap   # PRD + PTR  → architecture, CLAUDE.md, docs/, roadmap  (no code yet)
-/loop        # runs the build loop until the roadmap is done, gates and all
+/bootstrap   # greenfield (PRD+PTR) or brownfield (existing code) → docs + roadmap
+/loop        # one shippable unit per run (default); gates + budget + event log
+/evaluate    # objective scorecard → feeds next SELECT
 ```
+
+AI OS control plane (events, leases, budget, hard path block, harness CI):
+[`docs/AI_OS.md`](docs/AI_OS.md). Build-effort dial (generic apps faster, complex
+systems full rigor — review+security always): [`docs/BUILD_EFFORT.md`](docs/BUILD_EFFORT.md).
 
 ## Why it exists
 
@@ -64,28 +69,28 @@ Going deeper — MCP, skills, subagents:
 
 ```
 CLAUDE.md                 # permanent project memory + how the harness works
-MASTER-PROMPT.md          # the /bootstrap prompt: PRD+PTR → engineering foundation
+MASTER-PROMPT.md          # /bootstrap (v3): build-effort → foundation (no feature code)
 .claude/
-├── agents/               # 11 subagents (orchestrator, planner, architect,
-│                         #   implementer + implementer-opus, validator,
-│                         #   reviewer, security, docs-writer, mcp-scout,
-│                         #   evaluator)
-├── commands/             # 10 slash commands (/loop, /plan, /validate, /review,
-│                         #   /mcp-add, /bootstrap, /handoff, /status, /ship,
-│                         #   /evaluate)
-├── hooks/                # fail-safe shell hooks (guard, protect, track, remind)
-├── context/              # optional mode profiles (dev, review, research)
-├── state/                # loop state (gitignored, worktree-local)
-└── settings.json         # permissions + hooks — self-contained, no plugin
-docs/                     # VISION, LOOP_ENGINE, STATE_ENGINE, MODEL_ROUTING,
-│                         #   EVALUATION, LOOP, AGENTS, MCP, SETUP + full
-│                         #   per-project doc set
+├── agents/               # 11 subagents (orchestrator … evaluator)
+├── commands/             # 10 slash commands (/bootstrap … /evaluate)
+├── skills/               # capability-orchestrator (local skills + fan-out)
+├── hooks/                # pre-bash-guard, protect-paths (control-plane), …
+├── state/                # loop + events + leases + scorecard (gitignored)
+└── settings.json         # acceptEdits + hooks + budget env (not a sandbox)
+docs/
+├── SETUP.md              # install & day-1 workflow
+├── LOOP.md / AI_OS.md    # loop + event log, leases, budget
+├── BUILD_EFFORT.md       # fast | standard | rigorous dial
+├── BROWNFIELD.md         # bootstrap existing codebases
+└── …                     # AGENTS, SECURITY, EVALUATION, ROADMAP, …
 scripts/
-├── validate.sh           # the gate: format, lint, typecheck, test, build (auto-detected)
-├── detect-stack.sh       # stack/package-manager detection
-├── install.sh            # one-shot setup
-├── self-check.sh         # verify the harness is wired correctly
-└── mcp-catalog.json      # curated tool → MCP-server map
+├── validate.sh           # hard GREEN/RED gate
+├── estimate-build-effort.sh
+├── loop-event.sh / lease.sh / budget-check.sh / write-scorecard.sh
+├── list-local-skills.sh / select-skills.sh / worktree-fanout.sh
+├── self-check.sh         # verify harness wiring
+└── mcp-catalog.json
+.github/workflows/        # harness CI (self-check + guards)
 ```
 
 No signup, no config wizard. Just files Claude Code already knows how to read.
@@ -126,14 +131,12 @@ claude                       # start Claude Code — agents/commands load automa
 /status                      # where you are
 ```
 
-**Global** installs agents + slash commands into `~/.claude/` so `/loop`,
-`/plan`, `/validate`, … work in any project. It also merges recommended
-companion marketplaces into `~/.claude/settings.json` (claude-mem, superpowers,
-code-review, Antigravity skills), and installs a `statusline.sh` (model / git / session + rate-limit bars / cost)
-**only if you don’t already have one**. Cloned / cloud projects get the same bar
-via project `.claude/settings.json`. **Local** also drops hooks,
-`scripts/validate.sh`, and docs into the current repo (needed for the hard
-validation gate). Re-running is safe: existing dirs are timestamp-backed up.
+**Global** installs agents + slash commands into `~/.claude/` and merges companion
+marketplaces into `~/.claude/settings.json`. **Statusline is user-level only:**
+`python3 "$HOME/.claude/statusline.sh"` (project settings must not point at
+`$CLAUDE_PROJECT_DIR/.../statusline.sh`). **Local** also drops hooks,
+`scripts/validate.sh`, AI OS scripts, and docs into the current repo. Re-running
+is safe: existing dirs are timestamp-backed up.
 
 ### Recommended companions
 
@@ -175,50 +178,46 @@ my-project/
 ```
 
 ```
-/bootstrap    # generates architecture, CLAUDE.md, docs/, and a build roadmap — no code yet
-/loop         # builds the roadmap, one validated increment at a time
+/bootstrap    # build-effort estimate → architecture + docs + roadmap (no feature code)
+/loop         # one shippable unit per run (default); VALIDATE + REVIEW + SECURITY
 ```
+
+Day-1: [`docs/SETUP.md`](docs/SETUP.md) · What to use when: [`docs/AI_OS.md`](docs/AI_OS.md) ·
+Complexity dial: [`docs/BUILD_EFFORT.md`](docs/BUILD_EFFORT.md)
+
 ## Core capabilities
 
-**Built and working today:**
+**Built and working today (v0.4 / branch `v2-os`):**
 
-- **Build loop** — plan → build → validate → review → commit, with two human
-  approval gates and one hard automated gate. [`docs/LOOP.md`](docs/LOOP.md)
-- **Validation retry cap** — RED results loop back to BUILD up to
-  `HARNESS_MAX_VALIDATE_RETRIES` (default 3) times, then the loop stops and
-  escalates to a human (`await-human-on-red`) instead of retrying forever.
-- **Subagent system** — 11 least-privilege specialists, isolated context per
-  call. [`docs/AGENTS.md`](docs/AGENTS.md)
-- **State tracking** — `.claude/state/loop.json` plus `docs/PROJECT_STATE.md`
-  so a fresh session can resume with zero conversation history.
+- **Build loop** — SELECT → DISCOVER → PLAN → approve → BUILD → VALIDATE →
+  REVIEW + SECURITY → approve → COMMIT. [`docs/LOOP.md`](docs/LOOP.md)
+- **Build-effort dial** — `estimate-build-effort.sh` → `fast|standard|rigorous`
+  from PRD/PTR (generic apps: thin docs / outcome-first; complex systems: full
+  rigor). Review + security **always**. [`docs/BUILD_EFFORT.md`](docs/BUILD_EFFORT.md)
+- **AI OS control plane** — event log, leases, budget stop, scorecard→SELECT,
+  hard path + control-plane blocking, harness CI, brownfield bootstrap.
+  [`docs/AI_OS.md`](docs/AI_OS.md)
+- **Capability orchestration** — local skills, hierarchical caps, worktree
+  fan-out. [`docs/CAPABILITY_ORCHESTRATION.md`](docs/CAPABILITY_ORCHESTRATION.md)
+- **Validation retry cap** — RED → BUILD up to `HARNESS_MAX_VALIDATE_RETRIES`
+  (default 3), then `await-human-on-red`.
+- **Subagents** — 11 specialists. [`docs/AGENTS.md`](docs/AGENTS.md)
+- **State** — `loop.json` + events/leases/scorecard + `docs/PROJECT_STATE.md`.
   [`docs/STATE_ENGINE.md`](docs/STATE_ENGINE.md)
-- **Model routing** — Haiku/Sonnet/Opus matched to each agent's job, static for
-  most agents, dynamic for the highest-value case: BUILD delegates to
-  `implementer` (Sonnet) or `implementer-opus` (Opus) based on task
-  complexity. [`docs/MODEL_ROUTING.md`](docs/MODEL_ROUTING.md)
-- **`npx`-installable** — `npx claude-master-setup` installs into Claude Code
-  (`--global` → `~/.claude`, `--local` → `./.claude`) with an interactive prompt;
-  `--scaffold [dir]` remains for legacy folder dumps.
-- **MCP discovery** — `/mcp-add` finds and wires external tools with consent.
-  [`docs/MCP.md`](docs/MCP.md)
-- **Task graphs** — `planner` splits an oversized roadmap item into an
-  ordered, pre-approved sub-task list instead of silently taking one slice.
-- **Dependency-aware SELECT** — `docs/ROADMAP.md` items can declare
-  `(depends: ...)`; the orchestrator skips unsatisfied candidates and states
-  why. [`docs/LOOP.md`](docs/LOOP.md)
-- **`/evaluate` scorecard (objective metrics only)** — tests/build status,
-  an iteration-count proxy from git history, and documentation completeness.
-  Explicitly does **not** score planning, architecture, security, or
-  performance yet, and reports "not tracked" for manual interventions rather
-  than guessing. [`docs/EVALUATION.md`](docs/EVALUATION.md)
-
-**Designed, not yet built** (tracked in [`docs/ROADMAP.md`](docs/ROADMAP.md)):
-
-- **Subjective evaluation metrics** — planning/architecture/security/
-  performance scoring, and feeding scores back into SELECT decisions.
+- **Model routing** — BUILD picks `implementer` vs `implementer-opus` by
+  `task_complexity`. [`docs/MODEL_ROUTING.md`](docs/MODEL_ROUTING.md)
+- **`npx`-installable** — `--global` / `--local` / `--scaffold`.
+- **MCP discovery** — `/mcp-add`. [`docs/MCP.md`](docs/MCP.md)
+- **Task graphs + dependency-aware SELECT** — `(depends: …)` on roadmap items.
+- **`/evaluate`** — objective scorecard (tests, loop-event iterations, docs
+  completeness, manual interventions from event log) → SELECT bias.
   [`docs/EVALUATION.md`](docs/EVALUATION.md)
-- **Benchmark suite, template library, plugin/marketplace packaging** — see
-  Milestone 3 in [`docs/ROADMAP.md`](docs/ROADMAP.md).
+
+**Still backlog** ([`docs/ROADMAP.md`](docs/ROADMAP.md)):
+
+- Full Scheduler (value/risk ranking across many items)
+- Subjective evaluation metrics
+- Benchmark suite / plugin marketplace packaging (Milestone 3)
 
 ## The build loop
 
@@ -229,20 +228,16 @@ end-to-end with real subagents against a throwaway project — see
 honest limitations found.
 
 ```
-SELECT → PLAN → [approve plan] → BUILD → VALIDATE (hard gate, retry-capped)
-       → REVIEW → [approve merge] → COMMIT → update docs → LOOP
+SELECT → DISCOVER → PLAN → [approve] → BUILD → VALIDATE (hard gate)
+       → REVIEW + SECURITY → [approve] → COMMIT → update docs → LOOP
 ```
 
-- **Two human gates** (approve the plan, approve the merge) + **one automated gate**
-  (validation). None can be skipped.
-- **Validation hard-blocks.** RED means the loop returns to BUILD and will not
-  advance. GREEN is binary — no "green with warnings," no skipping a check to pass.
-  After `HARNESS_MAX_VALIDATE_RETRIES` consecutive RED results, the loop stops
-  itself and asks a human instead of retrying forever.
-- **One shippable unit per iteration.** New scope goes on the roadmap, not into the
-  current task.
-- Stop anytime; resume with `/loop`. The **repository** remembers where it was, not
-  the chat.
+- **Two human gates** + **VALIDATE** + **REVIEW** + **SECURITY** every iteration.
+  None can be skipped (including on `fast` build-effort).
+- Default **one COMMIT per `/loop`** (`HARNESS_MAX_ITERATIONS_PER_RUN=1`).
+- **Validation hard-blocks.** RED → BUILD (retry-capped) or `await-human-on-red`.
+- **One shippable unit per iteration.** Stop anytime; resume with `/loop` — the
+  **repository** remembers, not the chat.
 
 ## Subagents
 
@@ -264,9 +259,10 @@ changes often), and Claude Code's per-worktree auto-memory (continuous, local).
 
 **Companions** (claude-mem, superpowers, code-review, Antigravity skills) close
 gaps that the harness alone does not — especially persistent memory and process
-skills. `npx claude-master-setup --global` installs them via
-`claude plugin marketplace add` / `claude plugin install` when possible.
-Manual fallback: [`docs/COMPANIONS.md`](docs/COMPANIONS.md).
+skills. `npx claude-master-setup --global` **merges companion flags into
+`~/.claude/settings.json` and prints** the `claude plugin marketplace add` /
+`claude plugin install` commands for you to run — it does **not** spawn those
+installs itself. Manual steps: [`docs/COMPANIONS.md`](docs/COMPANIONS.md).
 
 Pair with the harness:
 
@@ -329,17 +325,26 @@ Start minimal, add capability only when a real need appears:
 1. **Solo, single stream** — `/bootstrap` → `/loop`. A complete workflow on day one.
 2. **Add tools** — `/mcp-add` when a task needs a DB, GitHub, or a browser.
 3. **Parallelize** — git worktrees for independent features.
-4. **Loosen autonomy** — auto-approve GATE 1 for low-risk tasks in a trusted project
-   (validation gate always stays on).
-5. **Bundle & share** — package your stabilized agents/commands as a Claude Code
-   plugin; add stack-specific reviewers as the codebase grows. This stays
-   **optional** — see [`docs/DECISIONS.md`](docs/DECISIONS.md) ADR-000 and
-   ADR-001 for why the default install stays self-contained.
-6. **Measure and evolve** — once `/evaluate` exists (see
-   [`docs/EVALUATION.md`](docs/EVALUATION.md)), use its scorecard to see where
-   the loop is actually weak instead of guessing.
+4. **Loosen autonomy carefully** — never auto-approve GATE 2 from “finish everything”;
+   validation + review + security always stay on.
+5. **Measure** — `/evaluate` scorecard → SELECT bias.
+6. **Bundle & share** (optional) — plugin packaging; see ADR-000/001.
 
-Full guide in [`docs/SETUP.md`](docs/SETUP.md).
+Full guide: [`docs/SETUP.md`](docs/SETUP.md).
+
+## Publish (maintainers)
+
+Branch for this release line: **`v2-os`**. Version in `package.json`: **0.4.0**.
+
+```bash
+bash scripts/self-check.sh          # must be green
+git push -u origin v2-os            # when ready
+npm publish --access public         # after npm login; tag optionally v0.4.0
+```
+
+Checklist: [`docs/CHANGELOG.md`](docs/CHANGELOG.md) Unreleased notes, no secrets in
+the tarball (`npm pack --dry-run`), `files` in `package.json` includes scripts +
+`.github/workflows` + docs.
 
 --
 

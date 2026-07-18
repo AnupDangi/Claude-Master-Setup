@@ -1,19 +1,20 @@
 ---
 description: Run the objective-metrics evaluation scorecard against the current project
-argument-hint: [optional: since=<git-ref> to scope the iteration count]
+argument-hint: [optional: since=<git-ref> to scope the git commit proxy]
 allowed-tools: Read, Grep, Glob, Task, Bash(git log:*), Bash(bash scripts/:*)
 model: sonnet
 ---
 
 # Evaluate
 
-Delegate to the **evaluator** subagent to produce the scorecard described in
-`docs/EVALUATION.md` and `.claude/agents/evaluator.md`.
+**Intent:** produce the objective engineering scorecard and persist it for SELECT feedback.
+
+Delegate to the **evaluator** subagent (`docs/EVALUATION.md`, `docs/AI_OS.md`,
+`.claude/agents/evaluator.md`). It must call `scripts/write-scorecard.sh` so
+`.claude/state/last_scorecard.json` updates.
 
 $ARGUMENTS
 
-This reports Tests, Iterations, Documentation completeness, and Manual
-Interventions (currently `not tracked` — the harness keeps no persistent event
-log). It does **not** score Planning, Architecture, Security, or Performance —
-those are subjective and deliberately deferred; see `docs/ROADMAP.md`
-Milestone 2 and `docs/EVALUATION.md`.
+Reports Tests, Iterations (prefer `loop-event.sh` `loop_commits`), Documentation
+completeness, and Manual Interventions (from the event log). Does **not** score
+subjective Planning/Architecture/Security/Performance — see `docs/EVALUATION.md`.

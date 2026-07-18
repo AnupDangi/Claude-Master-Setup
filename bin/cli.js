@@ -304,6 +304,15 @@ function seedProject(projectRoot) {
           max_validate_retries: 3,
           task_graph: null,
           task_complexity: null,
+          skills_index: null,
+          skills_assigned: [],
+          skills_skipped: [],
+          fanout: null,
+          iterations_this_run: 0,
+          max_iterations_per_run: 1,
+          build_effort_tier: null,
+          build_effort_score: null,
+          docs_profile: null,
         },
         null,
         2
@@ -337,6 +346,13 @@ function installGlobal() {
   const commandsDest = path.join(configDir, 'commands');
   const commandsN = copyDirContents(commandsSrc, commandsDest);
   console.log(`  ${green}✓${reset} Installed commands/ (${commandsN} commands)`);
+
+  const skillsSrc = path.join(PKG_ROOT, '.claude', 'skills');
+  if (fs.existsSync(skillsSrc)) {
+    const skillsDest = path.join(configDir, 'skills');
+    const skillsN = copyDirContents(skillsSrc, skillsDest);
+    console.log(`  ${green}✓${reset} Installed skills/ (${skillsN} skills)`);
+  }
 
   const packDest = path.join(configDir, 'claude-master-setup');
   const packBackup = backupIfExists(packDest);
@@ -422,37 +438,90 @@ function mergeCompanionSettings(configDir) {
   console.log(`  ${green}✓${reset} Updated settings.json (companion marketplaces + plugins)`);
 }
 
+function statusLineCommandFor(configDir) {
+  const homeClaude = path.join(os.homedir(), '.claude');
+  if (path.resolve(configDir) === path.resolve(homeClaude)) {
+    return 'python3 "$HOME/.claude/statusline.sh"';
+  }
+  // Custom --config-dir: use an absolute path so the command works even when
+  // CLAUDE_CONFIG_DIR / XDG paths differ from $HOME/.claude.
+  const script = path.join(path.resolve(configDir), 'statusline.sh').replace(/"/g, '\\"');
+  return `python3 "${script}"`;
+}
+
+function isUserStatusLineCommand(cmd, configDir) {
+  if (!cmd || typeof cmd !== 'string') return false;
+  if (!cmd.includes('python3') || !cmd.includes('statusline.sh')) return false;
+  if (cmd.includes('CLAUDE_PROJECT_DIR')) return false;
+  const homeClaude = path.join(os.homedir(), '.claude');
+  if (path.resolve(configDir) === path.resolve(homeClaude)) {
+    return (
+      cmd.includes('$HOME/.claude/statusline.sh') ||
+      cmd.includes('${HOME}/.claude/statusline.sh')
+    );
+  }
+  return cmd.includes(path.resolve(configDir));
+}
+
+function isProjectStatusLineCommand(cmd) {
+  if (!cmd || typeof cmd !== 'string') return false;
+  return cmd.includes('CLAUDE_PROJECT_DIR') && cmd.includes('statusline');
+}
+
 /**
- * Install statusline.sh only if missing; wire settings.statusLine only if unset.
- * Never overwrites an existing script or statusLine config.
+ * Statusline is user-level only (~/.claude/statusline.sh).
+ * Project .claude/ must not wire statusLine to $CLAUDE_PROJECT_DIR — that
+ * confuses cloud/local clones and nested cwds. Hooks stay project-local.
  *
- * @param {string} configDir  ~/.claude or project ./.claude
- * @param {{ projectLevel?: boolean }} [opts]
- *   projectLevel → use $CLAUDE_PROJECT_DIR (cloned / cloud / --local)
+ * @param {string} configDir  ~/.claude (user) or ignored for project wiring
+ * @param {{ projectLevel?: boolean, projectSettingsPath?: string }} [opts]
  */
 function installStatusline(configDir, opts = {}) {
   const src = path.join(PKG_ROOT, '.claude', 'statusline.sh');
-  const dest = path.join(configDir, 'statusline.sh');
   if (!fs.existsSync(src)) return;
 
-  if (fs.existsSync(dest)) {
-    console.log(`  ${dim}skip (already exists): statusline.sh${reset}`);
-  } else {
-    fs.copyFileSync(src, dest);
-    try {
-      fs.chmodSync(dest, 0o755);
-    } catch {
-      /* best-effort on platforms without chmod */
+  const homeClaude = path.join(os.homedir(), '.claude');
+
+  // Project install: strip project statusLine; sync script + wire to ~/.claude only.
+  if (opts.projectLevel) {
+    const projectSettings =
+      opts.projectSettingsPath || path.join(configDir, 'settings.json');
+    if (fs.existsSync(projectSettings)) {
+      try {
+        const settings = JSON.parse(fs.readFileSync(projectSettings, 'utf8'));
+        const cmd = settings.statusLine && settings.statusLine.command;
+        if (settings.statusLine && (isProjectStatusLineCommand(cmd) || cmd)) {
+          delete settings.statusLine;
+          fs.writeFileSync(
+            projectSettings,
+            `${JSON.stringify(settings, null, 2)}\n`,
+            'utf8'
+          );
+          console.log(
+            `  ${green}✓${reset} Removed project statusLine (use ~/.claude only)`
+          );
+        }
+      } catch (err) {
+        console.log(
+          `  ${yellow}!${reset} Could not strip project statusLine (${err.message})`
+        );
+      }
     }
-    console.log(`  ${green}✓${reset} Installed statusline.sh`);
+    // Always refresh user-level statusline from package.
+    installStatusline(homeClaude, { projectLevel: false });
+    return;
   }
 
-  // Ensure executable even when git/cloud dropped the +x bit.
+  const dest = path.join(configDir, 'statusline.sh');
+  fs.mkdirSync(configDir, { recursive: true });
+  fs.copyFileSync(src, dest);
   try {
-    if (fs.existsSync(dest)) fs.chmodSync(dest, 0o755);
+    fs.chmodSync(dest, 0o755);
   } catch {
-    /* ignore */
+    /* best-effort */
   }
+  const destLabel = path.resolve(configDir) === path.resolve(homeClaude) ? '~/.claude/statusline.sh' : dest;
+  console.log(`  ${green}✓${reset} Installed ${destLabel}`);
 
   const settingsPath = path.join(configDir, 'settings.json');
   let settings = {};
@@ -467,26 +536,24 @@ function installStatusline(configDir, opts = {}) {
     }
   }
 
-  if (settings.statusLine) {
-    console.log(`  ${dim}skip (already set): settings.json statusLine${reset}`);
+  const desired = statusLineCommandFor(configDir);
+  const existing = settings.statusLine && settings.statusLine.command;
+  if (isUserStatusLineCommand(existing, configDir) && existing === desired) {
+    console.log(`  ${dim}keep: settings.json statusLine → ${desired}${reset}`);
     return;
   }
 
-  if (!fs.existsSync(dest)) return;
-
-  const homeClaude = path.join(os.homedir(), '.claude');
-  const isHome = path.resolve(configDir) === path.resolve(homeClaude);
-  // python3 + explicit path: reliable when +x is lost (common in cloud clones).
-  const command = opts.projectLevel || !isHome
-    ? 'python3 "$CLAUDE_PROJECT_DIR/.claude/statusline.sh"'
-    : 'python3 "$HOME/.claude/statusline.sh"';
-
   settings.statusLine = {
     type: 'command',
-    command,
+    command: desired,
   };
   fs.writeFileSync(settingsPath, `${JSON.stringify(settings, null, 2)}\n`, 'utf8');
-  console.log(`  ${green}✓${reset} Enabled statusLine in settings.json`);
+  const label = path.resolve(configDir) === path.resolve(homeClaude) ? '~/.claude' : configDir;
+  if (existing) {
+    console.log(`  ${green}✓${reset} Fixed statusLine → ${cyan}${desired}${reset}`);
+  } else {
+    console.log(`  ${green}✓${reset} Enabled statusLine in ${label}/settings.json`);
+  }
 }
 
 function printCompanionNextSteps() {
@@ -546,24 +613,8 @@ function installLocal() {
     return;
   }
 
-  // Preserve an existing project statusline (userers may customize it).
-  const existingStatusline = path.join(claudeDir, 'statusline.sh');
-  let preservedStatusline = null;
-  let preservedStatusLineSetting = null;
-  if (fs.existsSync(existingStatusline)) {
-    preservedStatusline = fs.readFileSync(existingStatusline);
-  }
-  const existingSettings = path.join(claudeDir, 'settings.json');
-  if (fs.existsSync(existingSettings)) {
-    try {
-      const prev = JSON.parse(fs.readFileSync(existingSettings, 'utf8'));
-      if (prev.statusLine) preservedStatusLineSetting = prev.statusLine;
-    } catch {
-      /* ignore */
-    }
-  }
-
   // Copy via temp so backupIfExists never deletes our package source.
+  // Statusline is user-level only — do not preserve project statusLine wiring.
   const tmpClaude = fs.mkdtempSync(path.join(os.tmpdir(), 'cms-claude-'));
   try {
     copyRecursive(srcClaude, tmpClaude);
@@ -574,38 +625,24 @@ function installLocal() {
     }
 
     copyRecursive(tmpClaude, claudeDir);
-    console.log(`  ${green}✓${reset} Installed .claude/ (agents, commands, hooks, settings)`);
+    console.log(`  ${green}✓${reset} Installed .claude/ (agents, commands, hooks, skills, settings)`);
   } finally {
     fs.rmSync(tmpClaude, { recursive: true, force: true });
   }
 
-  if (preservedStatusline) {
-    fs.writeFileSync(existingStatusline, preservedStatusline);
-    try {
-      fs.chmodSync(existingStatusline, 0o755);
-    } catch {
-      /* ignore */
-    }
-    console.log(`  ${dim}kept existing statusline.sh${reset}`);
-  }
-  if (preservedStatusLineSetting) {
-    const settingsPath = path.join(claudeDir, 'settings.json');
-    try {
-      const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf8'));
-      settings.statusLine = preservedStatusLineSetting;
-      fs.writeFileSync(settingsPath, `${JSON.stringify(settings, null, 2)}\n`, 'utf8');
-      console.log(`  ${dim}kept existing settings.json statusLine${reset}`);
-    } catch {
-      /* ignore */
-    }
-  }
-
-  for (const item of ['scripts', 'docs', 'CLAUDE.md', 'MASTER-PROMPT.md', '.env.example']) {
+  for (const item of [
+    'scripts',
+    'docs',
+    'CLAUDE.md',
+    'MASTER-PROMPT.md',
+    '.env.example',
+    '.github/workflows',
+  ]) {
     const src = path.join(PKG_ROOT, item);
     if (!fs.existsSync(src)) continue;
     const dest = path.join(projectRoot, item);
     if (fs.existsSync(dest) && fs.statSync(dest).isDirectory()) {
-      if (item === 'scripts' || item === 'docs') {
+      if (item === 'scripts' || item === 'docs' || item === '.github/workflows') {
         copyRecursive(src, dest);
         console.log(`  ${green}✓${reset} Updated ${item}/`);
         continue;
@@ -632,13 +669,12 @@ function installLocal() {
 
   seedProject(projectRoot);
 
-  // Project-level statusline (cloned repos + Claude Code cloud).
+  // Strip any project statusLine; install/fix statusline only under ~/.claude.
   installStatusline(claudeDir, { projectLevel: true });
 
   const userClaude = path.join(os.homedir(), '.claude');
   fs.mkdirSync(userClaude, { recursive: true });
   mergeCompanionSettings(userClaude);
-  installStatusline(userClaude);
   printCompanionNextSteps();
   finishLocalDone();
 }

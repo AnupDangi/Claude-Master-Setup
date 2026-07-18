@@ -13,6 +13,10 @@
   beyond plain file order — e.g. `- [ ] wire the reset endpoint (depends: password
   hashing util)`. SELECT skips a dependent item until its named dependency is
   `[x]` done, even if no one remembered to also mark it `[!]`.
+- **Anti-pattern:** 15+ micro-items for a small app. `/loop` defaults to
+  **one iteration then stop**; grinding a huge list in one "finish everything"
+  run burns session limits. Prefer coarse milestones; explode detail via Task
+  Graph when needed.
 
 This repo's "product" is the harness itself, so — until someone bootstraps a
 real project on top of it — this roadmap tracks the harness's own evolution
@@ -22,7 +26,7 @@ Loop Engine described in [`LOOP_ENGINE.md`](LOOP_ENGINE.md). See
 built in one pass.
 
 ## Milestone 0 — Foundation (done)
-- [x] Self-contained loop harness: 9 agents, 9 commands, validation gate, MCP
+- [x] Self-contained loop harness: 11 agents, 10 commands, validation gate, MCP
       scout + catalog, fail-safe hooks (see `docs/VALIDATION.md`)
 - [x] Validation retry cap + `await-human-on-red` escalation (ADR-001)
 - [x] Vision/engine design docs: `VISION.md`, `LOOP_ENGINE.md`, `STATE_ENGINE.md`,
@@ -44,17 +48,15 @@ built in one pass.
       dependencies) — `npx github:AnupDangi/Claude-Master-Setup [target-dir]`
       copies `.claude/`, `docs/`, `scripts/`, `CLAUDE.md`, `MASTER-PROMPT.md`,
       `.env.example` into the target (skipping anything already there) and
-      runs `scripts/install.sh`, exactly what a manual git-clone install does.
-      Works without publishing to the npm registry. Tested end-to-end into a
-      scratch directory; the result passed `scripts/self-check.sh`. This is a
-      separate distribution mechanism from the Claude Code plugin/marketplace
-      packaging in Milestone 3 below — that one is about `.claude-plugin/`
-      manifests, this one is about `npx`/npm.
-      **Publish-ready, not yet published:** `LICENSE` (MIT) added,
-      `package.json` has full metadata, name confirmed free (`npm view` →
-      404), `npm publish --dry-run` succeeds (71 files, ~75 kB). The one
-      remaining step needs the user's own `npm login` — no one else can
-      authenticate that. See `docs/OPERATIONS.md`.
+      seeds state via `bin/cli.js` `seedProject()` (does not call
+      `scripts/install.sh`; git-clone installs still use that script).
+      Works without publishing via `npx github:…`. Tested end-to-end into a
+      scratch directory; the result passed `scripts/self-check.sh`. Separate
+      from Claude Code plugin/marketplace packaging in Milestone 3.
+      **v0.4.0 publish-ready locally:** `LICENSE` (MIT), full `package.json`
+      metadata, `npm publish --dry-run` succeeds (~91 files, ~125 kB). Registry
+      latest is still `0.2.8` until a maintainer runs `npm publish`. See
+      `docs/OPERATIONS.md`.
 
 ## Milestone 1 — Loop Engine: Scheduler (done)
 - [x] Dynamic model routing: built the one high-value pair —
@@ -69,16 +71,12 @@ built in one pass.
 - [x] `/evaluate` command + `evaluator` agent (read-only, same rules as
       `reviewer`/`security`) per the design in `EVALUATION.md`
 - [x] Wire objective metrics first: Tests (`validate.sh` GATE + coverage if the
-      stack reports one), Iterations (git-log proxy), Documentation
-      completeness (template-fill ratio). Manual Interventions is explicitly
-      reported `not tracked` — it needs a persistent event log this harness
-      doesn't have (see Backlog), not just more prompt logic. LLM-judged
-      subjective metrics (Planning/Architecture/Security/Performance/doc
-      *quality*) are deliberately still out of scope — see `EVALUATION.md`
-- [ ] Feed `/evaluate` output into SELECT/Choose-Model decisions (the "Measure"
-      → "Update Memory" stages in `LOOP_ENGINE.md`) — blocked on the same
-      prerequisite as dynamic model routing: no Scheduler-level consumer
-      exists yet to feed scores into
+      stack reports one), Iterations (event log + git proxy), Documentation
+      completeness, and Manual Interventions from the persistent event log.
+      LLM-judged subjective metrics remain out of scope — see `EVALUATION.md`.
+- [x] Persist `/evaluate` scorecard and feed narrow signals into SELECT
+      (`last_scorecard.json`; tests/docs/manual-intervention bias). Full
+      value/risk Scheduler ranking remains backlog.
 
 ## Milestone 3 — Proof and packaging (deferred)
 - [ ] Benchmark suite: run the harness end-to-end against reference projects
@@ -89,17 +87,36 @@ built in one pass.
       `plugin.json`) as an **optional** install path alongside clone-and-run —
       does not replace or weaken ADR-000's self-contained default
 
+## Milestone 4 — Capability-driven orchestration (ADR-003)
+- [x] Design lock: ADR-003 + `docs/CAPABILITY_ORCHESTRATION.md` (hierarchy caps,
+      fan-out schema, task template, local-skills-only rule)
+- [x] Local skill discovery: `scripts/list-local-skills.sh` + `loop.json`
+      skills/fanout fields + orchestrator DISCOVER step; commands stay intent-only
+- [x] Mandatory `docs/templates/AGENT_TASK.md` + skill injection into Task prompts
+- [x] Hierarchical caps in agent prompts (orch ≤3 / planner ≤3 / implementer ≤5
+      worktree / evaluator ≤3) + OPERATIONS/DEVELOPMENT_WORKFLOW sync
+- [x] Worktree fan-out: `scripts/worktree-fanout.sh` + implementer parent/child
+      merge protocol; integration VALIDATE stays the hard gate
+- [x] Companion skill `.claude/skills/capability-orchestrator/`
+
+## Milestone 5 — AI OS control plane
+- [x] Persistent loop event log (`scripts/loop-event.sh`, events.jsonl)
+- [x] Eval → SELECT feedback (`write-scorecard.sh` + orchestrator bias)
+- [x] Harness CI (`.github/workflows/harness-ci.yml`)
+- [x] Hard path blocking (`protect-paths.sh` exit 2)
+- [x] Cost/budget stop (`budget-check.sh` + env caps)
+- [x] Multi-session leases (`lease.sh`)
+- [x] Brownfield `/bootstrap` (`docs/BROWNFIELD.md` + command branch)
+- [x] Build-effort value function (`estimate-build-effort.sh`, ADR-004)
+
 ## Backlog (unordered, not yet scheduled)
-- Existing-codebase adoption path for `/bootstrap` (today assumes greenfield
-  PRD/PTR; add a branch that detects stack + infers conventions from an
-  existing repo)
 - Language/stack-specific reviewer agents (python-reviewer, react-reviewer) as
   real projects surface the need
-- Persistent loop-history event log (append-only; `await-human-on-red`
-  entries, non-trivial GATE 1/2 rejections, per-iteration task_complexity) —
-  prerequisite for `/evaluate`'s Manual Interventions metric and for a more
-  accurate Iterations count than the current git-log proxy
+- Full Scheduler (value/risk ranking across many roadmap items) — leases +
+  scorecard are the first slice; ranking is not
 - Extend the `implementer`/`implementer-opus` model-routing pattern to another
   agent (e.g. `reviewer`) — only once that agent shows the same
   "most-invoked + complexity-sensitive" shape, not speculatively for every
   agent at once
+- Subjective `/evaluate` metrics (Planning/Architecture/…) after objective
+  metrics are trusted on real projects

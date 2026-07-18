@@ -28,39 +28,57 @@ and leaves the repository fully describing its own state. Run it with `/loop`.
 
 ## Phases
 
+### 0. BUDGET (AI OS)
+Before SELECT (and again before BUILD), run `bash scripts/budget-check.sh`.
+Exit 3 → emit `budget_stop`, set phase `idle`, **stop**. Caps:
+`HARNESS_MAX_ITERATIONS_PER_RUN`, `HARNESS_MAX_COMMITS_PER_DAY`,
+`HARNESS_MAX_EVENTS_PER_DAY`. See [`AI_OS.md`](AI_OS.md).
+
+Project **build-effort tier** (`fast|standard|rigorous` from
+[`BUILD_EFFORT.md`](BUILD_EFFORT.md)) shapes docs depth and plan verbosity —
+not whether VALIDATE / REVIEW / SECURITY run (they always do).
+
 ### 1. SELECT
 If `.claude/state/loop.json` has a `task_graph` with pending sub-tasks, the
 orchestrator continues it — straight to PLAN for the next sub-task, no fresh GATE 1.
 
-Otherwise it reads `docs/ROADMAP.md` and `docs/PROJECT_STATE.md` and scans the
-roadmap **top-to-bottom within the current milestone**: skip `[x]` done, skip `[!]`
-blocked, and skip anything whose `(depends: ...)` annotation names another item that
-isn't `[x]` done yet — this catches a dependency even if no one remembered to mark
-the dependent item `[!]`. It states which candidates it skipped and why, then picks
-the first one left. If nothing is unblocked, the loop stops and reports.
+Otherwise it reads `docs/ROADMAP.md`, `docs/PROJECT_STATE.md`, and optionally
+`.claude/state/last_scorecard.json` (bias among unblocked items — never invent
+new rows). Scan the roadmap **top-to-bottom within the current milestone**: skip
+`[x]` done, skip `[!]` blocked, and skip anything whose `(depends: ...)` annotation
+names another item that isn't `[x]` done yet — this catches a dependency even if
+no one remembered to mark the dependent item `[!]`. Acquire a lease with
+`bash scripts/lease.sh acquire "<task>"` (skip if held by another session). Emit
+`select` via `loop-event.sh`. If nothing is unblocked, the loop stops and reports.
 
-**File order is the priority signal, not size.** SELECT is not choosing the
-"smallest" or "best" item among several valid candidates — that ambiguity used to
-exist because SELECT was conflating *which* item to build with *how much* of it to
-take. The Task Graph (see PLAN, below) now owns sizing: if the item SELECT picks
-turns out to be too large for one iteration, `planner` slices it, not SELECT.
+**File order is the priority signal, not size** (scorecard may re-order among
+unblocked peers only). The Task Graph (see PLAN, below) owns sizing: if the item
+SELECT picks turns out to be too large for one iteration, `planner` slices it.
 
 `docs/ROADMAP.md` items may append `(depends: <other item>)` to declare an ordering
 requirement beyond plain file order.
+
+### 1b. DISCOVER (local skills)
+Before PLAN detail work, the orchestrator runs `scripts/list-local-skills.sh`,
+caches the index in `loop.json.skills_index`, and selects up to
+`HARNESS_MAX_SKILLS_PER_TASK` (default 3) relevant **local** skills for the task.
+No web or marketplace search. Full rules:
+[`CAPABILITY_ORCHESTRATION.md`](CAPABILITY_ORCHESTRATION.md).
 
 ### 2. PLAN
 First, the orchestrator classifies the task's rough complexity —
 `trivial | small | medium | large` — in one line of reasoning, and records it in
 `loop.json` as `task_complexity`. This decides whether `architect` runs first
 (`large` or architecturally significant tasks do; `trivial`/`small` skip straight to
-`planner`) and feeds future evaluation tracking (`docs/EVALUATION.md`). It does
-**not** currently change which model runs anything — see `docs/MODEL_ROUTING.md`
-for why dynamic model routing needs more than a complexity label before it can be
-built.
+`planner`) and feeds future evaluation tracking (`docs/EVALUATION.md`). At BUILD it
+also chooses `implementer` vs `implementer-opus` (see `docs/MODEL_ROUTING.md`).
 
-Then delegates to `planner` (and `architect` first per the classification above).
-Output: the files to touch, the tests to write, dependencies, and a Definition of
-Done. No code is written yet.
+Then delegates to `planner` (and `architect` first per the classification above)
+using the standard Task template (`docs/templates/AGENT_TASK.md`), with the skill
+shortlist in **Relevant Skills**. Planner may spawn ≤3 nested read-only research
+subagents. Output: the files to touch, the tests to write, dependencies, a
+Definition of Done, optional `recommended_skills`, and optional worktree
+`fanout` map when BUILD should parallelize. No code is written yet.
 
 If the roadmap item is too large for one iteration, `planner` instead returns a
 **Task Graph** — the ordered list of shippable sub-tasks that together deliver it,
@@ -71,19 +89,28 @@ orchestrator reaches them (the repo has moved on since the graph was drawn), not
 at once up front.
 
 ### GATE 1 — approve the plan
-The plan (or the whole Task Graph + sub-task 1's detailed plan) is presented to you
-in a tight summary. **The loop stops here** until you approve. Silence is not
-approval. This is where you catch a wrong direction before any code exists — the
-cheapest possible place to correct course.
+The plan (or the whole Task Graph + sub-task 1's detailed plan, plus any worktree
+`fanout` map) is presented to you in a tight summary. **The loop stops here** until
+you approve. Silence is not approval. This is where you catch a wrong direction
+before any code exists — the cheapest possible place to correct course.
 
 Approving a Task Graph approves its scope and order for every sub-task in it — later
 sub-tasks skip this gate and go straight from PLAN to BUILD, **unless** the fresh
 detailed plan for one deviates from what the graph originally outlined. A deviation
-gets its own GATE 1, scoped to just that sub-task.
+gets its own GATE 1, scoped to just that sub-task. Approving a `fanout` map
+approves those worktree slices; mid-BUILD expansion beyond the map needs a new
+approval.
 
 ### 3. BUILD
-Delegates to `implementer`, which writes the code **and** its tests for exactly this
-task — nothing more. Scope creep is rejected here.
+Delegates to `implementer` (or `implementer-opus` when `task_complexity` is
+`large`), which writes the code **and** its tests for exactly this task — nothing
+more. Scope creep is rejected here.
+
+When GATE 1 approved a worktree `fanout` map, the implementer acts as **parent**:
+creates ≤5 worktrees via `scripts/worktree-fanout.sh`, launches child Tasks in
+parallel (file-disjoint slices only), merges into the integration branch, then
+reports merge status. Same-branch multi-writer is forbidden. See
+[`CAPABILITY_ORCHESTRATION.md`](CAPABILITY_ORCHESTRATION.md).
 
 ### 4. VALIDATE — the hard gate
 Delegates to `validator`, which runs `scripts/validate.sh` (format, lint, typecheck,
@@ -104,9 +131,12 @@ waits — it does not keep guessing or loosen the gate to force a pass. A human 
 fixes it manually, splits the task, or explicitly raises the cap and resumes `/loop`.
 
 ### 5. REVIEW
-Delegates to `reviewer` (always) and `security` (when the change touches auth, input
-handling, secrets, payments, uploads, or data access). Both are read-only and return
-severity-ranked findings. **Critical/High findings loop back to BUILD.**
+Always delegates to `reviewer` **and** `security` in parallel (counts toward the
+orchestrator's ≤3 top-level cap). Security depth may be light on pure-docs diffs;
+full OWASP when auth/input/secrets/payments/uploads/network/data. Both are
+read-only and return severity-ranked findings. **Critical/High findings loop back
+to BUILD.** Applies on every build-effort tier (`fast` included) — see
+[`BUILD_EFFORT.md`](BUILD_EFFORT.md).
 
 ### GATE 2 — approve the merge
 You see the diff summary, the GREEN gate result, and the review findings. **The loop
@@ -148,7 +178,13 @@ Back to SELECT. Continue until the roadmap has no unblocked work.
       { "id": 2, "title": "password reset endpoint", "status": "in_progress" },
       { "id": 3, "title": "reset email template", "status": "pending" }
     ]
-  }
+  },
+  "skills_index": null,
+  "skills_assigned": [],
+  "skills_skipped": [],
+  "fanout": null,
+  "iterations_this_run": 0,
+  "max_iterations_per_run": 1
 }
 ```
 
@@ -166,14 +202,44 @@ done`. Cleared once every sub-task is `done`.
 the start of PLAN. It's a coarse classification, not a token/cost estimate — see
 `docs/LOOP_ENGINE.md` for the gap between this and the target "Estimate Cost" stage.
 
+`skills_index` / `skills_assigned` / `skills_skipped` / `fanout` support
+capability-driven orchestration — see
+[`CAPABILITY_ORCHESTRATION.md`](CAPABILITY_ORCHESTRATION.md) and
+[`STATE_ENGINE.md`](STATE_ENGINE.md).
+
+## Iteration budget (anti hang / anti session-burn)
+
+Default: **one completed iteration per `/loop`**, then stop. Enforced by the
+orchestrator **and** `scripts/budget-check.sh` (exit 3).
+
+| Control | Default | Meaning |
+|---|---|---|
+| `max-iterations=N` on `/loop` | `1` | Max COMMIT cycles this invocation may finish |
+| `$HARNESS_MAX_ITERATIONS_PER_RUN` | `1` | Same, via env |
+| `$HARNESS_MAX_COMMITS_PER_DAY` | `20` | Loop-logged commits today (event log) |
+| `$HARNESS_MAX_EVENTS_PER_DAY` | `200` | Event-log lines today |
+| `loop.json.iterations_this_run` | `0` | Counter for the current `/loop` invocation |
+| `loop.json.max_iterations_per_run` | seeded at start | Cap for this invocation |
+
+Why: a fine-grained roadmap (e.g. 16 Flappy Bird micro-tasks) × full
+PLAN→BUILD→VALIDATE→REVIEW per item can burn an hour+ and hit API session
+limits while looking "stuck." That is **not** an infinite loop — it is unbounded
+continuation. The budget forces a human checkpoint between shippable units.
+
+"Complete the end version" / "finish everything" means: keep running `/loop`
+(or raise `max-iterations` deliberately, e.g. `max-iterations=3`), **not**
+auto-approve gates or background the whole roadmap. Full AI OS control plane:
+[`AI_OS.md`](AI_OS.md).
+
 ## Autonomy dial
 
 Default: **interactive with two approval gates** — safest, and what ships here.
 
-To run more autonomously in a trusted, well-scoped project, you can tell the
-orchestrator to auto-approve GATE 1 for low-risk tasks (still never GATE 2 for
-anything touching security/data). To run *less* autonomously, ask it to pause after
-every phase. The validation gate is never optional at any autonomy level.
+**Never** treat "keep going" / "finish the game" as license to skip GATE 1 or
+GATE 2. If the human wants fewer interruptions, they must say explicitly
+`auto-approve-gate1` for a named low-risk task — and GATE 2 still requires a
+human yes for anything beyond trivial docs. The validation gate is never
+optional at any autonomy level.
 
 ## When something breaks the loop
 

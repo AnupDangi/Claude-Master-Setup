@@ -5,6 +5,84 @@
 
 ## [Unreleased]
 
+## [0.4.0] — 2026-07-19
+
+### Added
+- **Build-effort value function (ADR-004):** `scripts/estimate-build-effort.sh` +
+  `docs/BUILD_EFFORT.md` — classifies projects `fast|standard|rigorous` from
+  PRD/PTR/intent so generic apps get thin docs / outcome-first building, while
+  complex multi-phase work keeps full harness rigor. **VALIDATE + REVIEW +
+  SECURITY remain mandatory on every tier.**
+- **Milestone 5 — AI OS control plane:** event log, scorecard→SELECT, harness CI,
+  hard path blocking, budget stop, multi-session leases, brownfield bootstrap.
+- `scripts/loop-event.sh`, `lease.sh`, `budget-check.sh`, `write-scorecard.sh`
+- `docs/AI_OS.md`, `docs/BROWNFIELD.md`
+- `.github/workflows/harness-ci.yml`
+- npm lifecycle checks (`npm test`, `check:harness`, `prepack`) and CI package
+  dry-run; recursion guard prevents self-check → validate → npm-test loops.
+
+### Fixed
+- **`--config-dir` statusline:** custom config dirs now wire `statusLine.command`
+  to that directory's `statusline.sh` (no longer hardcodes `$HOME/.claude`).
+- Docs/CI publish hygiene: companion install wording, OPERATIONS/ROADMAP npm
+  pack facts, CI push on `v2-os`, loop diagrams include SECURITY, ADR-004 /
+  AI_OS build-effort section dedupe.
+- **Statusline is user-level only:** default install still runs
+  `python3 "$HOME/.claude/statusline.sh"`. Project settings no longer wire
+  `$CLAUDE_PROJECT_DIR/.../statusline.sh`; project name/git resolve from the
+  project root.
+- **/loop session-burn:** default `max-iterations=1` per invocation; orchestrator
+  must not auto-approve GATE 1/2 on "finish everything"; `loop.json` tracks
+  `iterations_this_run` / `max_iterations_per_run`.
+
+### Security
+- Control-plane path blocking: hooks, settings, agents, commands, `validate.sh`
+  and key loop scripts require `HARNESS_ALLOW_PROTECTED_EDITS=1`.
+- Hooks parse tool JSON with Python (fixes embedded-quote bypass).
+- `self-check.sh` uses a private `mktemp` directory instead of predictable
+  shared `/tmp` filenames.
+- AI OS permissions model (`acceptEdits` + gates); allowlists are explicitly UX,
+  not a same-user sandbox.
+- `HARNESS_MAX_ITERATIONS_PER_RUN=1` in settings `env`.
+
+### Changed
+- `MASTER-PROMPT.md` v3: Phase 0 build effort, brownfield path, thin docs on
+  `fast`, mandatory REVIEW + SECURITY.
+- `README.md` refreshed for v0.4 / AI OS / publish checklist.
+- Bootstrap supports brownfield (existing codebase) via `docs/BROWNFIELD.md`.
+- `/evaluate` persists scorecard; Manual Interventions from event log.
+- Bootstrap/architect: prefer coarse roadmaps (3–6 items for small apps).
+
+## [0.3.0] — 2026-07-19
+### Added
+- **Capability-driven orchestration (ADR-003 / Milestone 4):** local skill
+  discovery, hierarchical subagent caps, worktree fan-out, mandatory Task
+  template, companion skill.
+- `docs/CAPABILITY_ORCHESTRATION.md`, `docs/templates/AGENT_TASK.md`
+- `scripts/list-local-skills.sh`, `scripts/select-skills.sh`,
+  `scripts/worktree-fanout.sh`
+- `.claude/skills/capability-orchestrator/` (+ references)
+- `loop.json` fields: `skills_index`, `skills_assigned`, `skills_skipped`, `fanout`
+
+### Changed
+- Orchestrator / planner / implementer(-opus) / evaluator prompts: DISCOVER,
+  AGENT_TASK contract, nested caps (orch ≤3 / planner ≤3 / implementer ≤5
+  worktree / evaluator ≤3)
+- `/loop`, `/plan`, `/evaluate` stay intent-only; execution strategy in agents
+- `docs/LOOP.md`, `LOOP_ENGINE.md`, `STATE_ENGINE.md`, `OPERATIONS.md`,
+  `DEVELOPMENT_WORKFLOW.md`, `AGENTS.md`, `ROADMAP.md` synced
+
+### Security
+- Production hardening: nesting depth max 1; worktree path/branch/file guards;
+  merge refuses dirty trees; fan-out script failure → serial BUILD fallback; no
+  full skills index dumped into child contexts
+
+### Changed (production defaults)
+- Skill DISCOVER defaults to `project,user,plugin` (agent auto-discovers plugins)
+- Fan-out `merge` prefers fast-forward, else normal merge (no forced `--no-ff`)
+- Fan-out `cleanup` after COMMIT deletes worktrees **and** slice branches
+  (`--keep-branches` to retain for debug)
+
 ## [0.2.8] — 2026-07-18
 ### Added
 - Project-level statusline for clones / Claude Code cloud: `.claude/settings.json`

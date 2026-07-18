@@ -72,11 +72,11 @@ substantive, non-trivial findings rather than a rubber stamp.
   `.claude/agents/*.md` as native subagent types) is the actual intended
   path — this evaluation is strong evidence the design works, not a
   substitute for using `/bootstrap` → `/loop` directly.
-- **`security` subagent was deliberately not invoked** for this increment —
-  it's a local CLI reading a user-named file, with no auth, secrets,
-  payments, or network data access, so invoking it would have been
-  over-cautious per the orchestrator's own trigger conditions. Noted here so
-  the omission reads as a judgment call, not an oversight.
+- **This historical run predates the current always-security invariant.**
+  Security was omitted because the increment was a local CLI with no auth,
+  secrets, payments, or network. In v0.4 the orchestrator runs `security` every
+  iteration (a light residual-risk pass is sufficient for low-risk/pure-docs
+  changes), so reproductions must include it before GATE 2.
 - Review findings (non-ASCII tokenization, apostrophe handling) were real
   and correctly deferred to backlog rather than blocking — but this also
   means "GREEN" only certifies what the Definition of Done actually scoped,

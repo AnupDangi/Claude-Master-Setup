@@ -4,6 +4,13 @@
 > the spirit of Keep a Changelog + Conventional Commits.
 
 ## [Unreleased]
+
+## [0.2.4] — 2026-07-18
+### Fixed
+- npm installer Socket alerts: no shell spawn / env reads in `bin/cli.js`;
+  companions are settings-merge + printed `claude plugin` commands only.
+  See `docs/NPM_SECURITY.md`.
+
 ### Added
 - Self-contained Claude Code harness: loop, 9 subagents, 9 commands, validation gate,
   MCP scout + catalog, fail-safe hooks, and full docs.

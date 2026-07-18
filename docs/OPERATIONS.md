@@ -49,34 +49,29 @@ Nothing about `npx github:...` requires this. Publish only if you want the
 shorter `npx claude-master-setup` (no `github:` prefix, and a version can be
 pinned the normal npm way, e.g. `npx claude-master-setup@0.2.0`).
 
-**Everything that can be prepared without your credentials is done:**
-- ✅ `LICENSE` added (MIT).
-- ✅ `package.json` has `license`, `author`, `keywords`, `repository`,
-  `homepage`, `bugs` — publish-ready metadata.
-- ✅ Name checked: `npm view claude-master-setup` returns 404 — **the name
-  is free** as of this check.
-- ✅ `npm publish --dry-run` succeeds: 71 files, ~75 kB tarball, packs
-  correctly as `claude-master-setup@0.1.0`.
+**Publish checklist (before every release):**
+- ✅ `LICENSE`, `package.json` metadata (`license`, `author`, `keywords`,
+  `repository`, `homepage`, `bugs`, `bin`, **`files`**).
+- ✅ Explicit `"files"` allowlist so `.gitignore` is always packed (npm’s
+  gitignore-fallback omits the `.gitignore` file itself).
+- ✅ `.npmignore` excludes `.claude/state/`, `settings.local.json`, and
+  local `test-harness/` so they never ship.
+- ✅ `npm pack --dry-run` lists `.gitignore` and does **not** list
+  `test-harness/`.
+- ✅ Fresh scaffold: `npx . /tmp/cms-smoke && bash /tmp/cms-smoke/scripts/self-check.sh`
 
-**The one step only you can do:** `npm login` needs your own npm account —
-there's no way to authenticate as you. `npm whoami` in this environment
-confirms no session is logged in.
-
-**Publish steps (run these yourself):**
+**Publish steps:**
 ```bash
-npm login                       # your credentials, interactive
+npm whoami                      # must be logged in
+npm version patch               # or set version in package.json (e.g. 0.1.1)
 npm publish                     # add --access public if using a scoped name
 ```
 
 **After publishing:**
-- Every future change you want installers to get needs a **version bump +
-  another `npm publish`** — published versions are immutable; you can't
-  overwrite one, only publish a new one. Un-publishing an existing version is
-  restricted by npm policy after the first 72 hours, so treat each publish as
-  effectively permanent.
-- Consider running `scripts/self-check.sh` against a fresh scaffold (as in
-  the dev loop above) as a pre-publish check, so a broken scaffold never
-  reaches the registry.
+- Published versions are **immutable** — bump + publish again for fixes.
+- End-user verify: `npx claude-master-setup@<version> /tmp/fresh && bash /tmp/fresh/scripts/self-check.sh`
+- Confirm the fresh install’s `.gitignore` includes `node_modules/` (full
+  template from the package), not only the thin patterns `install.sh` appends.
 
 ## Part 2 — Handling all the agents
 
@@ -122,7 +117,7 @@ could collide on:
   agents each covering a different area).
 - `reviewer` + `security` already run together conceptually during REVIEW.
 - `/evaluate` in one worktree while `/loop` runs in another — `evaluator`
-  never writes.
+  never writes.  
 
 ### Not safe, and why this harness doesn't do it
 

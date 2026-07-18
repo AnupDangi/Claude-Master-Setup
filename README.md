@@ -79,13 +79,16 @@ No signup, no config wizard. Just files Claude Code already knows how to read.
 
 ## Quick start
 
-Two equivalent ways to install — pick one:
+Three equivalent ways to install — pick one:
 
 ```bash
-# Option A: npx (scaffolds into a new or existing directory, runs install.sh for you)
+# Option A (recommended): npm registry — version-pinned, production path
+npx claude-master-setup@latest my-project
+
+# Option B: from GitHub (always current default branch; no registry)
 npx github:AnupDangi/Claude-Master-Setup my-project
 
-# Option B: git clone (same result, more explicit)
+# Option C: git clone (same scaffold, more explicit)
 git clone https://github.com/AnupDangi/Claude-Master-Setup.git my-project
 cd my-project
 bash scripts/install.sh      # makes scripts/hooks executable, seeds .env & state
@@ -97,15 +100,13 @@ claude                       # start Claude Code — hooks & permissions load au
 bash scripts/self-check.sh   # verify the harness
 ```
 
-`npx github:...` works without publishing to the npm registry — it clones the repo
-and runs `bin/cli.js`, which copies `.claude/`, `docs/`, `scripts/`,
-`CLAUDE.md`, `MASTER-PROMPT.md`, `.env.example` into the target (skipping
-anything that already exists there, so it's safe to run into an existing
-project) and then runs `scripts/install.sh` — the exact same script Option B
-runs manually. Omit the target directory to install into the current one.
-For versioning it, testing changes to it, and what publishing it to the npm
-registry would actually require, see [`docs/OPERATIONS.md`](docs/OPERATIONS.md).
-
+Options A and B run `bin/cli.js`, which copies `.claude/`, `docs/`, `scripts/`,
+`CLAUDE.md`, `MASTER-PROMPT.md`, `.env.example`, and `.gitignore` into the target
+(skipping anything that already exists, so it's safe on an existing project), then
+runs `scripts/install.sh` — the same script Option C runs manually. Omit the target
+directory to install into the current one. Prefer **Option A** for a pinned release
+(`npx claude-master-setup@0.1.1`). See [`docs/OPERATIONS.md`](docs/OPERATIONS.md)
+for packaging and publish details.
 Then add your requirements and bootstrap:
 
 ```
@@ -137,8 +138,9 @@ my-project/
   most agents, dynamic for the highest-value case: BUILD delegates to
   `implementer` (Sonnet) or `implementer-opus` (Opus) based on task
   complexity. [`docs/MODEL_ROUTING.md`](docs/MODEL_ROUTING.md)
-- **`npx`-installable** — `npx github:AnupDangi/Claude-Master-Setup
-  [target-dir]` scaffolds the harness without a git clone step.
+- **`npx`-installable** — `npx claude-master-setup [target-dir]` (npm) or
+  `npx github:AnupDangi/Claude-Master-Setup [target-dir]` scaffolds the harness
+  without a manual git clone.
 - **MCP discovery** — `/mcp-add` finds and wires external tools with consent.
   [`docs/MCP.md`](docs/MCP.md)
 - **Task graphs** — `planner` splits an oversized roadmap item into an

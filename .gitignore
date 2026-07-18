@@ -7,6 +7,9 @@
 .claude/state/
 /tmp/harness_*
 
+# Nested local worktree used for npm install testing (not part of the package)
+/test-harness/
+
 # Common build/deps (extend per stack on bootstrap)
 node_modules/
 dist/
@@ -16,3 +19,4 @@ __pycache__/
 target/
 *.log
 .cursor/
+*.tgz

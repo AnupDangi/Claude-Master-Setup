@@ -1,0 +1,13 @@
+# Keep the published tarball lean and user-safe.
+# package.json "files" is the allowlist; this further excludes local/runtime junk.
+
+.claude/state/
+.claude/settings.local.json
+.cursor/
+test-harness/
+**/node_modules/
+**/.DS_Store
+*.tgz
+.env
+.env.*
+!.env.example

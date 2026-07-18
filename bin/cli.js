@@ -75,6 +75,89 @@ function expandTilde(filePath) {
   return filePath;
 }
 
+/**
+ * Locate the `claude` binary via common install paths (no spawn, no env reads).
+ * False negatives are ok — we then print install help.
+ */
+function findClaudeBinary() {
+  const home = os.homedir();
+  const names =
+    process.platform === 'win32'
+      ? ['claude.exe', 'claude.cmd', 'claude.bat', 'claude']
+      : ['claude'];
+  const dirs = [
+    path.join(home, '.local', 'bin'),
+    path.join(home, '.npm-global', 'bin'),
+    path.join(home, 'bin'),
+    '/opt/homebrew/bin',
+    '/usr/local/bin',
+    path.join(home, 'AppData', 'Roaming', 'npm'),
+  ];
+
+  // Version managers: ~/.nvm/versions/node/<ver>/bin, ~/.fnm/node-versions/.../bin, etc.
+  const versionRoots = [
+    path.join(home, '.nvm', 'versions', 'node'),
+    path.join(home, '.fnm', 'node-versions'),
+    path.join(home, '.volta', 'bin'),
+    path.join(home, '.asdf', 'shims'),
+  ];
+  for (const root of versionRoots) {
+    if (!fs.existsSync(root)) continue;
+    try {
+      const st = fs.statSync(root);
+      if (st.isFile() || root.endsWith(`${path.sep}bin`) || root.endsWith(`${path.sep}shims`)) {
+        dirs.push(root);
+        continue;
+      }
+      for (const entry of fs.readdirSync(root)) {
+        const binDir = path.join(root, entry, 'installation', 'bin'); // fnm
+        const nvmBin = path.join(root, entry, 'bin');
+        if (fs.existsSync(nvmBin)) dirs.push(nvmBin);
+        if (fs.existsSync(binDir)) dirs.push(binDir);
+      }
+    } catch {
+      /* skip unreadable roots */
+    }
+  }
+
+  for (const dir of dirs) {
+    for (const name of names) {
+      const candidate = path.join(dir, name);
+      try {
+        if (fs.existsSync(candidate) && fs.statSync(candidate).isFile()) {
+          return candidate;
+        }
+      } catch {
+        /* skip */
+      }
+    }
+  }
+  return null;
+}
+
+function printClaudeCodeInstallHelp() {
+  console.log(`
+  ${yellow}Claude Code CLI not found${reset} ${dim}(no \`claude\` binary in common install paths)${reset}
+
+  ${dim}Note:${reset} ${cyan}.claude${reset} is a ${yellow}config folder${reset} (created by this installer).
+  The command you run is ${cyan}claude${reset}, not ${cyan}.claude${reset}.
+
+  Install Claude Code first:
+
+    ${cyan}npm install -g @anthropic-ai/claude-code${reset}
+
+  Or on macOS with Homebrew:
+
+    ${cyan}brew install --cask claude-code${reset}
+
+  Then verify:
+
+    ${cyan}claude --version${reset}
+
+  Docs: ${dim}code.claude.com/docs/en/install${reset}
+`);
+}
+
 function printHelp() {
   console.log(banner);
   console.log(`  ${yellow}Usage:${reset} npx claude-master-setup [options]
@@ -264,9 +347,15 @@ function installGlobal() {
   mergeCompanionSettings(configDir);
   printCompanionNextSteps();
 
-  console.log(`  ${green}Done!${reset} Launch Claude Code and run ${cyan}/status${reset} or ${cyan}/loop${reset}.
-
-  ${dim}Note: validate hooks + scripts/validate.sh are project-local.
+  if (findClaudeBinary()) {
+    console.log(`  ${green}Done!${reset} Run ${cyan}claude${reset}, then ${cyan}/status${reset} or ${cyan}/loop${reset}.
+`);
+  } else {
+    printClaudeCodeInstallHelp();
+    console.log(`  ${green}Harness files are installed.${reset} After Claude Code is on PATH, run ${cyan}claude${reset}.
+`);
+  }
+  console.log(`  ${dim}Note: validate hooks + scripts/validate.sh are project-local.
   For a full gate in one repo, also run:${reset} ${cyan}npx claude-master-setup --local${reset}
 `);
 }
@@ -336,6 +425,19 @@ function printCompanionNextSteps() {
 `);
 }
 
+function finishLocalDone() {
+  if (findClaudeBinary()) {
+    console.log(`
+  ${green}Done!${reset} In this project run ${cyan}claude${reset}, then ${cyan}/bootstrap${reset} → ${cyan}/loop${reset}.
+  Verify: ${cyan}scripts/self-check.sh${reset}
+`);
+  } else {
+    printClaudeCodeInstallHelp();
+    console.log(`  ${green}Harness files are installed.${reset} After Claude Code is on PATH, run ${cyan}claude${reset}.
+`);
+  }
+}
+
 /**
  * Local: full project harness under ./.claude + scripts/docs at project root.
  */
@@ -359,7 +461,7 @@ function installLocal() {
       return;
     }
     seedProject(projectRoot);
-    console.log(`  ${green}Done!${reset} Run ${cyan}claude${reset} here, or ${cyan}/loop${reset} in this repo.\n`);
+    finishLocalDone();
     return;
   }
 
@@ -417,15 +519,11 @@ function installLocal() {
 
   seedProject(projectRoot);
 
-  console.log(`
-  ${green}Done!${reset} In this project run ${cyan}claude${reset}, then ${cyan}/bootstrap${reset} → ${cyan}/loop${reset}.
-  Verify: ${cyan}scripts/self-check.sh${reset}
-`);
-
   const userClaude = path.join(os.homedir(), '.claude');
   fs.mkdirSync(userClaude, { recursive: true });
   mergeCompanionSettings(userClaude);
   printCompanionNextSteps();
+  finishLocalDone();
 }
 
 /** Legacy: scaffold harness into an explicit directory (old npx behavior). */
@@ -447,19 +545,43 @@ function promptLocation() {
   const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
   const configDir = expandTilde(explicitConfigDir) || path.join(os.homedir(), '.claude');
   const globalLabel = configDir.replace(os.homedir(), '~');
+  const claudeMissing = !findClaudeBinary();
 
-  console.log(`  ${yellow}Where would you like to install?${reset}
+  function askWhere() {
+    console.log(`  ${yellow}Where would you like to install?${reset}
 
   ${cyan}1${reset}) Global ${dim}(${globalLabel})${reset} - available in all projects
   ${cyan}2${reset}) Local  ${dim}(./.claude)${reset} - this project only
 `);
 
-  rl.question(`  Choice ${dim}[1]${reset}: `, (answer) => {
-    rl.close();
-    const choice = (answer || '1').trim() || '1';
-    if (choice === '2') installLocal();
-    else installGlobal();
-  });
+    rl.question(`  Choice ${dim}[1]${reset}: `, (answer) => {
+      rl.close();
+      const choice = (answer || '1').trim() || '1';
+      if (choice === '2') installLocal();
+      else installGlobal();
+    });
+  }
+
+  if (claudeMissing) {
+    printClaudeCodeInstallHelp();
+    rl.question(
+      `  Install harness files anyway (you can install Claude Code after)? ${dim}[Y/n]${reset}: `,
+      (answer) => {
+        const a = (answer || 'y').trim().toLowerCase();
+        if (a === 'n' || a === 'no') {
+          rl.close();
+          console.log(`
+  ${dim}Install Claude Code, then re-run:${reset} ${cyan}npx claude-master-setup${reset}
+`);
+          return;
+        }
+        askWhere();
+      }
+    );
+    return;
+  }
+
+  askWhere();
 }
 
 function main() {
@@ -491,6 +613,11 @@ function main() {
       : '.';
     installScaffold(target);
     return;
+  }
+
+  if ((hasGlobal || hasLocal) && !findClaudeBinary()) {
+    printClaudeCodeInstallHelp();
+    console.log(`  ${dim}Continuing with harness install (${hasGlobal ? '--global' : '--local'}).${reset}\n`);
   }
 
   if (hasGlobal) {

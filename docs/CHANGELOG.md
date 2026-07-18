@@ -5,6 +5,12 @@
 
 ## [Unreleased]
 
+## [0.2.5] — 2026-07-18
+### Fixed
+- Detect missing Claude Code CLI (`claude`) and explain that `.claude` is a
+  config folder, not a command; print install steps (`npm` / Homebrew) and ask
+  before continuing in interactive mode.
+
 ## [0.2.4] — 2026-07-18
 ### Fixed
 - npm installer Socket alerts: no shell spawn / env reads in `bin/cli.js`;

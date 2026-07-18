@@ -7,7 +7,8 @@
 ## What this package does *not* do (0.2.4+)
 
 - No `child_process` / shell execution in `bin/cli.js`
-- No `process.env` reads in the installer (use `--config-dir` instead)
+- No `process.env` reads in the installer (use `--config-dir`; Claude CLI
+  detection scans common install paths only)
 - No network fetches from the installer itself
 - No postinstall / preinstall npm lifecycle scripts
 - No runtime dependencies

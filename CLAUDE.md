@@ -134,8 +134,10 @@ scheduler-driven) design in [`docs/MODEL_ROUTING.md`](docs/MODEL_ROUTING.md).
 ## Definition of Done (before COMMIT)
 
 - Code **and** tests written; `scripts/validate.sh` is GREEN.
-- Reviewer (and security, if relevant) findings resolved — no open Critical/High.
-- Docs updated: `PROJECT_STATE.md`, `CHANGELOG.md`, and any changed surface doc.
+- **Reviewer and security** findings resolved — no open Critical/High (security
+  runs every iteration; light pass OK on pure docs).
+- Docs updated: `PROJECT_STATE.md`, `CHANGELOG.md`, and any changed surface doc
+  (keep terse on `fast` build-effort tier — see `docs/BUILD_EFFORT.md`).
 - Commit is atomic with a conventional message.
 
 ---

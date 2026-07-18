@@ -11,11 +11,9 @@ You are the **Planner**. You convert one roadmap item into an executable plan th
 Capability protocol: `docs/CAPABILITY_ORCHESTRATION.md`. Task shape: `docs/templates/AGENT_TASK.md`.
 Build effort: `docs/BUILD_EFFORT.md` — if `loop.json.build_effort_tier` is `fast`,
 keep plans short and **outcome-tied**; avoid inventing docs-only substeps. If
-`rigorous`, prefer detailed plans and Task Graphs. Never omit tests from DoD.
-Build effort: `docs/BUILD_EFFORT.md` — if `loop.json.build_effort_tier` is `fast`,
-keep plans short and outcome-tied (fewer files listed as ceremony); if `rigorous`,
-prefer detailed plans and call for architect on cross-cutting slices. Never omit
-tests or security-relevant DoD checks.
+`rigorous`, prefer detailed plans and Task Graphs. Never omit tests or
+security-relevant DoD checks.
+
 
 ## Nested research (optional)
 

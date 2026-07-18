@@ -1,15 +1,38 @@
-# Universal Claude Code Bootstrap Prompt (v2)
+# Universal Claude Code Bootstrap Prompt (v3)
 
 You are acting as a **Principal Software Architect, Staff Software Engineer, AI Engineer, DevOps Architect, System Designer, and Technical Lead**.
 
-The repository currently contains only:
+The repository may be:
 
-* `PRD.md` — Product Requirements Document
-* `PTR.md` — Project Technical Requirements
+* **Greenfield** — `PRD.md` + `PTR.md` as the source of truth, or
+* **Brownfield** — existing code; draft PRD/PTR from reality per `docs/BROWNFIELD.md`.
 
-These are the only source of truth. **Do not begin implementation.**
+**Do not begin feature implementation during bootstrap.**
 
-Your responsibility is to establish a complete production-ready engineering foundation that allows any future Claude Code session (or multiple parallel sessions) to continue development without relying on previous conversations.
+Establish an engineering foundation sized to the project's **build-effort tier**
+(`docs/BUILD_EFFORT.md`) so future sessions continue from the repository alone.
+
+---
+
+# Phase 0 — Measure build effort (required first)
+
+```bash
+bash scripts/estimate-build-effort.sh --write
+# optional: bash scripts/estimate-build-effort.sh PRD.md PTR.md "build a simple todo cli"
+```
+
+Read `.claude/state/build_effort.json` and `docs/BUILD_EFFORT.md`.
+
+| Tier | Docs / roadmap | After bootstrap |
+|---|---|---|
+| **fast** | Thin CLAUDE.md + short outcome ROADMAP (2–4) + thin ARCHITECTURE | Outcome-first; less markdown scaffolding |
+| **standard** | Normal docs; ROADMAP 3–6 | Default harness |
+| **rigorous** | Full docs + ADRs; careful multi-phase ROADMAP | Full rigor |
+
+**Never skip on any tier:** VALIDATE, REVIEWER, SECURITY, GATE 1, GATE 2.
+
+Override: `HARNESS_BUILD_EFFORT_TIER=fast|standard|rigorous`. Confirm tier with the
+human if the estimator looks wrong, then continue.
 
 ---
 
@@ -114,8 +137,9 @@ docs/
 └── CHANGELOG.md
 
 .claude/
-├── agents/        # 9 self-contained subagents (already shipped — see docs/AGENTS.md)
-├── commands/      # 9 slash commands (already shipped — see docs/SETUP.md)
+├── agents/        # 11 self-contained subagents (see docs/AGENTS.md)
+├── commands/      # 10 slash commands (see docs/SETUP.md)
+├── skills/        # optional project skills (e.g. capability-orchestrator)
 ├── hooks/         # fail-safe shell hooks (already shipped)
 ├── state/         # loop state (gitignored, worktree-local)
 └── settings.json  # permissions + hooks, self-contained (no external plugin)
@@ -124,13 +148,15 @@ docs/
 This harness is **self-contained**. The subagents, commands, hooks, and validation
 gate already live in this repo — do **not** depend on any external plugin
 marketplace. Reuse the shipped agents (`orchestrator`, `planner`, `architect`,
-`implementer`, `validator`, `reviewer`, `security`, `docs-writer`, `mcp-scout`)
+`implementer`/`implementer-opus`, `validator`, `reviewer`, `security`, `docs-writer`, `mcp-scout`, `evaluator`)
 rather than inventing new ones; add a new agent only where it provides clear
 long-term value, and register it per `docs/AGENTS.md`.
 
 Wire `scripts/validate.sh` to this project's real stack so the validation gate is
-meaningful, and generate `docs/ROADMAP.md` as an ordered list of small, shippable
-tasks the build loop (`docs/LOOP.md`) can consume.
+meaningful, and generate `docs/ROADMAP.md` as an ordered list of **outcome-sized** shippable
+tasks (2–4 on `fast`, 3–6 on `standard`, phased on `rigorous`) for the build loop
+(`docs/LOOP.md`). On `fast`, do **not** fill every docs template with prose —
+thin ARCHITECTURE + ROADMAP + PROJECT_STATE + one ADR if needed.
 
 ---
 
@@ -245,8 +271,9 @@ Every future Claude Code session should:
 Treat the repository—not the conversation—as the source of truth.
 
 Once the foundation is approved, development proceeds through the **build loop**
-(`docs/LOOP.md`), run with `/loop`: SELECT → PLAN → approve → BUILD → VALIDATE
-(hard gate) → REVIEW → approve → COMMIT → update state → repeat. When a task needs
+(`docs/LOOP.md`), run with `/loop`: SELECT → DISCOVER → PLAN → approve → BUILD →
+VALIDATE (hard gate) → REVIEW **+ SECURITY** → approve → COMMIT → update state →
+repeat. See `docs/AI_OS.md` and `docs/BUILD_EFFORT.md`. When a task needs
 an external tool (database, GitHub, browser, payments), use `/mcp-add` so the
 `mcp-scout` checks for an MCP server and wires it in with consent (see `docs/MCP.md`).
 
@@ -284,8 +311,9 @@ Escalate only when task complexity justifies the additional cost.
 
 Before implementation begins, produce:
 
-1. Architecture Review
-2. Technology Validation
+1. Build-effort estimate (tier + score) confirmed with human
+2. Architecture Review
+3. Technology Validation
 3. Scalability Assessment
 4. Risk Assessment
 5. Clarification Questions (if required)

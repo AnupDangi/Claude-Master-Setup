@@ -11,6 +11,10 @@
 - Hooks parse tool JSON with python3 (fixes embedded-quote bypass).
 - `docs/SECURITY.md`: honest limits — allowlists are UX, not a sandbox.
 
+### Changed
+- `MASTER-PROMPT.md` → **v3** (Phase 0 build-effort; brownfield; thin docs on `fast`).
+- `README.md` refreshed for v0.4 / AI OS / publish checklist on branch `v2-os`.
+
 ### Fixed
 - **Statusline is user-level only:** always run `python3 "$HOME/.claude/statusline.sh"`.
   Project `.claude/settings.json` no longer wires `$CLAUDE_PROJECT_DIR/.../statusline.sh`.

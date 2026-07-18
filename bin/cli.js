@@ -364,6 +364,7 @@ function installGlobal() {
   console.log(`  ${green}✓${reset} Installed claude-master-setup/ (docs + references)`);
 
   mergeCompanionSettings(configDir);
+  installStatusline(configDir);
   printCompanionNextSteps();
 
   console.log(`  ${green}Done!${reset} Run ${cyan}claude${reset}, then ${cyan}/status${reset} or ${cyan}/loop${reset}.
@@ -419,6 +420,61 @@ function mergeCompanionSettings(configDir) {
 
   fs.writeFileSync(settingsPath, `${JSON.stringify(settings, null, 2)}\n`, 'utf8');
   console.log(`  ${green}✓${reset} Updated settings.json (companion marketplaces + plugins)`);
+}
+
+/**
+ * Install statusline.sh only if missing; wire settings.statusLine only if unset.
+ * Never overwrites an existing script or statusLine config.
+ */
+function installStatusline(configDir) {
+  const src = path.join(PKG_ROOT, '.claude', 'statusline.sh');
+  const dest = path.join(configDir, 'statusline.sh');
+  if (!fs.existsSync(src)) return;
+
+  if (fs.existsSync(dest)) {
+    console.log(`  ${dim}skip (already exists): statusline.sh${reset}`);
+  } else {
+    fs.copyFileSync(src, dest);
+    try {
+      fs.chmodSync(dest, 0o755);
+    } catch {
+      /* best-effort on platforms without chmod */
+    }
+    console.log(`  ${green}✓${reset} Installed statusline.sh`);
+  }
+
+  const settingsPath = path.join(configDir, 'settings.json');
+  let settings = {};
+  if (fs.existsSync(settingsPath)) {
+    try {
+      settings = JSON.parse(fs.readFileSync(settingsPath, 'utf8'));
+    } catch (err) {
+      console.log(
+        `  ${yellow}!${reset} Could not parse ${settingsPath} — skipping statusLine merge (${err.message})`
+      );
+      return;
+    }
+  }
+
+  if (settings.statusLine) {
+    console.log(`  ${dim}skip (already set): settings.json statusLine${reset}`);
+    return;
+  }
+
+  if (!fs.existsSync(dest)) return;
+
+  const homeClaude = path.join(os.homedir(), '.claude');
+  const command =
+    path.resolve(configDir) === path.resolve(homeClaude)
+      ? '~/.claude/statusline.sh'
+      : dest;
+
+  settings.statusLine = {
+    type: 'command',
+    command,
+  };
+  fs.writeFileSync(settingsPath, `${JSON.stringify(settings, null, 2)}\n`, 'utf8');
+  console.log(`  ${green}✓${reset} Enabled statusLine in settings.json`);
 }
 
 function printCompanionNextSteps() {
@@ -529,6 +585,7 @@ function installLocal() {
   const userClaude = path.join(os.homedir(), '.claude');
   fs.mkdirSync(userClaude, { recursive: true });
   mergeCompanionSettings(userClaude);
+  installStatusline(userClaude);
   printCompanionNextSteps();
   finishLocalDone();
 }

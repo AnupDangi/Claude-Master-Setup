@@ -5,6 +5,13 @@
 
 ## [Unreleased]
 
+## [0.2.7] — 2026-07-18
+### Added
+- Ship `statusline.sh` (model / branch / project / context bar / cost). Global
+  and local installs copy it into `~/.claude/` only when missing, and set
+  `settings.json` `statusLine` only when unset — never overwrites an existing
+  status line.
+
 ## [0.2.6] — 2026-07-18
 ### Fixed
 - Refuse to install the harness when Claude Code (`claude`) is missing — print

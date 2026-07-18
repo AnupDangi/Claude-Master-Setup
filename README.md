@@ -129,7 +129,8 @@ claude                       # start Claude Code — agents/commands load automa
 **Global** installs agents + slash commands into `~/.claude/` so `/loop`,
 `/plan`, `/validate`, … work in any project. It also merges recommended
 companion marketplaces into `~/.claude/settings.json` (claude-mem, superpowers,
-code-review, Antigravity skills). **Local** also drops hooks,
+code-review, Antigravity skills), and installs a `statusline.sh` (model / git /
+context / cost) **only if you don’t already have one**. **Local** also drops hooks,
 `scripts/validate.sh`, and docs into the current repo (needed for the hard
 validation gate). Re-running is safe: existing dirs are timestamp-backed up.
 

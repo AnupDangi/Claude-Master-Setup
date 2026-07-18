@@ -10,13 +10,13 @@ bad()  { printf '  \033[31m✗ %s\033[0m\n' "$1"; FAIL=1; }
 echo "▶ Harness self-check"
 
 # Required agents
-for a in orchestrator planner architect implementer validator reviewer security docs-writer mcp-scout; do
+for a in orchestrator planner architect implementer implementer-opus validator reviewer security docs-writer mcp-scout evaluator; do
   f=".claude/agents/$a.md"
   if [ -f "$f" ] && head -1 "$f" | grep -q '^---'; then ok "agent: $a"; else bad "agent missing/malformed: $a"; fi
 done
 
 # Required commands
-for c in loop plan validate review mcp-add bootstrap handoff status ship; do
+for c in loop plan validate review mcp-add bootstrap handoff status ship evaluate; do
   [ -f ".claude/commands/$c.md" ] && ok "command: /$c" || bad "command missing: /$c"
 done
 

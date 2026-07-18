@@ -6,17 +6,100 @@
 
 ## How to read this
 - `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blocked
-- Order = build order. The orchestrator picks the topmost unblocked item.
+- Order = build order. The orchestrator picks the topmost unblocked item — sizing an
+  oversized pick down to a shippable slice is PLAN's job (via a Task Graph), not
+  SELECT's, so this list doesn't need every item pre-sliced to fit one iteration.
+- Optionally append `(depends: <other item>)` to declare an ordering requirement
+  beyond plain file order — e.g. `- [ ] wire the reset endpoint (depends: password
+  hashing util)`. SELECT skips a dependent item until its named dependency is
+  `[x]` done, even if no one remembered to also mark it `[!]`.
 
-## Milestone 0 — Foundation
-- [ ] _(e.g. project skeleton + CI + validate.sh wired to real stack)_
+This repo's "product" is the harness itself, so — until someone bootstraps a
+real project on top of it — this roadmap tracks the harness's own evolution
+from a fixed plan→build→validate→review→commit loop toward the Scheduler-driven
+Loop Engine described in [`LOOP_ENGINE.md`](LOOP_ENGINE.md). See
+[`DECISIONS.md`](DECISIONS.md) ADR-001 for why this is being staged instead of
+built in one pass.
 
-## Milestone 1 — _(name)_
-- [ ] _(task — one shippable unit)_
-- [ ] _(task)_
+## Milestone 0 — Foundation (done)
+- [x] Self-contained loop harness: 9 agents, 9 commands, validation gate, MCP
+      scout + catalog, fail-safe hooks (see `docs/VALIDATION.md`)
+- [x] Validation retry cap + `await-human-on-red` escalation (ADR-001)
+- [x] Vision/engine design docs: `VISION.md`, `LOOP_ENGINE.md`, `STATE_ENGINE.md`,
+      `MODEL_ROUTING.md`, `EVALUATION.md`
+- [x] Task graph: `planner` emits an ordered sub-task graph for roadmap items too
+      large for one iteration; GATE 1 approves the whole graph once, GATE 2 and
+      validation still apply per sub-task (`loop.json.task_graph`)
+- [x] Cost/complexity classification before PLAN (`trivial|small|medium|large`,
+      `loop.json.task_complexity`) — scoped down from a full token-cost estimate;
+      today it formalizes the architect-invocation decision and feeds future
+      `/evaluate` tracking, not model choice (see `MODEL_ROUTING.md`)
+- [x] Dependency-aware SELECT: reconciled the old "topmost unblocked" vs "smallest
+      shippable unit" inconsistency — file order is now explicitly the priority
+      signal (sizing is the Task Graph's job), and roadmap items can declare
+      `(depends: ...)` so SELECT skips a dependent item even if it wasn't manually
+      marked `[!]`. Not a priority-scoring Scheduler — that needs signals (value,
+      risk) this harness doesn't have yet.
+- [x] `npx`-installable scaffold: `package.json` + `bin/cli.js` (no
+      dependencies) — `npx github:AnupDangi/Claude-Master-Setup [target-dir]`
+      copies `.claude/`, `docs/`, `scripts/`, `CLAUDE.md`, `MASTER-PROMPT.md`,
+      `.env.example` into the target (skipping anything already there) and
+      runs `scripts/install.sh`, exactly what a manual git-clone install does.
+      Works without publishing to the npm registry. Tested end-to-end into a
+      scratch directory; the result passed `scripts/self-check.sh`. This is a
+      separate distribution mechanism from the Claude Code plugin/marketplace
+      packaging in Milestone 3 below — that one is about `.claude-plugin/`
+      manifests, this one is about `npx`/npm.
+      **Publish-ready, not yet published:** `LICENSE` (MIT) added,
+      `package.json` has full metadata, name confirmed free (`npm view` →
+      404), `npm publish --dry-run` succeeds (71 files, ~75 kB). The one
+      remaining step needs the user's own `npm login` — no one else can
+      authenticate that. See `docs/OPERATIONS.md`.
 
-## Milestone 2 — _(name)_
-- [ ] _(task)_
+## Milestone 1 — Loop Engine: Scheduler (done)
+- [x] Dynamic model routing: built the one high-value pair —
+      `implementer`/`implementer-opus` — chosen by `task_complexity` at BUILD
+      (Task tool has no runtime model override, so this means named variant
+      agent files; see `MODEL_ROUTING.md`). Escalates to Opus for `large`
+      tasks rather than downgrading for small ones, the safer direction to
+      bet on without usage data. Extending this pattern to other agents is
+      Backlog, done one at a time per agent, not speculatively.
+
+## Milestone 2 — Evaluation
+- [x] `/evaluate` command + `evaluator` agent (read-only, same rules as
+      `reviewer`/`security`) per the design in `EVALUATION.md`
+- [x] Wire objective metrics first: Tests (`validate.sh` GATE + coverage if the
+      stack reports one), Iterations (git-log proxy), Documentation
+      completeness (template-fill ratio). Manual Interventions is explicitly
+      reported `not tracked` — it needs a persistent event log this harness
+      doesn't have (see Backlog), not just more prompt logic. LLM-judged
+      subjective metrics (Planning/Architecture/Security/Performance/doc
+      *quality*) are deliberately still out of scope — see `EVALUATION.md`
+- [ ] Feed `/evaluate` output into SELECT/Choose-Model decisions (the "Measure"
+      → "Update Memory" stages in `LOOP_ENGINE.md`) — blocked on the same
+      prerequisite as dynamic model routing: no Scheduler-level consumer
+      exists yet to feed scores into
+
+## Milestone 3 — Proof and packaging (deferred)
+- [ ] Benchmark suite: run the harness end-to-end against reference projects
+      (e.g. a small Linear-style tracker, a CRM) and record comparable
+      `/evaluate` scores — only once Milestone 2 is trusted on real projects
+- [ ] Stack-specific template library (`templates/`) for common project types
+- [ ] Plugin/marketplace packaging (`.claude-plugin/marketplace.json` +
+      `plugin.json`) as an **optional** install path alongside clone-and-run —
+      does not replace or weaken ADR-000's self-contained default
 
 ## Backlog (unordered, not yet scheduled)
-- _(ideas, nice-to-haves, deferred scope)_
+- Existing-codebase adoption path for `/bootstrap` (today assumes greenfield
+  PRD/PTR; add a branch that detects stack + infers conventions from an
+  existing repo)
+- Language/stack-specific reviewer agents (python-reviewer, react-reviewer) as
+  real projects surface the need
+- Persistent loop-history event log (append-only; `await-human-on-red`
+  entries, non-trivial GATE 1/2 rejections, per-iteration task_complexity) —
+  prerequisite for `/evaluate`'s Manual Interventions metric and for a more
+  accurate Iterations count than the current git-log proxy
+- Extend the `implementer`/`implementer-opus` model-routing pattern to another
+  agent (e.g. `reviewer`) — only once that agent shows the same
+  "most-invoked + complexity-sensitive" shape, not speculatively for every
+  agent at once

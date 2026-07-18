@@ -40,7 +40,8 @@
     ]
   },
   "env": {
-    "HARNESS_LOOP_STRICT": "1"
+    "HARNESS_LOOP_STRICT": "1",
+    "HARNESS_MAX_VALIDATE_RETRIES": "3"
   },
   "hooks": {
     "SessionStart": [

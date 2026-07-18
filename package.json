@@ -1,0 +1,29 @@
+{
+  "name": "claude-master-setup",
+  "version": "0.1.0",
+  "description": "Autonomous software engineering harness for Claude Code — plan, build, validate, review, and commit in an engineered loop with specialist subagents and hard quality gates.",
+  "bin": {
+    "claude-master-setup": "./bin/cli.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "license": "MIT",
+  "author": "Anup Dangi",
+  "keywords": [
+    "claude-code",
+    "claude",
+    "ai-agent",
+    "autonomous-engineering",
+    "harness",
+    "subagents"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/AnupDangi/Claude-Master-Setup.git"
+  },
+  "homepage": "https://github.com/AnupDangi/Claude-Master-Setup#readme",
+  "bugs": {
+    "url": "https://github.com/AnupDangi/Claude-Master-Setup/issues"
+  }
+}

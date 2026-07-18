@@ -72,17 +72,20 @@ Defined in `.claude/agents/`. Full reference in `docs/AGENTS.md`.
 | `orchestrator` | Runs the loop, delegates, enforces gates | No |
 | `planner` | Roadmap item → step plan + DoD | No |
 | `architect` | Challenges design, writes ADRs | Docs only |
-| `implementer` | Writes code **and** tests for one task | Yes (only one) |
+| `implementer` | Writes code **and** tests for one task (Sonnet, default) | Yes |
+| `implementer-opus` | Same job, Opus tier — used instead of `implementer` when `task_complexity` is `large` | Yes |
 | `validator` | Runs the gate, reports GREEN/RED | No |
 | `reviewer` | Quality pass, severity-ranked | No |
 | `security` | OWASP/secrets/authz pass | No |
 | `docs-writer` | Keeps docs synced | Docs only |
 | `mcp-scout` | Finds & adds MCP servers (with consent) | `.mcp.json` only |
+| `evaluator` | Objective-metrics scorecard (`/evaluate`) | No |
 
 ## Slash commands
 
 `/bootstrap` `/loop` `/plan` `/validate` `/review` `/mcp-add` `/handoff`
-`/status` `/ship` — defined in `.claude/commands/`, documented in `docs/SETUP.md`.
+`/status` `/ship` `/evaluate` — defined in `.claude/commands/`, documented in
+`docs/SETUP.md`.
 
 ## MCP tools
 
@@ -104,7 +107,8 @@ Use the cheapest model that can do the task well.
   decisions.
 
 Agent frontmatter already pins each agent to a sensible model; escalate only when
-complexity justifies the cost.
+complexity justifies the cost. Full tiering table and the target (dynamic,
+scheduler-driven) design in [`docs/MODEL_ROUTING.md`](docs/MODEL_ROUTING.md).
 
 ## Git & branching
 

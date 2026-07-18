@@ -1,6 +1,7 @@
 # Claude Master Setup
 
-<img width="2110" height="700" alt="image" src="https://github.com/user-attachments/assets/3727d6e4-4953-424f-9d1b-175a2b7f5532" />
+<img width="1774" height="887" alt="image" src="https://github.com/user-attachments/assets/74f7bd9d-87fa-489b-9740-01161581791d" />
+
 
 An **autonomous software engineering harness for Claude Code**. Clone it, drop
 in your requirements, and it plans, builds, validates, reviews, documents, and

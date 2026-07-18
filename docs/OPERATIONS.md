@@ -74,9 +74,17 @@ npm publish                     # add --access public if using a scoped name
 
 **After publishing:**
 - Published versions are **immutable** — bump + publish again for fixes.
-- End-user verify: `npx claude-master-setup@<version> /tmp/fresh && bash /tmp/fresh/scripts/self-check.sh`
-- Confirm the fresh install’s `.gitignore` includes `node_modules/` (full
-  template from the package), not only the thin patterns `install.sh` appends.
+- End-user verify:
+  ```bash
+  npx claude-master-setup@<version> --help
+  npx claude-master-setup@<version> --global --config-dir /tmp/claude-smoke
+  # expect agents/ + commands/ under that dir
+  cd /tmp && mkdir cms-local && cd cms-local
+  npx claude-master-setup@<version> --local
+  bash scripts/self-check.sh
+  ```
+- Confirm local install’s `.gitignore` includes `node_modules/` (from `templates/gitignore`).
+- Nested installs under this repo’s directory can confuse `npx` (parent package name) — test from `/tmp`.
 
 ## Part 2 — Handling all the agents
 

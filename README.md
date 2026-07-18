@@ -6,9 +6,11 @@
 An **autonomous software engineering harness for Claude Code**. Clone it, drop
 in your requirements, and it plans, builds, validates, reviews, documents, and
 commits work as a repeatable engineered loop — with specialist subagents and
-hard quality gates — instead of a sequence of one-off prompts. No plugin
-marketplace required: it works with only the files in this repo. Full vision
-and long-term direction in [`docs/VISION.md`](docs/VISION.md).
+hard quality gates — instead of a sequence of one-off prompts. The core loop
+works from the files in this repo alone; optional companions (claude-mem,
+superpowers, Antigravity skills) are recommended for a full Claude Code setup —
+see [`docs/COMPANIONS.md`](docs/COMPANIONS.md). Full vision in
+[`docs/VISION.md`](docs/VISION.md).
 
 ```
 /bootstrap   # PRD + PTR  → architecture, CLAUDE.md, docs/, roadmap  (no code yet)
@@ -79,34 +81,81 @@ No signup, no config wizard. Just files Claude Code already knows how to read.
 
 ## Quick start
 
-Three equivalent ways to install — pick one:
+Install into **Claude Code** (same UX as tools like Forge) — interactive global vs local:
 
 ```bash
-# Option A (recommended): npm registry — version-pinned, production path
-npx claude-master-setup@latest my-project
+npx claude-master-setup
+```
 
-# Option B: from GitHub (always current default branch; no registry)
-npx github:AnupDangi/Claude-Master-Setup my-project
+```text
+  Where would you like to install?
 
-# Option C: git clone (same scaffold, more explicit)
+  1) Global (~/.claude) - available in all projects
+  2) Local  (./.claude) - this project only
+
+  Choice [1]:
+```
+
+Or skip the prompt:
+
+```bash
+npx claude-master-setup --global   # agents + commands → ~/.claude (all projects)
+npx claude-master-setup --local    # full harness → ./.claude + scripts/docs (this repo)
+```
+
+```bash
+claude                       # start Claude Code — agents/commands load automatically
+# then:
+/bootstrap                   # (local projects with PRD.md / PTR.md)
+/loop                        # run the build loop
+/status                      # where you are
+```
+
+**Global** installs agents + slash commands into `~/.claude/` so `/loop`,
+`/plan`, `/validate`, … work in any project. It also merges recommended
+companion marketplaces into `~/.claude/settings.json` (claude-mem, superpowers,
+code-review, Antigravity skills). **Local** also drops hooks,
+`scripts/validate.sh`, and docs into the current repo (needed for the hard
+validation gate). Re-running is safe: existing dirs are timestamp-backed up.
+
+### Recommended companions (do this once)
+
+The harness works alone. For the full “work like a real Claude setup” experience,
+install these plugins inside Claude Code after `npx claude-master-setup`:
+
+```text
+/plugin marketplace add thedotmack/claude-mem
+/plugin install claude-mem@thedotmack
+
+/plugin install superpowers@claude-plugins-official
+/plugin install code-review@claude-plugins-official
+
+/plugin marketplace add sickn33/antigravity-awesome-skills
+/plugin install antigravity-awesome-skills
+```
+
+| Plugin | Why |
+|---|---|
+| **claude-mem** | Persistent memory across sessions |
+| **superpowers** | Brainstorm / TDD / systematic debugging |
+| **code-review** | Extra review depth next to `/review` |
+| **antigravity-awesome-skills** | Large curated skill library |
+
+Details: [`docs/COMPANIONS.md`](docs/COMPANIONS.md). After install, restart Claude Code,
+then `/learn-codebase` once per repo (claude-mem) before `/loop`.
+
+Other install paths (same harness files):
+
+```bash
+# Legacy scaffold into a new folder
+npx claude-master-setup --scaffold my-project
+
+# Git clone
 git clone https://github.com/AnupDangi/Claude-Master-Setup.git my-project
-cd my-project
-bash scripts/install.sh      # makes scripts/hooks executable, seeds .env & state
+cd my-project && bash scripts/install.sh
 ```
 
-```bash
-cd my-project
-claude                       # start Claude Code — hooks & permissions load automatically
-bash scripts/self-check.sh   # verify the harness
-```
-
-Options A and B run `bin/cli.js`, which copies `.claude/`, `docs/`, `scripts/`,
-`CLAUDE.md`, `MASTER-PROMPT.md`, `.env.example`, and `.gitignore` into the target
-(skipping anything that already exists, so it's safe on an existing project), then
-runs `scripts/install.sh` — the same script Option C runs manually. Omit the target
-directory to install into the current one. Prefer **Option A** for a pinned release
-(`npx claude-master-setup@0.1.1`). See [`docs/OPERATIONS.md`](docs/OPERATIONS.md)
-for packaging and publish details.
+See [`docs/OPERATIONS.md`](docs/OPERATIONS.md) and [`docs/SETUP.md`](docs/SETUP.md).
 Then add your requirements and bootstrap:
 
 ```
@@ -119,7 +168,6 @@ my-project/
 /bootstrap    # generates architecture, CLAUDE.md, docs/, and a build roadmap — no code yet
 /loop         # builds the roadmap, one validated increment at a time
 ```
-
 ## Core capabilities
 
 **Built and working today:**
@@ -138,9 +186,9 @@ my-project/
   most agents, dynamic for the highest-value case: BUILD delegates to
   `implementer` (Sonnet) or `implementer-opus` (Opus) based on task
   complexity. [`docs/MODEL_ROUTING.md`](docs/MODEL_ROUTING.md)
-- **`npx`-installable** — `npx claude-master-setup [target-dir]` (npm) or
-  `npx github:AnupDangi/Claude-Master-Setup [target-dir]` scaffolds the harness
-  without a manual git clone.
+- **`npx`-installable** — `npx claude-master-setup` installs into Claude Code
+  (`--global` → `~/.claude`, `--local` → `./.claude`) with an interactive prompt;
+  `--scaffold [dir]` remains for legacy folder dumps.
 - **MCP discovery** — `/mcp-add` finds and wires external tools with consent.
   [`docs/MCP.md`](docs/MCP.md)
 - **Task graphs** — `planner` splits an oversized roadmap item into an
@@ -203,33 +251,29 @@ Four layers, one home per fact — see the "Four memory layers" table in
 [`CLAUDE.md`](CLAUDE.md): `PRD.md`/`PTR.md` (requirements, rarely change),
 `CLAUDE.md` (stable conventions), `docs/` (shared, current-state knowledge,
 changes often), and Claude Code's per-worktree auto-memory (continuous, local).
-One plugin closes a real gap in the last layer: Claude Code's auto-memory
-forgets everything once a session ends. **[claude-mem](https://github.com/thedotmack/claude-mem)**
-makes memory persistent — it observes sessions and injects relevant past
-context automatically on later ones.
+
+**Companions** (claude-mem, superpowers, code-review, Antigravity skills) close
+gaps that the harness alone does not — especially persistent memory and process
+skills. Full install steps: [`docs/COMPANIONS.md`](docs/COMPANIONS.md). Short version:
 
 ```
 /plugin marketplace add thedotmack/claude-mem
 /plugin install claude-mem@thedotmack
+/plugin install superpowers@claude-plugins-official
+/plugin install code-review@claude-plugins-official
+/plugin marketplace add sickn33/antigravity-awesome-skills
+/plugin install antigravity-awesome-skills
 ```
 
-Pair it with the harness like this:
+Pair with the harness:
 
 - After `/bootstrap` (or when adopting an existing project), run
   `/learn-codebase` once so claude-mem has full repo context from day one.
 - Keep using `docs/PROJECT_STATE.md`, `docs/SESSION.md`, and `docs/DECISIONS.md`
   as the **durable, reviewable** source of truth — claude-mem is a low-friction
-  recall layer on top of those, not a replacement. If a fact matters to every
-  future session, it still belongs in `docs/`, not only in memory.
-
-Two more official plugins complement the loop (optional, no separate
-marketplace needed — `claude-plugins-official` ships with Claude Code):
-
-```
-/plugin install superpowers@claude-plugins-official   # brainstorming, TDD, systematic debugging
-/plugin install code-review@claude-plugins-official    # deeper /code-review ultra pass alongside /review
-```
-
+  recall layer on top of those, not a replacement.
+- Use Antigravity / superpowers skills when the task matches; use `/loop` for
+  the engineered build cycle.
 ## Adding tools (MCP)
 
 When a task needs an external service, run `/mcp-add <tool>`. The **mcp-scout** checks

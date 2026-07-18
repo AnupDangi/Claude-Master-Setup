@@ -166,23 +166,32 @@ command, or add an integration-test stage. For a docs-only repo, set
 
 ## Installation scope: project, user, or session
 
-- **Project level (default).** `.claude/agents/`, `.claude/commands/`,
+Preferred (npm):
+
+```bash
+npx claude-master-setup              # interactive: Global vs Local
+npx claude-master-setup --global     # → ~/.claude agents + commands + companion settings
+npx claude-master-setup --local      # → ./.claude + scripts/docs (full gate)
+```
+
+After install, add companions (claude-mem, superpowers, code-review, Antigravity
+skills) — see [`COMPANIONS.md`](COMPANIONS.md). `--global` merges marketplaces
+into `~/.claude/settings.json`; you still run `/plugin install …` once in Claude Code.
+- **Project level (local).** `.claude/agents/`, `.claude/commands/`,
   `.claude/hooks/`, `.claude/settings.json`, and `scripts/` all live in the
   project repo root and apply only when Claude Code runs from there.
-  Committed and shared with the team — this is what this repo ships as-is.
+  Committed and shared with the team — this is what `--local` installs.
 
-- **User level (global, every project).** Copy the agent and command
-  definitions into your user config directory:
+- **User level (global, every project).** `npx claude-master-setup --global`
+  copies agents + commands into `~/.claude/` (or `$CLAUDE_CONFIG_DIR`) and
+  reference docs into `~/.claude/claude-master-setup/`. Equivalent manual copy:
   ```bash
   cp .claude/agents/*.md ~/.claude/agents/
   cp .claude/commands/*.md ~/.claude/commands/
   ```
-  The 11 subagents and 10 commands are now available in any project you open,
-  without cloning this repo into it. `scripts/validate.sh` is stack-specific
-  by nature, so it still needs to exist per-project — copy `scripts/` into
-  each project you want the hard gate in, or package this whole harness as a
-  Claude Code plugin (see Stage 5 below) so one `/plugin install` sets up a
-  new project in a single command instead of a manual copy.
+  The 11 subagents and 10 commands are then available in any project.
+  `scripts/validate.sh` is stack-specific, so for the hard gate also run
+  `--local` in that repo (or copy `scripts/`).
 
 - **Session level (try before installing, or a true one-off).** Two ways,
   neither touches your global config:

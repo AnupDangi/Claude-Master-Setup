@@ -57,6 +57,9 @@ Going deeper — MCP, skills, subagents:
 6. [Introduction to Agent Skills](https://anthropic.skilljar.com/introduction-to-agent-skills)
 7. [Introduction to Subagents](https://anthropic.skilljar.com/introduction-to-subagents)
 
+## Architecture 
+<img width="1774" height="887" alt="image" src="https://github.com/user-attachments/assets/dbef312c-0701-411b-babf-51cf525e888b" />
+
 ## What's inside
 
 ```

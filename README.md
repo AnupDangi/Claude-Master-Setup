@@ -92,6 +92,10 @@ No signup, no config wizard. Just files Claude Code already knows how to read.
 Install into **Claude Code** (same UX as tools like Forge) — interactive global vs local:
 
 ```bash
+# Prerequisite: Claude Code CLI must already be installed
+#   npm install -g @anthropic-ai/claude-code
+#   # or: brew install --cask claude-code
+# Then:
 npx claude-master-setup
 ```
 

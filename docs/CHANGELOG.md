@@ -5,11 +5,16 @@
 
 ## [Unreleased]
 
+## [0.2.6] — 2026-07-18
+### Fixed
+- Refuse to install the harness when Claude Code (`claude`) is missing — print
+  install steps and exit. Use `--force` only if you intentionally want files
+  staged without the CLI.
+
 ## [0.2.5] — 2026-07-18
 ### Fixed
 - Detect missing Claude Code CLI (`claude`) and explain that `.claude` is a
-  config folder, not a command; print install steps (`npm` / Homebrew) and ask
-  before continuing in interactive mode.
+  config folder, not a command; print install steps (`npm` / Homebrew).
 
 ## [0.2.4] — 2026-07-18
 ### Fixed

@@ -4,15 +4,14 @@
 > after every loop iteration. Current state only — no history (that's CHANGELOG).
 
 ## Status
-Harness repositioned as an autonomous software engineering harness (ADR-001).
-Milestone 0 (Foundation) and Milestone 1 (Loop Engine: Scheduler) are both
-complete. Milestone 2 (Evaluation) has its objective-metrics slice built.
-Two items remain intentionally unbuilt because each is gated on a
-prerequisite this repo doesn't have yet — see "Known issues / risks". 11
-agents, 10 commands. `npx`-installable, and now **publish-ready**: `LICENSE`
-(MIT) added, `package.json` has full metadata, name confirmed free, `npm
-publish --dry-run` succeeds. The only remaining step is the user's own `npm
-login` — nothing else blocks a real `npm publish`.
+Harness is an autonomous software engineering / **AI OS** layer on Claude Code
+(ADR-001/003). Milestones 0–2 (objective eval), 4 (capability orchestration),
+and **5 (AI OS control plane)** are complete: event log, scorecard→SELECT,
+harness CI, hard path blocking, budget stop, leases, brownfield bootstrap,
+build-effort value function (ADR-004: `fast|standard|rigorous`).
+Milestone 3 (benchmarks/plugin packaging) remains deferred. 11 agents, 10
+commands, skill `capability-orchestrator`. `npx`-installable / publish-ready
+pending user `npm login`.
 
 ## Done
 - Self-contained loop harness: 9 agents, 9 commands, validation gate, MCP scout +
@@ -99,23 +98,21 @@ login` — nothing else blocks a real `npm publish`.
   updated to reflect publish-ready-not-published status.
 - `bash scripts/self-check.sh` passes with all edits applied
 
+## Done (this iteration)
+- ADR-003 + `docs/CAPABILITY_ORCHESTRATION.md` + Milestone 4 roadmap
+- `scripts/list-local-skills.sh` + `scripts/worktree-fanout.sh`
+- Agent/command wiring for DISCOVER, AGENT_TASK template, hierarchical caps
+- Companion skill `.claude/skills/capability-orchestrator/`
+
 ## In progress
-- None — this iteration is complete. `.claude/state/loop.json` is `idle`.
+- None — Milestone 4 landed. `.claude/state/loop.json` should return to `idle`.
 
 ## Next up
-Nothing is currently unblocked and ready to build without either (a) evidence
-that doesn't exist yet or (b) a prerequisite system this repo hasn't built.
-Candidates, in the order they'd become unblocked:
-1. **Persistent loop-history event log** (`docs/ROADMAP.md` Backlog) — the
-   actual unblocker. Once it exists: Manual Interventions becomes measurable,
-   which gives Milestone 2's third item (feed `/evaluate` into decisions)
-   real data to feed.
-2. Existing-codebase adoption path for `/bootstrap`, a stack-specific
-   reviewer agent, or extending the model-routing pattern to another agent
-   — all explicitly "as real projects surface the need" (backlog), i.e.
-   wait for that signal rather than build speculatively.
-3. Running `npm login && npm publish` — everything else is prepared; see
-   `docs/OPERATIONS.md`.
+1. **Persistent loop-history event log** (`docs/ROADMAP.md` Backlog) — unblocks
+   Manual Interventions in `/evaluate` and feeding scores into SELECT.
+2. Existing-codebase `/bootstrap` path, stack-specific reviewers, or extending
+   model-routing to another agent — when real projects surface the need.
+3. `npm login && npm publish` — see `docs/OPERATIONS.md`.
 
 ## Known issues / risks
 - **Two roadmap items are deliberately not built**, not overlooked:
@@ -130,10 +127,12 @@ Candidates, in the order they'd become unblocked:
 - No decision has been made to actually `npm publish` — everything short of
   that is prepared (see Status above), and it isn't required for the current
   `npx github:...` install path either way.
-- The Loop Engine, Benchmarks, and Marketplace packaging described in the docs
-  are **designed, not implemented** where marked — `docs/LOOP_ENGINE.md` and
-  `docs/EVALUATION.md` are explicit about this; don't let future sessions
-  treat the diagrams as shipped behavior.
+- The Scheduler / Benchmarks / Marketplace packaging described in the docs
+  remain **designed, not implemented** where marked — `docs/LOOP_ENGINE.md` and
+  `docs/EVALUATION.md` are explicit about this. Capability orchestration
+  (Milestone 4 / ADR-003) **is** shipped — see
+  `docs/CAPABILITY_ORCHESTRATION.md`.
+
 - `.cursor/plans/versatile_harness_plugin_289a3e2b.plan.md` is a local,
   untracked plan file with a broader scope (existing-codebase bootstrap,
   plugin packaging, full end-to-end test rounds) than what's landed so far —

@@ -24,7 +24,7 @@ echo "  ✓ .gitignore updated (secrets and local state excluded)"
 
 # 4. Seed empty loop state
 mkdir -p .claude/state
-[ -f .claude/state/loop.json ] || echo '{ "iteration": 0, "phase": "idle", "task": null, "validate_attempts": 0, "max_validate_retries": 3, "task_graph": null, "task_complexity": null }' > .claude/state/loop.json
+[ -f .claude/state/loop.json ] || echo '{ "iteration": 0, "phase": "idle", "task": null, "validate_attempts": 0, "max_validate_retries": 3, "task_graph": null, "task_complexity": null, "skills_index": null, "skills_assigned": [], "skills_skipped": [], "fanout": null, "iterations_this_run": 0, "max_iterations_per_run": 1, "build_effort_tier": null, "build_effort_score": null, "docs_profile": null }' > .claude/state/loop.json
 echo "  ✓ loop state initialized"
 
 # 5. Tool checks (warn only)

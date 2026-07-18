@@ -104,3 +104,70 @@
   Extending the same pattern to another agent is Backlog work, still gated on that
   agent showing the same "most-invoked + complexity-sensitive" shape, absent a
   further explicit direction like this one.
+
+## ADR-003: Capability-driven orchestration via local skills, hierarchical subagents, and worktree fan-out
+- Date: 2026-07-19
+- Status: accepted
+- Context: The harness's loop, gates, and specialists were solid, but execution
+  stayed linear and under-used Claude Code Skills. A generic "search everywhere"
+  Capability Engine would fight the platform. Claude Code already discovers Skills
+  from the filesystem and runs Subagents via Task; what was missing was an
+  orchestration protocol: discover local skills, inject them into structured Task
+  prompts, let running specialists spawn nested subagents, and parallelize writers
+  safely. Concurrent writers on one branch remain unsafe (see `OPERATIONS.md`).
+- Options considered:
+  (A) Generic capability engine that searches online/skill ecosystems at runtime —
+      powerful-sounding, but unbounded context, non-reproducible, and not how
+      Claude Code loads skills.
+  (B) Leave orchestration linear; rely on humans to invoke skills — zero harness
+      change, but leaves installed skills idle and keeps BUILD serial.
+  (C) Capability-driven orchestration grounded in the platform: filesystem skill
+      index, hierarchical caps (orchestrator ≤3; planner/evaluator ≤3 nested;
+      implementer ≤5 worktree writers), mandatory Task Markdown template, gates
+      unchanged — matches real Claude Code behavior and existing worktree guidance.
+- Decision: (C). Documented in `docs/CAPABILITY_ORCHESTRATION.md`. Commands stay
+  intent-only; orchestrator discovers local skills only (no web/marketplace search
+  inside the loop); parallel writers only via `scripts/worktree-fanout.sh` under a
+  GATE 1–approved fan-out map; integration VALIDATE remains the hard gate.
+- Consequences: Faster PLAN/BUILD/EVALUATE when work is file-disjoint; more agent
+  and script surface to maintain (`list-local-skills.sh`, `worktree-fanout.sh`,
+  companion skill). Same-branch multi-writer stays forbidden. Fan-out merges can
+  conflict — parent implementer resolves or escalates to human. Scheduler-level
+  multi-roadmap ranking remains out of scope (still `LOOP_ENGINE.md` target).
+
+## ADR-004: Build-effort value function (fast vs rigorous harness dial)
+- Date: 2026-07-19
+- Status: accepted
+- Context: Generic, previously-solved software (CLI, todo, typical ecommerce, API
+  wrappers) was getting the same heavy markdown scaffolding as novel multi-phase
+  systems (game clones, train+productionize LLMs). That wastes session budget on
+  low-risk builds and still under-serves high-risk ones. Users need a dial based
+  on *their* PRD/PTR/intent — without dropping quality gates.
+- Options considered:
+  (A) Always full docs harness — safe but slow for generic apps.
+  (B) Always build-first — fast but skips structure when risk is high.
+  (C) Estimator value function → `fast|standard|rigorous` docs/build posture;
+      VALIDATE + REVIEW + SECURITY remain mandatory on every tier.
+- Decision: (C). `scripts/estimate-build-effort.sh` + `docs/BUILD_EFFORT.md`;
+  bootstrap runs `--write` first; human override via `HARNESS_BUILD_EFFORT_TIER`.
+- Consequences: Faster outcome delivery on generic work; fuller process on hard
+  work. Heuristic keywords can mis-tier — override and architect challenge fix
+  that. Agents must not interpret `fast` as skipping review/security.
+
+## ADR-004: Build-effort value function (fast vs rigorous harness dial)
+- Date: 2026-07-19
+- Status: accepted
+- Context: Generic builds (CLI, todo, typical ecommerce, API wrappers) were paying
+  full markdown-scaffold cost; complex builds (game clones, train+ship LLMs) need
+  full multi-phase rigor. Users need a **project-level** dial based on their
+  PRD/PTR/intent, separate from per-task `task_complexity`.
+- Options considered:
+  (A) Always full docs — safe but slow for known patterns.
+  (B) Always thin docs — fast but risky for complex/novel systems.
+  (C) Estimator value function → `fast|standard|rigorous` with invariants that
+      VALIDATE + REVIEW + SECURITY never turn off.
+- Decision: (C). `scripts/estimate-build-effort.sh` + `docs/BUILD_EFFORT.md`;
+  bootstrap runs `--write`; human override via `HARNESS_BUILD_EFFORT_TIER`.
+- Consequences: Faster outcome delivery on generic work; clearer expectations on
+  hard work. Heuristic scores can misclassify — override required. Agents must not
+  interpret `fast` as permission to skip gates.

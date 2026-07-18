@@ -19,10 +19,13 @@ across projects, and track over time.
 
 ```
 Tests                  GATE: GREEN (scripts/validate.sh)
-Iterations             23   (git commit count — a proxy, not a true loop count)
+Iterations             12   (loop-event loop_commits; git commits as secondary)
 Documentation          6/9 template docs filled  (completeness, not quality)
-Manual Interventions   not tracked (no persistent event log — see Backlog)
+Manual Interventions   2    (await_human_on_red + gate rejects from event log)
 ```
+
+Persisted to `.claude/state/last_scorecard.json` via `scripts/write-scorecard.sh`
+for orchestrator SELECT bias — see [`AI_OS.md`](AI_OS.md).
 
 ## Target: full `/evaluate` scorecard
 
@@ -47,9 +50,10 @@ the scorecard doesn't overstate its own precision:
 | Metric | Source | Kind | Status |
 |---|---|---|---|
 | Tests | `GATE: GREEN\|RED` from `scripts/validate.sh`; coverage % only if the stack's test runner reports one | Objective | **Built** |
-| Iterations | `git log --oneline \| wc -l` (or since a given ref) | Objective, but a proxy — counts every commit, not only loop-driven ones; no structured iteration log exists | **Built (proxy)** |
+| Iterations | Prefer `scripts/loop-event.sh summary` → `loop_commits`; also report git commit count | Objective | **Built** (event log + git proxy) |
 | Documentation completeness | Ratio of fill-on-bootstrap template docs still containing placeholder markers vs. filled in | Objective | **Built** |
-| Manual Interventions | Would need a count of `await-human-on-red` escalations + non-trivial GATE 1/2 rejections | Objective in principle | **Not tracked** — `.claude/state/loop.json` holds only current state, not history; a persistent event log is a prerequisite (see Backlog in `docs/ROADMAP.md`) |
+| Manual Interventions | Count of `await_human_on_red` + `gate1_reject` + `gate2_reject` in event log | Objective | **Built** via `scripts/loop-event.sh` |
+
 | Token usage / est. cost | Sum of per-iteration usage, if tracked | Objective (requires new tracking — not collected today) | Not built |
 | Planning quality | An evaluator reviews `docs/DECISIONS.md` + planner outputs against the DoD they set | Subjective (LLM-judged) | Not built — deliberately deferred until objective metrics are trusted |
 | Architecture | An evaluator reviews ADRs and structure against the stated constraints | Subjective (LLM-judged) | Not built |
@@ -66,11 +70,8 @@ the scorecard doesn't overstate its own precision:
   Interventions rather than guessing, and "not reported by this stack" for
   coverage when the test runner doesn't produce one. Any new metric should
   follow the same rule — a missing signal is not license to estimate one.
-- **Manual Interventions needs a prerequisite, not just more prompt logic.**
-  It requires a persistent event log — `.claude/state/loop.json` only holds
-  current state. Add that log (append-only, e.g. one line per
-  `await-human-on-red` entry and per non-trivial gate rejection) before
-  attempting this metric; see the Backlog in `docs/ROADMAP.md`.
+- **Manual Interventions** is fed by `scripts/loop-event.sh` (see
+  [`AI_OS.md`](AI_OS.md)). Orchestrator must emit events for the metric to move.
 - **Score before you build the corpus.** A single benchmark run against one
   project proves nothing about general quality; the "Benchmarks" idea
   (running the harness against known reference projects — a Linear clone, a

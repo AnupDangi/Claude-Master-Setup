@@ -13,6 +13,10 @@
   beyond plain file order — e.g. `- [ ] wire the reset endpoint (depends: password
   hashing util)`. SELECT skips a dependent item until its named dependency is
   `[x]` done, even if no one remembered to also mark it `[!]`.
+- **Anti-pattern:** 15+ micro-items for a small app. `/loop` defaults to
+  **one iteration then stop**; grinding a huge list in one "finish everything"
+  run burns session limits. Prefer coarse milestones; explode detail via Task
+  Graph when needed.
 
 This repo's "product" is the harness itself, so — until someone bootstraps a
 real project on top of it — this roadmap tracks the harness's own evolution
@@ -89,17 +93,36 @@ built in one pass.
       `plugin.json`) as an **optional** install path alongside clone-and-run —
       does not replace or weaken ADR-000's self-contained default
 
+## Milestone 4 — Capability-driven orchestration (ADR-003)
+- [x] Design lock: ADR-003 + `docs/CAPABILITY_ORCHESTRATION.md` (hierarchy caps,
+      fan-out schema, task template, local-skills-only rule)
+- [x] Local skill discovery: `scripts/list-local-skills.sh` + `loop.json`
+      skills/fanout fields + orchestrator DISCOVER step; commands stay intent-only
+- [x] Mandatory `docs/templates/AGENT_TASK.md` + skill injection into Task prompts
+- [x] Hierarchical caps in agent prompts (orch ≤3 / planner ≤3 / implementer ≤5
+      worktree / evaluator ≤3) + OPERATIONS/DEVELOPMENT_WORKFLOW sync
+- [x] Worktree fan-out: `scripts/worktree-fanout.sh` + implementer parent/child
+      merge protocol; integration VALIDATE stays the hard gate
+- [x] Companion skill `.claude/skills/capability-orchestrator/`
+
+## Milestone 5 — AI OS control plane
+- [x] Persistent loop event log (`scripts/loop-event.sh`, events.jsonl)
+- [x] Eval → SELECT feedback (`write-scorecard.sh` + orchestrator bias)
+- [x] Harness CI (`.github/workflows/harness-ci.yml`)
+- [x] Hard path blocking (`protect-paths.sh` exit 2)
+- [x] Cost/budget stop (`budget-check.sh` + env caps)
+- [x] Multi-session leases (`lease.sh`)
+- [x] Brownfield `/bootstrap` (`docs/BROWNFIELD.md` + command branch)
+- [x] Build-effort value function (`estimate-build-effort.sh`, ADR-004)
+
 ## Backlog (unordered, not yet scheduled)
-- Existing-codebase adoption path for `/bootstrap` (today assumes greenfield
-  PRD/PTR; add a branch that detects stack + infers conventions from an
-  existing repo)
 - Language/stack-specific reviewer agents (python-reviewer, react-reviewer) as
   real projects surface the need
-- Persistent loop-history event log (append-only; `await-human-on-red`
-  entries, non-trivial GATE 1/2 rejections, per-iteration task_complexity) —
-  prerequisite for `/evaluate`'s Manual Interventions metric and for a more
-  accurate Iterations count than the current git-log proxy
+- Full Scheduler (value/risk ranking across many roadmap items) — leases +
+  scorecard are the first slice; ranking is not
 - Extend the `implementer`/`implementer-opus` model-routing pattern to another
   agent (e.g. `reviewer`) — only once that agent shows the same
   "most-invoked + complexity-sensitive" shape, not speculatively for every
   agent at once
+- Subjective `/evaluate` metrics (Planning/Architecture/…) after objective
+  metrics are trusted on real projects

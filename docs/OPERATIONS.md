@@ -118,42 +118,48 @@ time so the classification reflects it.
 
 ## Part 3 — Building with a swarm of agents
 
-"Swarm" can mean two different things here, and only one is safe with how
-this harness is built.
+Full capability/parallelism protocol:
+[`CAPABILITY_ORCHESTRATION.md`](CAPABILITY_ORCHESTRATION.md) (ADR-003).
 
-### Safe to run in parallel
+"Swarm" means three different things here — only some are safe.
 
-Anything **read-only** can run side by side, because there's no file it
-could collide on:
-- Multiple research/investigation agents at once (this is how this repo's
-  own harness got explored at the start of a session — several read-only
-  agents each covering a different area).
-- `reviewer` + `security` already run together conceptually during REVIEW.
+### Hierarchical caps (built)
+
+| Parent | Max parallel children | Kind |
+|---|---|---|
+| Orchestrator | 3 (`HARNESS_MAX_PARALLEL_ORCH`) | Top-level specialists |
+| Planner | 3 (`HARNESS_MAX_PARALLEL_PLANNER`) | Read-only research |
+| Implementer (parent) | 5 (`HARNESS_MAX_PARALLEL_IMPLEMENTER`) | Writers in **separate worktrees** |
+| Evaluator | 3 (`HARNESS_MAX_PARALLEL_EVALUATOR`) | Read-only collectors |
+
+Caps are per parent. Nested children never bypass GATE 2.
+
+### Safe to run in parallel (same worktree)
+
+Anything **read-only** can run side by side:
+- Planner's ≤3 research subagents; evaluator's ≤3 collectors.
+- `reviewer` + `security` during REVIEW (orchestrator launches both together).
 - `/evaluate` in one worktree while `/loop` runs in another — `evaluator`
-  never writes.  
+  never writes.
 
-### Not safe, and why this harness doesn't do it
+### Not safe: multi-writer on the same branch
 
 Running multiple `implementer`/`implementer-opus` instances **concurrently
-on the same branch**, even on "different" tasks, risks:
-- Two agents editing the same file at once → conflicts or silently
-  overwritten work.
-- Two concurrent `scripts/validate.sh` runs → non-deterministic results,
-  interleaved logs.
-- Breaking the two-gate model — GATE 1 approves a specific plan; there's no
-  meaningful approval for work a second agent is already doing in parallel.
+on the same branch** risks conflicting edits, interleaved `validate.sh`, and
+broken gates. That remains forbidden.
 
-This is exactly why `docs/LOOP.md`'s SELECT step is single-task: one
-implementer variant, building one task, gated twice, every time. That
-constraint isn't an oversight — it's the thing that makes the gates mean
-anything.
+### Safe parallel writers: worktree fan-out (intra-task)
 
-### The harness's actual "swarm" pattern: parallel worktrees
+When GATE 1 approves a file-disjoint `fanout` map, the **parent** implementer
+creates ≤5 worktrees via `scripts/worktree-fanout.sh`, runs one child writer
+per worktree, merges into the integration branch, then the orchestrator runs
+**one** VALIDATE on the merged tree. See
+[`CAPABILITY_ORCHESTRATION.md`](CAPABILITY_ORCHESTRATION.md).
 
-See `docs/DEVELOPMENT_WORKFLOW.md`. Each `git worktree` gets its own branch,
-its own `orchestrator` running its own `/loop`, and its own auto-memory — so
-N independent features build in parallel without ever touching the same
-files:
+### Multi-feature swarm: parallel worktrees + `/loop`
+
+See `docs/DEVELOPMENT_WORKFLOW.md`. Independent roadmap items still scale as
+N worktrees, each with its own `/loop`:
 
 ```bash
 git worktree add ../myproj-payments feat/payments
@@ -161,20 +167,34 @@ git worktree add ../myproj-notifications feat/notifications
 # one `claude` session per worktree, each running /loop independently
 ```
 
-This is the harness's real horizontal scaling: N loops, N branches, N sets of
-gates — never N agents racing on one branch.
+### If you want faster iteration
 
-### If you want faster iteration, not more concurrency
-
-The actual lever is better slicing of the *next* task, not more agents on
-the current one: Task Graphs (built — `docs/LOOP_ENGINE.md`) already let
-`planner` break an oversized item into an ordered sub-task list under one
-approval. The not-yet-built Scheduler would go further and pick which of
-several *independent* roadmap items to run next — still one implementer
-variant per task, just a smarter choice of which task.
+1. Approve a worktree `fanout` when slices are file-disjoint (≤5 writers).
+2. Let planner/evaluator use nested research/collectors (≤3 each).
+3. Inject local skills via DISCOVER (≤3 per Task).
+4. For independent features, use separate `/loop` worktrees — not one branch
+   with many writers.
 
 ---
 
+## Part 4 — Why a `/loop` can run for an hour (and how to stop it)
+
+This is **not** usually an infinite loop in code. Typical cause:
+
+1. Bootstrap wrote a **fine-grained** roadmap (10–20 items).
+2. Human said "complete the end version" / "finish everything".
+3. Orchestrator **auto-approved** gates and kept SELECT→COMMIT for every item.
+4. Each item costs a full PLAN (often minutes) + BUILD + VALIDATE + REVIEW.
+5. Session/API limit kills the agent mid-iteration — no playable demo yet.
+
+Mitigations (built in):
+
+- `/loop` default **`max-iterations=1`** — stop after one COMMIT; run again.
+- Raise deliberately: `/loop max-iterations=3`.
+- Never treat "finish everything" as skip-GATE permission.
+- Bootstrap: coarse milestones for small apps.
+
 See also: `docs/SETUP.md` (day-to-day usage), `docs/AGENTS.md` (full agent
 reference), `docs/MODEL_ROUTING.md` (the `implementer`/`implementer-opus`
-mechanism), `docs/DEVELOPMENT_WORKFLOW.md` (worktrees in full).
+mechanism), `docs/DEVELOPMENT_WORKFLOW.md` (worktrees in full),
+`docs/CAPABILITY_ORCHESTRATION.md` (skills + fan-out).

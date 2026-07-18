@@ -1,0 +1,65 @@
+name: Harness CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  self-check:
+    name: Self-check + guards
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Make scripts executable
+        run: chmod +x scripts/*.sh .claude/hooks/*.sh
+
+      - name: Self-check
+        run: bash scripts/self-check.sh
+
+      - name: Loop event log smoke
+        run: |
+          bash scripts/loop-event.sh select '{"task":"ci-smoke"}'
+          bash scripts/loop-event.sh summary | tee /tmp/summary.json
+          python3 -c "import json; d=json.load(open('/tmp/summary.json')); assert d['total']>=1"
+
+      - name: Budget check smoke
+        run: bash scripts/budget-check.sh
+
+      - name: Build-effort estimator smoke
+        run: |
+          bash scripts/estimate-build-effort.sh /dev/null /dev/null "simple todo cli" | tee /tmp/effort-fast.json
+          python3 -c "import json; d=json.load(open('/tmp/effort-fast.json')); assert d['tier'] in ('fast','standard')"
+          bash scripts/estimate-build-effort.sh /dev/null /dev/null "gta vice city game clone train llm productionize" | tee /tmp/effort-hard.json
+          python3 -c "import json; d=json.load(open('/tmp/effort-hard.json')); assert d['tier']=='rigorous'"
+
+      - name: Lease acquire/release smoke
+        run: |
+          bash scripts/lease.sh acquire "ci smoke task" ci-runner
+          bash scripts/lease.sh status "ci smoke task"
+          bash scripts/lease.sh release "ci smoke task" ci-runner
+
+      - name: Worktree fan-out rejects bad manifest
+        run: |
+          printf '%s\n' '{"slices":[{"id":"../x","branch":"fanout/a","files":["a.ts"]}]}' > /tmp/bad.json
+          if bash scripts/worktree-fanout.sh status /tmp/bad.json; then
+            echo "expected failure" >&2
+            exit 1
+          fi
+
+      - name: Select-skills JSON
+        run: bash scripts/select-skills.sh "capability orchestration" 2 | python3 -c "import json,sys; json.load(sys.stdin)"
+
+      - name: Protect-paths blocks .env
+        run: |
+          echo '{"file_path":"/tmp/proj/.env"}' | HARNESS_ALLOW_PROTECTED_EDITS=0 bash .claude/hooks/protect-paths.sh && exit 1 || true
+          echo '{"file_path":"/tmp/proj/.env"}' | HARNESS_ALLOW_PROTECTED_EDITS=1 bash .claude/hooks/protect-paths.sh
+
+      - name: Validate.sh reports a gate (expected RED on harness template)
+        run: |
+          set +e
+          bash scripts/validate.sh | tee /tmp/validate.log
+          set -e
+          grep -qE "GATE: (GREEN|RED)" /tmp/validate.log

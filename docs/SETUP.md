@@ -23,6 +23,8 @@ bash scripts/self-check.sh   # verify the harness is wired correctly
 
 ## Bootstrap a project
 
+### Greenfield
+
 Drop your requirements in the repo root:
 
 ```
@@ -30,6 +32,12 @@ my-project/
 ├── PRD.md   # Product Requirements Document
 └── PTR.md   # Project Technical Requirements
 ```
+
+### Brownfield (existing code)
+
+If the repo already has a stack/manifests and PRD/PTR are missing, `/bootstrap`
+still works — it inventories the tree, drafts requirements from reality, and
+writes a coarse adoption roadmap. See [`BROWNFIELD.md`](BROWNFIELD.md).
 
 Then, in Claude Code:
 
@@ -39,8 +47,11 @@ Then, in Claude Code:
 
 The architect reviews the design, asks clarifying questions, and generates
 `CLAUDE.md` project sections, the full `docs/` set, and `docs/ROADMAP.md` — an
-ordered list of small tasks the loop can consume. **No code is written yet.** You
-approve the foundation before building starts.
+ordered list of small tasks the loop can consume. **No feature code is written
+yet.** You approve the foundation before building starts.
+
+AI OS control plane (event log, leases, budget): [`AI_OS.md`](AI_OS.md).
+Build-effort dial (fast vs rigorous from your PRD/PTR): [`BUILD_EFFORT.md`](BUILD_EFFORT.md).
 
 ## Build
 
@@ -48,10 +59,16 @@ approve the foundation before building starts.
 /loop
 ```
 
-The orchestrator runs the loop from `docs/LOOP.md`: it picks the next task, plans it,
-waits for your approval, builds it with tests, runs the validation gate (hard-blocks
+The orchestrator runs the loop from `docs/LOOP.md`: it picks the next task, discovers
+local Claude Code skills, plans it (planner may fan out ≤3 research subagents),
+waits for your approval, builds it with tests (optional ≤5 worktree writers when
+you approve a file-disjoint fan-out map), runs the validation gate (hard-blocks
 on RED), reviews it, waits for your merge approval, commits, updates docs, and
 repeats. Stop any time; resume with `/loop` — the repository remembers where it was.
+
+Capability protocol (skills, caps, worktrees):
+[`CAPABILITY_ORCHESTRATION.md`](CAPABILITY_ORCHESTRATION.md). Companion skill:
+`.claude/skills/capability-orchestrator/`.
 
 ## Worked example: your first feature, end to end
 
@@ -230,10 +247,31 @@ When your agent/command set stabilizes, package it as a Claude Code plugin so ot
 repos install it in one step, and add project-specific reviewers (e.g.
 `python-reviewer`) as the codebase grows.
 
+## Statusline (user-level only)
+
+The status bar script lives at **`~/.claude/statusline.sh`**, wired in
+**`~/.claude/settings.json`** as:
+
+```json
+"statusLine": {
+  "type": "command",
+  "command": "python3 \"$HOME/.claude/statusline.sh\""
+}
+```
+
+Project `.claude/settings.json` must **not** set `statusLine` to
+`$CLAUDE_PROJECT_DIR/.claude/statusline.sh`. Hooks/scripts stay project-local;
+the statusline always reads the Claude user root. Project name/git use
+`$CLAUDE_PROJECT_DIR` (repo root), not a nested working directory.
+`npx claude-master-setup --local` / `--global` syncs the script into `~/.claude`
+and strips any project-level `statusLine`.
+
 ## Troubleshooting
 
 - **Hooks not running?** Ensure `scripts/install.sh` ran (it `chmod +x`es hooks) and
   that you started `claude` from the repo root so `$CLAUDE_PROJECT_DIR` resolves.
+- **Wrong project name in statusline?** Confirm statusLine points at
+  `$HOME/.claude/statusline.sh` (not the project tree) and restart Claude Code.
 - **Gate always RED with "no-stack"?** Your stack isn't auto-detected — configure
   `scripts/validate.sh`, or set `HARNESS_ALLOW_NO_STACK=1` for a docs-only repo.
 - **An agent isn't triggering?** Its description may overlap another's. Make the

@@ -12,6 +12,12 @@ and when to stop and ask a human.
 
 The user provides goals. The harness handles the engineering.
 
+**Permissions stance (AI OS):** Claude Code's `acceptEdits` (project default) and
+optional user-level `auto` mode are the right UX for long builds — click fatigue
+is not a security model. Real control is harness gates, iteration budget, hooks,
+and deny/ask lists. Never ship `bypassPermissions` as a project default. Details:
+[`SECURITY.md`](SECURITY.md).
+
 ## Why it exists
 
 Without a harness, every session restarts the same loop by hand:
@@ -48,9 +54,10 @@ The project is not a collection of clever prompts. It's a set of systems:
   — see [`MODEL_ROUTING.md`](MODEL_ROUTING.md).
 - A **memory model** with one home per fact, so knowledge doesn't drift or
   duplicate across layers — see the "Four memory layers" in [`../CLAUDE.md`](../CLAUDE.md).
-- An **evaluation framework** to measure engineering quality objectively
-  instead of asserting it — see [`EVALUATION.md`](EVALUATION.md) (designed,
-  not yet built).
+- An **evaluation framework** with objective metrics and scorecard→SELECT
+  feedback — see [`EVALUATION.md`](EVALUATION.md).
+- An **AI OS control plane** — event log, leases, budget stop, hard path
+  blocking, harness CI, brownfield bootstrap — see [`AI_OS.md`](AI_OS.md).
 
 The recurring question is not "how do I write a better prompt for this?" but
 "how do I design a better loop, gate, or measurement for this?"
@@ -97,20 +104,21 @@ overview" section — don't confuse the two.
 
 ## Current state vs. target
 
-Today, "select the next task" is a single step inside the orchestrator: it
-reads the roadmap and picks the topmost unblocked item, one task at a time.
-The target design generalizes this into a **Scheduler** — see
-[`LOOP_ENGINE.md`](LOOP_ENGINE.md) for exactly what exists now (the linear
-loop, the validation retry cap) versus what's designed but not yet built (task
-graphs, cost estimation, dynamic model routing, the evaluation scorecard).
-Nothing in this document should be read as already shipped unless it's also
-described that way in `LOOP.md`, `AGENTS.md`, or `SETUP.md`.
+**Shipped:** linear loop + Task Graphs + capability orchestration + AI OS
+control plane (events, leases, budget, scorecard bias, hard path block, CI,
+brownfield bootstrap). SELECT still prefers file-order among unblocked items,
+with optional scorecard bias — not a full multi-item Scheduler.
+
+**Still target:** value/risk Scheduler, richer cost estimation, dynamic model
+routing at scale — see [`LOOP_ENGINE.md`](LOOP_ENGINE.md). Nothing here is
+shipped unless also described in `LOOP.md`, `AI_OS.md`, `AGENTS.md`, or
+`SETUP.md`.
 
 ## Long-term positioning
 
-Not "a Claude Code setup." An **autonomous software engineering harness** —
-and, if the Scheduler, task graph, and evaluation framework in
-[`LOOP_ENGINE.md`](LOOP_ENGINE.md) and [`EVALUATION.md`](EVALUATION.md) get
-built out fully, eventually an agent operating system for software
-engineering. The emphasis is on planning, execution, validation, measurement,
-and continuous improvement — not on prompting technique.
+Not "a Claude Code setup." An **autonomous software engineering harness** /
+AI OS layer on Claude Code. The Scheduler in [`LOOP_ENGINE.md`](LOOP_ENGINE.md)
+is the remaining big piece; measurement and control-plane primitives are in
+[`EVALUATION.md`](EVALUATION.md) and [`AI_OS.md`](AI_OS.md). Emphasis:
+planning, execution, validation, measurement, and continuous improvement —
+not prompting technique.

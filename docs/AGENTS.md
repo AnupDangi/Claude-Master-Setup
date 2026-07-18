@@ -13,17 +13,17 @@ session (restart to pick up changes to a file that existed at session start).
 
 | Agent | Model | Tools (scope) | Fires at |
 |---|---|---|---|
-| **orchestrator** | opus | Read, Grep, Glob, Task, TodoWrite, git | `/loop` — the whole cycle |
-| **planner** | opus | Read, Grep, Glob, Task (read-only) | PLAN phase, `/plan` |
+| **orchestrator** | opus | Read, Grep, Glob, Task, TodoWrite, git, scripts | `/loop` — the whole cycle (DISCOVER + caps ≤3) |
+| **planner** | opus | Read, Grep, Glob, Task (read-only; ≤3 nested) | PLAN phase, `/plan` |
 | **architect** | opus | Read, Grep, Glob, WebSearch, Write(docs) | Significant design decisions, `/bootstrap` |
-| **implementer** | sonnet | Read/Write/Edit + test runners | BUILD phase, default (only code-writers) |
-| **implementer-opus** | opus | Read/Write/Edit + test runners | BUILD phase, when `task_complexity` is `large` |
+| **implementer** | sonnet | Read/Write/Edit + Task + worktree scripts | BUILD phase, default (≤5 worktree children) |
+| **implementer-opus** | opus | Read/Write/Edit + Task + worktree scripts | BUILD phase, when `task_complexity` is `large` |
 | **validator** | sonnet | Read, Bash(scripts + test runners) | VALIDATE phase, `/validate` |
 | **reviewer** | sonnet | Read, git diff (read-only) | REVIEW phase, `/review` |
-| **security** | opus | Read, git diff (read-only) | Sensitive changes, `/review` |
+| **security** | opus | Read, git diff (read-only) | Every REVIEW (all build-effort tiers) |
 | **docs-writer** | haiku | Read, Write/Edit (docs only), git log | COMMIT phase, `/handoff` |
 | **mcp-scout** | sonnet | Read, WebSearch, Write(`.mcp.json`), scripts | External tool needs, `/mcp-add` |
-| **evaluator** | sonnet | Read, git log/diff (read-only) | `/evaluate` (objective metrics only) |
+| **evaluator** | sonnet | Read, Task, git log/diff, `write-scorecard.sh` (≤3 collectors) | `/evaluate` → scorecard for SELECT bias ([`AI_OS.md`](AI_OS.md)) |
 
 ## Design principles
 
@@ -39,18 +39,23 @@ session (restart to pick up changes to a file that existed at session start).
   judgment-heavy work (architecture, security, planning, orchestration) on Opus.
 - **Description = trigger.** Each `description` is written as a use-condition
   ("MUST BE USED for…", "Use PROACTIVELY when…") so Claude delegates reliably.
+- **Capability orchestration (ADR-003).** Orchestrator discovers local skills and
+  wraps every Task in `docs/templates/AGENT_TASK.md`. Hierarchical caps:
+  orch ≤3, planner/evaluator ≤3 nested, implementer ≤5 worktree writers. See
+  [`CAPABILITY_ORCHESTRATION.md`](CAPABILITY_ORCHESTRATION.md).
 
 ## Delegation map
 
 ```
-/loop ─▶ orchestrator ─┬─▶ planner ──(architect for big calls)
+/loop ─▶ orchestrator ─┬─▶ DISCOVER (list-local-skills.sh)
+                       ├─▶ planner (≤3 research) ──(architect for big calls)
                        ├─▶ implementer OR implementer-opus  ◀── fix loop ── validator
-                       │     (picked once per task by task_complexity; never both)
-                       ├─▶ validator  (hard gate)
-                       ├─▶ reviewer + security
+                       │     (≤5 worktree children when fanout approved)
+                       ├─▶ validator  (hard gate on integrated tree)
+                       ├─▶ reviewer + security  (always, parallel)
                        └─▶ docs-writer  (+ mcp-scout when a tool is needed)
 
-/evaluate ─▶ evaluator  (objective metrics only — read-only, standalone)
+/evaluate ─▶ evaluator  (≤3 collectors; objective metrics only)
 ```
 
 ## Planned roles

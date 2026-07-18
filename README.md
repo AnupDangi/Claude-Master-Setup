@@ -21,9 +21,14 @@ see [`docs/COMPANIONS.md`](docs/COMPANIONS.md). Full vision in
 [`docs/VISION.md`](docs/VISION.md).
 
 ```
-/bootstrap   # PRD + PTR  → architecture, CLAUDE.md, docs/, roadmap  (no code yet)
-/loop        # runs the build loop until the roadmap is done, gates and all
+/bootstrap   # greenfield (PRD+PTR) or brownfield (existing code) → docs + roadmap
+/loop        # one shippable unit per run (default); gates + budget + event log
+/evaluate    # objective scorecard → feeds next SELECT
 ```
+
+AI OS control plane (events, leases, budget, hard path block, harness CI):
+[`docs/AI_OS.md`](docs/AI_OS.md). Build-effort dial (generic apps faster, complex
+systems full rigor — review+security always): [`docs/BUILD_EFFORT.md`](docs/BUILD_EFFORT.md).
 
 ## Why it exists
 

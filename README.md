@@ -6,6 +6,8 @@
 
 **Engineering OS for Claude Code** — a repeatable loop (plan → build → validate → review → commit) with specialist subagents and hard quality gates. Your app stays clean: only `CLAUDE.md` + `.master/`.
 
+![Uploading image.png…]()
+
 ## Recommended: plugin (5 minutes)
 
 ```bash

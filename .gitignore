@@ -1,19 +1,18 @@
 # Secrets & local env
 .env
 .env.*
-!.env.example
 
-# Harness local state (worktree-local, not shared — ADR-007)
+# Local adaptive-loop state
 .master/state/
-/tmp/harness_*
+/tmp/master_*
 
-# Legacy location (kept during migration; agents/settings in .claude/ are still committed)
+# Claude Code local state
 .claude/state/
 
-# Nested local worktree used for npm install testing (not part of the package)
+# Local install tests
 /test-harness/
 
-# Common build/deps (extend per stack on bootstrap)
+# Common build output
 node_modules/
 dist/
 build/

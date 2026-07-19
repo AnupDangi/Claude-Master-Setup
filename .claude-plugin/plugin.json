@@ -2,28 +2,33 @@
   "$schema": "https://json.schemastore.org/claude-code-plugin.json",
   "name": "master",
   "displayName": "Claude Master Setup",
-  "description": "Autonomous engineering harness: plan, build, validate, review, and commit in a repeatable loop with 11 specialist subagents and hard quality gates.",
-  "version": "0.4.1",
-  "author": { "name": "Anup Dangi" },
+  "description": "Adaptive Ralph-style /loop with project-first bootstrap, JSON state, validation, and compute-aware agents.",
+  "version": "0.6.0",
+  "author": {
+    "name": "Anup Dangi"
+  },
   "homepage": "https://github.com/AnupDangi/Claude-Master-Setup",
   "repository": "https://github.com/AnupDangi/Claude-Master-Setup",
   "license": "MIT",
-  "keywords": ["claude-code", "harness", "autonomous-engineering", "subagents", "ai-os"],
-  "commands": ["./.claude/commands/"],
+  "keywords": [
+    "claude-code",
+    "adaptive-loop",
+    "ralph-wiggum",
+    "subagents",
+    "validation"
+  ],
+  "commands": [
+    "./.claude/commands/"
+  ],
   "agents": [
     "./.claude/agents/architect.md",
-    "./.claude/agents/docs-writer.md",
-    "./.claude/agents/evaluator.md",
     "./.claude/agents/implementer-opus.md",
     "./.claude/agents/implementer.md",
-    "./.claude/agents/mcp-scout.md",
     "./.claude/agents/orchestrator.md",
     "./.claude/agents/planner.md",
     "./.claude/agents/reviewer.md",
-    "./.claude/agents/security.md",
     "./.claude/agents/validator.md"
   ],
-  "skills": ["./.claude/skills/"],
   "hooks": {
     "SessionStart": [
       {
@@ -78,6 +83,17 @@
       }
     ],
     "Stop": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/.claude/hooks/loop-stop-hook.sh\""
+          }
+        ],
+        "description": "Re-feed /loop task on Stop until max iterations or completion promise",
+        "id": "harness:loop-stop"
+      },
       {
         "matcher": "*",
         "hooks": [

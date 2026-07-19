@@ -1,41 +1,47 @@
 ---
-description: Start or resume the plan→build→validate→review→commit build loop
-argument-hint: [optional: task] [optional: max-retries=N] [optional: max-iterations=N]
-allowed-tools: Read, Grep, Glob, Task, TodoWrite, Bash(cat:*), Bash(sed:*), Bash(git status:*), Bash(bash scripts/:*), Bash(./scripts/:*), Bash(bash */scripts/*.sh:*)
-model: opus
+description: Adaptive Ralph-style loop — direct for simple work, agents for complex work
+argument-hint: "PROMPT [--max-iterations N] [--completion-promise TEXT]"
+allowed-tools: Read, Grep, Glob, Task, TodoWrite, Write, Edit, Bash(git:*), Bash(npm:*), Bash(pnpm:*), Bash(yarn:*), Bash(python:*), Bash(python3:*), Bash(pytest:*), Bash(cargo:*), Bash(go:*), Bash(make:*), Bash(bash */scripts/*.sh:*)
+model: sonnet
 ---
 
-# Build Loop
+# Adaptive Loop
 
-Current state:
-- Loop state: !`cat .master/state/loop.json 2>/dev/null || echo "no state yet (fresh start)"`
-- Roadmap (top): !`sed -n '1,40p' .master/docs/ROADMAP.md 2>/dev/null || echo ".master/docs/ROADMAP.md missing — run /bootstrap first"`
-- Uncommitted changes: !`git status --short 2>/dev/null | head -20 || echo "(git status unavailable)"`
+!`bash ${CLAUDE_PLUGIN_ROOT}/scripts/setup-loop.sh $ARGUMENTS`
 
-## Your task
+If setup prints `LOOP_NOT_STARTED` or another error, stop and show the usage; never reuse stale loop state.
 
-**Intent:** complete **one** unblocked roadmap increment (or the task named in
-`$ARGUMENTS`) through a validated, reviewed, documented iteration — then **stop**.
+Read `.master/state/loop.json`, `CLAUDE.md`, and `.master/project.json`. Do not
+load a documentation bundle.
 
-Delegate to the **orchestrator** subagent. It owns *how*: local skill discovery,
-hierarchical subagents, optional worktree fan-out, and gates — see
-`${CLAUDE_PLUGIN_ROOT}/docs/LOOP.md` and `${CLAUDE_PLUGIN_ROOT}/docs/CAPABILITY_ORCHESTRATION.md`.
+## Route this iteration
 
-$ARGUMENTS
+The setup script provides a cheap initial hint. Refine it after inspecting the
+relevant code and update `loop.json`:
 
-Rules for this run:
-1. Read `CLAUDE.md`, `.master/docs/PROJECT_STATE.md`, and `.master/docs/DECISIONS.md` first if you haven't this session.
-2. If `$ARGUMENTS` names a specific task, target that; otherwise pick the next unblocked roadmap item.
-3. If `$ARGUMENTS` includes `max-retries=N`, use `N` as the validation retry cap for this run instead of `$HARNESS_MAX_VALIDATE_RETRIES` (default 3).
-4. **Iteration budget (critical):** default `max-iterations=1` per `/loop` invocation (`$HARNESS_MAX_ITERATIONS_PER_RUN`, or `max-iterations=N` in `$ARGUMENTS`). After that many completed COMMIT cycles (or when a gate needs the human), **stop and report**. Do **not** grind the entire roadmap in one background run — that burns session limits and looks like a hang.
-5. Honor both approval gates (plan approval, merge approval) and the hard validation gate. **Stop and wait at each gate** — do not auto-proceed. Phrases like "complete the end version", "finish everything", or "just keep going" do **not** authorize skipping GATE 1/2. For a multi-item finish request: run **one** iteration (or present a Task Graph at GATE 1), then stop and ask the human to run `/loop` again.
-6. If VALIDATE goes RED `max_validate_retries` times in a row on the same task, stop looping BUILD→VALIDATE and escalate to the human (`await-human-on-red`) instead of retrying forever.
-7. After each iteration, ensure `.master/docs/PROJECT_STATE.md` and `.master/state/loop.json` reflect reality before continuing (including `iterations_this_run` / `max_iterations_per_run`).
-8. Stop when: the iteration budget is exhausted, the roadmap has no unblocked work, or a gate needs the human — whichever comes first.
-9. Orchestrator must DISCOVER local skills (`${CLAUDE_PLUGIN_ROOT}/scripts/list-local-skills.sh`) and wrap specialist Tasks in `${CLAUDE_PLUGIN_ROOT}/docs/templates/AGENT_TASK.md`. Do not search online for skills.
+- **direct / simple** — work in this context; spawn no subagent.
+- **delegated / medium** — delegate one bounded slice to `implementer` (or
+  `architect` first only for a real architecture choice).
+- **parallel / complex** — delegate decomposition to `planner`; create a task
+  graph with dependencies and file ownership. Dispatch independent slices in
+  isolated worktrees through `orchestrator`; serialize shared-file slices.
 
-## Pause / clarify / change decisions
+Read each path in `selected_skills` before work. Pass at most three relevant
+skills to delegated tasks. Never dump the full skill index into context.
 
-- Confused or interrupted → `/master:pause` (or set `await_human_clarify`).
-- Architecture must change → `/master:decide` (supersede a Decision), then re-loop.
-- Always show **working context** (phase, task, binding Decisions, next gate) at each phase.
+## Completion contract
+
+1. Implement code and tests; avoid unrelated docs.
+2. Run the configured validation command (normally
+   `bash ${CLAUDE_PLUGIN_ROOT}/scripts/validate.sh`). RED means continue/fix.
+3. For important or security-sensitive changes, delegate one combined
+   quality/security pass to `reviewer`; fix Critical/High findings and validate again.
+4. Run `${CLAUDE_PLUGIN_ROOT}/scripts/write-handoff.py` after a completed task.
+   If `memory-pending.json` exists and claude-mem is available, record that one
+   durable observation; absence never blocks completion.
+5. If `completion_promise` is set, output it exactly in `<promise>…</promise>`
+   only when true and validation is GREEN. Otherwise output `<loop-complete/>`.
+6. Stuck or ambiguous → `/pause`. Stop manually → `/cancel`.
+
+The Stop hook will feed a compact continuation from JSON until completion or the
+iteration cap (default 2).

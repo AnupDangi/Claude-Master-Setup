@@ -14,7 +14,7 @@ if [ "${1:-}" = "--stdin" ]; then
 fi
 
 QUERY="${1:-}"
-MAX="${2:-${HARNESS_MAX_SKILLS_PER_TASK:-3}}"
+MAX="${2:-3}"
 
 if [ -z "$QUERY" ]; then
   echo 'Usage: bash scripts/select-skills.sh [--stdin] "<task query>" [max]' >&2

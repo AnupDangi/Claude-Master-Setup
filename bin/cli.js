@@ -6,7 +6,6 @@
  * Framework files (agents, commands, skills, scripts, docs, hooks) live once,
  * shared, at the resolved config dir — never duplicated per project.
  * A project only ever gets `.master/` (state + its own docs) + `CLAUDE.md`.
- * See docs/DECISIONS.md Decision 007.
  *
  * Usage:
  *   npx claude-master-setup                   # install framework + seed current project
@@ -38,7 +37,7 @@ ${cyan}  ███╗   ███╗ █████╗ ███████╗
   ╚═╝     ╚═╝╚═╝  ╚═╝╚══════╝   ╚═╝   ╚══════╝╚═╝  ╚═╝${reset}
 
   Claude Master Setup ${dim}v${pkg.version}${reset}
-  Autonomous engineering harness for Claude Code
+  Adaptive coding loops for Claude Code
 `;
 
 const SKIP_RELATIVE = new Set([
@@ -54,36 +53,22 @@ const SKIP_RELATIVE = new Set([
 
 /** Consumer reference docs shipped into the shared framework (keep in sync with package.json "files"). */
 const FRAMEWORK_DOCS = [
-  'AGENTS.md',
-  'AI_OS.md',
-  'BROWNFIELD.md',
-  'BUILD_EFFORT.md',
-  'CAPABILITY_ORCHESTRATION.md',
-  'COMPANIONS.md',
-  'DEVELOPMENT_WORKFLOW.md',
-  'EVALUATION.md',
   'LOOP.md',
-  'MCP.md',
-  'MODEL_ROUTING.md',
-  'OPERATIONS.md',
-  'SECURITY.md',
   'SETUP.md',
-  'VALIDATION.md',
+  'SECURITY.md',
 ];
 
 /** Runtime scripts shipped into the shared framework (keep in sync with package.json "files"). */
 const FRAMEWORK_SCRIPTS = [
-  'budget-check.sh',
   'detect-stack.sh',
-  'estimate-build-effort.sh',
-  'lease.sh',
   'list-local-skills.sh',
-  'loop-event.sh',
-  'mcp-catalog.json',
   'select-skills.sh',
   'validate.sh',
   'worktree-fanout.sh',
-  'write-scorecard.sh',
+  'setup-loop.sh',
+  'cancel-loop.sh',
+  'classify-task.py',
+  'write-handoff.py',
 ];
 
 const args = process.argv.slice(2);
@@ -110,7 +95,7 @@ function parseConfigDirArg() {
   }
   const eq = args.find((a) => a.startsWith('--config-dir=') || a.startsWith('-c='));
   if (eq) return eq.split('=')[1];
-  // Honor CLAUDE_CONFIG_DIR environment variable (Decision 007)
+  // Honor Claude Code's alternate config directory.
   if (process.env.CLAUDE_CONFIG_DIR) return process.env.CLAUDE_CONFIG_DIR;
   return null;
 }
@@ -248,17 +233,17 @@ function printHelp() {
     3. ${cyan}~/.claude${reset}              default
 
   ${yellow}What gets installed:${reset}
-    ${dim}Shared framework${reset}   agents/  commands/  skills/  claude-master-setup/ (scripts, hooks, docs, templates)
+    ${dim}Shared framework${reset}   agents/  commands/  claude-master-setup/ (scripts, hooks, docs, templates)
     ${dim}Per-project${reset}        .master/ (state + starter docs, gitignored state)  CLAUDE.md
 
   ${yellow}Five-minute tour (plugin path):${reset}
     ${cyan}claude plugin marketplace add AnupDangi/Claude-Master-Setup${reset}
     ${cyan}claude plugin install master@claude-master-setup${reset}
-    Then: ${cyan}/master:bootstrap${reset} → ${cyan}/master:loop${reset} → ${cyan}/master:status${reset} → ${cyan}/master:pause${reset} / ${cyan}/master:decide${reset} → ${cyan}/master:handoff${reset}
+    Then: ${cyan}/master:bootstrap${reset} → ${cyan}/master:loop${reset} → ${cyan}/master:status${reset} → ${cyan}/master:pause${reset} → ${cyan}/master:handoff${reset}
 
   ${yellow}Uninstall:${reset}
     Remove ${cyan}~/.claude/claude-master-setup/${reset}, ${cyan}~/.claude/agents/</cyan>, ${cyan}~/.claude/commands/${reset}
-    Remove the harness blocks from ${cyan}~/.claude/settings.json${reset} (hooks, HARNESS_FRAMEWORK_ROOT)
+    Remove the master blocks from ${cyan}~/.claude/settings.json${reset} (hooks, CLAUDE_MASTER_ROOT)
     In project: delete ${cyan}CLAUDE.md${reset} and ${cyan}.master/${reset}
 `);
 }
@@ -361,31 +346,79 @@ function loopStateJson() {
   return (
     JSON.stringify(
       {
+        schema_version: 1,
+        active: false,
+        status: 'idle',
+        prompt: null,
         iteration: 0,
-        phase: 'idle',
-        task: null,
-        validate_attempts: 0,
-        max_validate_retries: 3,
-        task_graph: null,
-        task_complexity: null,
-        plan_source: null,
-        review_dispatch: null,
-        skills_index: null,
-        skills_assigned: [],
-        skills_skipped: [],
-        fanout: null,
-        iterations_this_run: 0,
-        max_iterations_per_run: 1,
-        build_effort_tier: null,
-        build_effort_score: null,
-        docs_profile: null,
+        max_iterations: 2,
+        completion_promise: null,
+        complexity: 'unclassified',
+        execution_mode: 'unclassified',
+        task_graph: [],
+        selected_skills: [],
+        assigned_agents: [],
+        validation: {
+          status: 'not_run',
+          command: null,
+          checked_at: null,
+        },
+        next_action: null,
         pause_reason: null,
-        await_clarify_questions: null,
+        started_at: null,
+        updated_at: null,
       },
       null,
       2
     ) + '\n'
   );
+}
+
+function inferProjectMetadata(projectRoot) {
+  const exists = (rel) => fs.existsSync(path.join(projectRoot, rel));
+  let name = path.basename(projectRoot);
+  let stack = 'unknown';
+  let commands = [];
+
+  if (exists('package.json')) {
+    try {
+      const p = JSON.parse(fs.readFileSync(path.join(projectRoot, 'package.json'), 'utf8'));
+      name = p.name || name;
+      stack = exists('pnpm-lock.yaml') ? 'Node.js (pnpm)' : exists('yarn.lock') ? 'Node.js (yarn)' : 'Node.js (npm)';
+      for (const key of ['dev', 'test', 'lint', 'build']) {
+        if (p.scripts && p.scripts[key]) commands.push(`${key}: npm run ${key}`);
+      }
+    } catch {
+      stack = 'Node.js';
+    }
+  } else if (exists('pyproject.toml')) {
+    stack = 'Python';
+  } else if (exists('Cargo.toml')) {
+    stack = 'Rust';
+  } else if (exists('go.mod')) {
+    stack = 'Go';
+  } else if (exists('pom.xml') || exists('build.gradle')) {
+    stack = 'Java';
+  }
+
+  let mission = `Project ${name}.`;
+  if (exists('README.md')) {
+    const lines = fs.readFileSync(path.join(projectRoot, 'README.md'), 'utf8').split(/\r?\n/);
+    const paragraph = lines.find((line) => {
+      const s = line.trim();
+      return s && !s.startsWith('#') && !s.startsWith('![') && !s.startsWith('<');
+    });
+    if (paragraph) mission = paragraph.trim().slice(0, 500);
+  }
+
+  const hasTests =
+    exists('test') || exists('tests') || exists('__tests__') ||
+    (exists('package.json') && commands.some((c) => c.startsWith('test:')));
+  const hasCi = exists('.github/workflows') || exists('.gitlab-ci.yml');
+  const hasSource = ['src', 'app', 'lib', 'cmd'].some(exists);
+  const maturity = hasCi && hasTests ? 'production' : hasSource && hasTests ? 'existing' : hasSource ? 'prototype' : 'new';
+
+  return { name, mission, stack, commands, maturity };
 }
 
 /**
@@ -399,6 +432,7 @@ function loopStateJson() {
 function seedMasterFolder(projectRoot, frameworkRoot) {
   console.log('  Seeding .master/…');
   const touched = [];
+  const metadata = inferProjectMetadata(projectRoot);
 
   const stateDir = path.join(projectRoot, '.master', 'state');
   fs.mkdirSync(stateDir, { recursive: true });
@@ -410,17 +444,45 @@ function seedMasterFolder(projectRoot, frameworkRoot) {
   console.log(`  ${green}✓${reset} .master/state/ initialized`);
 
   const docsDir = path.join(projectRoot, '.master', 'docs');
-  const masterDocsSrc = path.join(PKG_ROOT, 'templates', 'master-docs');
-  const docsN = copyDirContentsIfAbsent(masterDocsSrc, docsDir);
-  if (docsN > 0) touched.push(`.master/docs/ (${docsN} starter docs)`);
-  console.log(`  ${green}✓${reset} .master/docs/ seeded (${docsN} starter docs)`);
+  fs.mkdirSync(docsDir, { recursive: true });
+  const roadmapSrc = path.join(PKG_ROOT, 'templates', 'master-docs', 'ROADMAP.md');
+  const roadmapDest = path.join(docsDir, 'ROADMAP.md');
+  if (!fs.existsSync(roadmapDest) && fs.existsSync(roadmapSrc)) {
+    fs.copyFileSync(roadmapSrc, roadmapDest);
+    touched.push('.master/docs/ROADMAP.md');
+  }
+  console.log(`  ${green}✓${reset} .master/docs/ seeded (ROADMAP stub only)`);
+
+  const projectJsonSrc = path.join(PKG_ROOT, 'templates', 'project.json');
+  const projectJsonDest = path.join(projectRoot, '.master', 'project.json');
+  if (!fs.existsSync(projectJsonDest) && fs.existsSync(projectJsonSrc)) {
+    const pj = fs.readFileSync(projectJsonSrc, 'utf8');
+    const project = JSON.parse(pj);
+    project.validate_cmd = String(project.validate_cmd || '').replace(
+      '${CLAUDE_PLUGIN_ROOT}',
+      frameworkRoot
+    );
+    project.name = metadata.name;
+    project.maturity = metadata.maturity;
+    project.stack = { detected: metadata.stack };
+    project.commands = metadata.commands;
+    fs.writeFileSync(projectJsonDest, `${JSON.stringify(project, null, 2)}\n`, 'utf8');
+    touched.push('.master/project.json');
+    console.log(`  ${green}✓${reset} .master/project.json created`);
+  }
 
   const claudeMdDest = path.join(projectRoot, 'CLAUDE.md');
   if (!fs.existsSync(claudeMdDest)) {
     const starterSrc = path.join(PKG_ROOT, 'templates', 'CLAUDE.md.starter');
     if (fs.existsSync(starterSrc)) {
-      const content = fs.readFileSync(starterSrc, 'utf8');
-      fs.writeFileSync(claudeMdDest, content.split('${CLAUDE_PLUGIN_ROOT}').join(frameworkRoot), 'utf8');
+      const content = fs
+        .readFileSync(starterSrc, 'utf8')
+        .split('${CLAUDE_PLUGIN_ROOT}').join(frameworkRoot)
+        .split('{{PROJECT_NAME}}').join(metadata.name)
+        .split('{{MISSION}}').join(metadata.mission)
+        .split('{{STACK}}').join(metadata.stack)
+        .split('{{RUN_COMMANDS}}').join(metadata.commands.length ? metadata.commands.map((c) => `- ${c}`).join('\n') : '- Inspect project configuration');
+      fs.writeFileSync(claudeMdDest, content, 'utf8');
       touched.push('CLAUDE.md');
       console.log(`  ${green}✓${reset} CLAUDE.md created`);
     }
@@ -456,7 +518,7 @@ function seedMasterFolder(projectRoot, frameworkRoot) {
  * plus the reference bundle — docs/scripts/hooks/templates) at `configDir`.
  * Both default and --framework-only call this; default additionally seeds a project's
  * own `.master/`. This is the ONE place framework files live per install —
- * never duplicated per project (Decision 007).
+ * never duplicated per project.
  *
  * Returns frameworkRoot (the absolute path to the installed framework bundle).
  */
@@ -465,6 +527,29 @@ function ensureFrameworkInstalled(configDir) {
 
   const packDest = path.join(configDir, 'claude-master-setup');
   const frameworkRoot = path.resolve(packDest);
+  const obsoleteCommands = ['decide', 'evaluate', 'go', 'init', 'mcp-add', 'plan', 'review', 'ship', 'validate'];
+  const obsoleteAgents = ['docs-writer', 'evaluator', 'mcp-scout', 'security'];
+  const retireIfManaged = (target) => {
+    if (!fs.existsSync(target)) return;
+    const stat = fs.statSync(target);
+    const markerFile = stat.isDirectory() ? path.join(target, 'SKILL.md') : target;
+    if (!fs.existsSync(markerFile)) return;
+    const source = fs.readFileSync(markerFile, 'utf8');
+    const isManaged = [
+      '${CLAUDE_PLUGIN_ROOT}',
+      'Claude Master Setup',
+      '.master/state/loop.json',
+      'capability-orchestrator',
+    ].some((marker) => source.includes(marker));
+    if (isManaged) backupIfExists(target);
+  };
+  for (const name of obsoleteCommands) {
+    retireIfManaged(path.join(configDir, 'commands', `${name}.md`));
+  }
+  for (const name of obsoleteAgents) {
+    retireIfManaged(path.join(configDir, 'agents', `${name}.md`));
+  }
+  retireIfManaged(path.join(configDir, 'skills', 'capability-orchestrator'));
 
   const agentsSrc = path.join(PKG_ROOT, '.claude', 'agents');
   const agentsDest = path.join(configDir, 'agents');
@@ -475,13 +560,6 @@ function ensureFrameworkInstalled(configDir) {
   const commandsDest = path.join(configDir, 'commands');
   const commandsN = copyDirContents(commandsSrc, commandsDest, frameworkRoot);
   console.log(`  ${green}✓${reset} Installed commands/ (${commandsN} commands)`);
-
-  const skillsSrc = path.join(PKG_ROOT, '.claude', 'skills');
-  if (fs.existsSync(skillsSrc)) {
-    const skillsDest = path.join(configDir, 'skills');
-    const skillsN = copyDirContents(skillsSrc, skillsDest, frameworkRoot);
-    console.log(`  ${green}✓${reset} Installed skills/ (${skillsN} skills)`);
-  }
 
   const packBackup = backupIfExists(packDest);
   if (packBackup) {
@@ -497,11 +575,6 @@ function ensureFrameworkInstalled(configDir) {
     if (!fs.existsSync(src)) continue;
     fs.copyFileSync(src, path.join(docsDest, name));
   }
-  const templatesDocsSrc = path.join(PKG_ROOT, 'docs', 'templates');
-  if (fs.existsSync(templatesDocsSrc)) {
-    copyRecursive(templatesDocsSrc, path.join(docsDest, 'templates'));
-  }
-
   for (const item of ['MASTER-PROMPT.md', 'templates']) {
     const src = path.join(PKG_ROOT, item);
     if (!fs.existsSync(src)) continue;
@@ -509,8 +582,8 @@ function ensureFrameworkInstalled(configDir) {
     copyRecursive(src, dest);
   }
 
-  // Hooks + context (full dirs — all are runtime).
-  for (const item of ['.claude/hooks', '.claude/context']) {
+  // Hooks are shared runtime files.
+  for (const item of ['.claude/hooks']) {
     const src = path.join(PKG_ROOT, item);
     if (!fs.existsSync(src)) continue;
     const destName = item.slice('.claude/'.length);
@@ -526,10 +599,6 @@ function ensureFrameworkInstalled(configDir) {
     fs.copyFileSync(src, path.join(scriptsDest, name));
   }
 
-  const companionsSrc = path.join(PKG_ROOT, 'docs', 'COMPANIONS.md');
-  if (fs.existsSync(companionsSrc)) {
-    fs.copyFileSync(companionsSrc, path.join(packDest, 'COMPANIONS.md'));
-  }
   // Scripts must be executable wherever they end up.
   if (fs.existsSync(scriptsDest)) {
     for (const f of fs.readdirSync(scriptsDest)) {
@@ -560,26 +629,9 @@ function ensureFrameworkInstalled(configDir) {
   return frameworkRoot;
 }
 
-/** Recommended Claude Code plugins (Forge-style settings merge into ~/.claude). */
-const COMPANION_MARKETPLACES = {
-  thedotmack: {
-    source: { source: 'github', repo: 'thedotmack/claude-mem' },
-  },
-  'antigravity-awesome-skills': {
-    source: { source: 'github', repo: 'sickn33/antigravity-awesome-skills' },
-  },
-};
-
-const COMPANION_PLUGINS = {
-  'claude-mem@thedotmack': true,
-  'superpowers@claude-plugins-official': true,
-  'code-review@claude-plugins-official': true,
-  'antigravity-awesome-skills@antigravity-awesome-skills': true,
-};
-
-/** The 5 hooks, wired via $HARNESS_FRAMEWORK_ROOT (mirrors .claude-plugin/plugin.json's ${CLAUDE_PLUGIN_ROOT} form). */
+/** The 5 hooks, wired via $CLAUDE_MASTER_ROOT (mirrors .claude-plugin/plugin.json's ${CLAUDE_PLUGIN_ROOT} form). */
 function harnessHooksBlock() {
-  const h = (name) => `bash "$HARNESS_FRAMEWORK_ROOT/hooks/${name}.sh"`;
+  const h = (name) => `bash "$CLAUDE_MASTER_ROOT/hooks/${name}.sh"`;
   return {
     SessionStart: [
       {
@@ -615,6 +667,12 @@ function harnessHooksBlock() {
     Stop: [
       {
         matcher: '*',
+        hooks: [{ type: 'command', command: h('loop-stop-hook') }],
+        description: 'Re-feed /loop task on Stop until max iterations or completion promise',
+        id: 'harness:loop-stop',
+      },
+      {
+        matcher: '*',
         hooks: [{ type: 'command', command: h('stop-validate-reminder'), async: true, timeout: 10 }],
         description: 'Remind to run the validation gate if source changed but validate did not run',
         id: 'harness:stop-validate-reminder',
@@ -640,45 +698,11 @@ function mergeHookPhases(existingHooks, harnessHooks) {
   return out;
 }
 
-/** Permissions from shipped .claude/settings.json — allow/deny for shared scripts + secrets. */
-function harnessPermissionsFromPackage() {
-  const settingsPath = path.join(PKG_ROOT, '.claude', 'settings.json');
-  if (!fs.existsSync(settingsPath)) return null;
-  try {
-    const s = JSON.parse(fs.readFileSync(settingsPath, 'utf8'));
-    return s.permissions || null;
-  } catch {
-    return null;
-  }
-}
-
-function mergePermissions(existing, harness) {
-  if (!harness) return existing || {};
-  const out = { ...(existing || {}) };
-  if (harness.defaultMode && !out.defaultMode) out.defaultMode = harness.defaultMode;
-  for (const key of ['allow', 'ask', 'deny']) {
-    const prev = Array.isArray(out[key]) ? out[key] : [];
-    const add = Array.isArray(harness[key]) ? harness[key] : [];
-    const seen = new Set(prev);
-    const merged = [...prev];
-    for (const p of add) {
-      if (!seen.has(p)) {
-        seen.add(p);
-        merged.push(p);
-      }
-    }
-    out[key] = merged;
-  }
-  return out;
-}
-
 /**
- * Merge companion marketplaces/plugins, HARNESS_FRAMEWORK_ROOT env var, and
- * the 5 harness hooks into settings.json. Never deletes unrelated keys.
+ * Merge the shared framework root and hooks into settings.json. Never deletes unrelated keys.
  * Note: if the `master` Claude Code plugin is ALSO installed on this machine,
  * hooks fire twice (Claude Code doesn't dedupe hooks from two sources) — the
  * npm path and the plugin path are meant to be mutually exclusive per machine
- * (see docs/DECISIONS.md Decision 007).
  */
 function mergeFrameworkSettings(configDir, frameworkRoot) {
   const settingsPath = path.join(configDir, 'settings.json');
@@ -694,125 +718,31 @@ function mergeFrameworkSettings(configDir, frameworkRoot) {
     }
   }
 
-  settings.extraKnownMarketplaces = {
-    ...(settings.extraKnownMarketplaces || {}),
-    ...COMPANION_MARKETPLACES,
-  };
-  // Do NOT silently enable companion plugins — only register marketplaces.
-  // User opts in via printed `claude plugin install …` commands.
-  settings.env = {
-    ...(settings.env || {}),
-    HARNESS_FRAMEWORK_ROOT: frameworkRoot,
-  };
-  settings.hooks = mergeHookPhases(settings.hooks, harnessHooksBlock());
-  const harnessPerms = harnessPermissionsFromPackage();
-  if (harnessPerms) {
-    settings.permissions = mergePermissions(settings.permissions, harnessPerms);
-  }
-
-  fs.writeFileSync(settingsPath, `${JSON.stringify(settings, null, 2)}
-`, 'utf8');
-  console.log(`  ${green}✓${reset} Updated settings.json (framework root, hooks by id, permissions; companions as next steps)`);
-}
-
-function statusLineCommandFor(configDir) {
-  const homeClaude = path.join(os.homedir(), '.claude');
-  if (path.resolve(configDir) === path.resolve(homeClaude)) {
-    return 'python3 "$HOME/.claude/statusline.sh"';
-  }
-  const script = path.join(path.resolve(configDir), 'statusline.sh').replace(/"/g, '\\"');
-  return `python3 "${script}"`;
-}
-
-function isUserStatusLineCommand(cmd, configDir) {
-  if (!cmd || typeof cmd !== 'string') return false;
-  if (!cmd.includes('python3') || !cmd.includes('statusline.sh')) return false;
-  if (cmd.includes('CLAUDE_PROJECT_DIR')) return false;
-  const homeClaude = path.join(os.homedir(), '.claude');
-  if (path.resolve(configDir) === path.resolve(homeClaude)) {
-    return (
-      cmd.includes('$HOME/.claude/statusline.sh') ||
-      cmd.includes('${HOME}/.claude/statusline.sh')
-    );
-  }
-  return cmd.includes(path.resolve(configDir));
-}
-
-/**
- * Statusline is user-level only (~/.claude/statusline.sh).
- *
- * @param {string} configDir  ~/.claude (user)
- */
-function installStatusline(configDir) {
-  const src = path.join(PKG_ROOT, '.claude', 'statusline.sh');
-  if (!fs.existsSync(src)) return;
-
-  const homeClaude = path.join(os.homedir(), '.claude');
-  const dest = path.join(configDir, 'statusline.sh');
-  fs.mkdirSync(configDir, { recursive: true });
-  fs.copyFileSync(src, dest);
-  try {
-    fs.chmodSync(dest, 0o755);
-  } catch {
-    /* best-effort */
-  }
-  const destLabel = path.resolve(configDir) === path.resolve(homeClaude) ? '~/.claude/statusline.sh' : dest;
-  console.log(`  ${green}✓${reset} Installed ${destLabel}`);
-
-  const settingsPath = path.join(configDir, 'settings.json');
-  let settings = {};
-  if (fs.existsSync(settingsPath)) {
-    try {
-      settings = JSON.parse(fs.readFileSync(settingsPath, 'utf8'));
-    } catch (err) {
-      console.log(
-        `  ${yellow}!${reset} Could not parse ${settingsPath} — skipping statusLine merge (${err.message})`
-      );
-      return;
+  const legacyStatusline = path.join(configDir, 'statusline.sh');
+  if (fs.existsSync(legacyStatusline)) {
+    const source = fs.readFileSync(legacyStatusline, 'utf8');
+    const command = settings.statusLine && settings.statusLine.command;
+    if (source.includes('.master/state') && String(command || '').includes('statusline.sh')) {
+      delete settings.statusLine;
+      fs.rmSync(legacyStatusline, { force: true });
     }
   }
 
-  const desired = statusLineCommandFor(configDir);
-  const existing = settings.statusLine && settings.statusLine.command;
-  if (isUserStatusLineCommand(existing, configDir) && existing === desired) {
-    console.log(`  ${dim}keep: settings.json statusLine → ${desired}${reset}`);
-    return;
-  }
-
-  settings.statusLine = {
-    type: 'command',
-    command: desired,
+  settings.env = {
+    ...(settings.env || {}),
+    CLAUDE_MASTER_ROOT: frameworkRoot,
   };
-  fs.writeFileSync(settingsPath, `${JSON.stringify(settings, null, 2)}\n`, 'utf8');
-  const label = path.resolve(configDir) === path.resolve(homeClaude) ? '~/.claude' : configDir;
-  if (existing) {
-    console.log(`  ${green}✓${reset} Fixed statusLine → ${cyan}${desired}${reset}`);
-  } else {
-    console.log(`  ${green}✓${reset} Enabled statusLine in ${label}/settings.json`);
-  }
-}
+  settings.hooks = mergeHookPhases(settings.hooks, harnessHooksBlock());
 
-function printCompanionNextSteps() {
-  console.log(`
-  ${yellow}Recommended companions${reset} ${dim}(run in terminal, or inside Claude Code)${reset}:
-
-    ${cyan}claude plugin marketplace add thedotmack/claude-mem${reset}
-    ${cyan}claude plugin install claude-mem@thedotmack --scope user${reset}
-
-    ${cyan}claude plugin install superpowers@claude-plugins-official --scope user${reset}
-    ${cyan}claude plugin install code-review@claude-plugins-official --scope user${reset}
-
-    ${cyan}claude plugin marketplace add sickn33/antigravity-awesome-skills${reset}
-    ${cyan}claude plugin install antigravity-awesome-skills@antigravity-awesome-skills --scope user${reset}
-
-  ${dim}Full guide:${reset} ~/.claude/claude-master-setup/COMPANIONS.md
-`);
+  fs.writeFileSync(settingsPath, `${JSON.stringify(settings, null, 2)}
+`, 'utf8');
+  console.log(`  ${green}✓${reset} Updated settings.json (framework root, hooks)`);
 }
 
 function printUninstallHint(configDir) {
   const label = configDir.replace(os.homedir(), '~');
-  console.log(`  ${dim}Uninstall: rm -rf ${label}/claude-master-setup ${label}/agents ${label}/commands${reset}`);
-  console.log(`  ${dim}           and remove the harness blocks from ${label}/settings.json${reset}`);
+  console.log(`  ${dim}Uninstall: remove ${label}/claude-master-setup and the six master command files${reset}`);
+  console.log(`  ${dim}           plus master agent/hook entries from ${label}/settings.json${reset}`);
   console.log(`  ${dim}In project: delete CLAUDE.md and .master/${reset}`);
 }
 
@@ -827,12 +757,10 @@ function installFrameworkOnly() {
   console.log(`  Installing shared framework to ${cyan}${label}${reset}\n`);
 
   const frameworkRoot = ensureFrameworkInstalled(configDir);
-  installStatusline(configDir);
-  printCompanionNextSteps();
 
   console.log(`  ${green}Done!${reset} Shared framework installed at ${cyan}${label}/claude-master-setup/${reset}`);
   console.log(`  Run ${cyan}claude${reset} in any project, then ${cyan}/bootstrap${reset} (or ${cyan}/master:bootstrap${reset}
-  if installed as a plugin) to seed that project's ${cyan}.master/${reset}, then ${cyan}/loop${reset}.
+  if installed as a plugin) to seed that project's ${cyan}.master/${reset}, then ${cyan}/loop "task"${reset}.
 `);
   printUninstallHint(configDir);
   console.log();
@@ -863,19 +791,17 @@ function installDefault() {
   }
 
   const frameworkRoot = ensureFrameworkInstalled(configDir);
-  installStatusline(configDir);
 
   let touched = [];
   if (!isSourceRepo) {
     touched = seedMasterFolder(projectRoot, frameworkRoot);
   }
 
-  printCompanionNextSteps();
 
   // Success summary
   console.log(`  ${green}✓ Installation complete${reset}\n`);
   console.log(`  ${yellow}What was installed:${reset}`);
-  console.log(`    ${cyan}Shared framework${reset}  → ${configLabel}/claude-master-setup/ (agents, commands, skills, scripts, hooks)`);
+  console.log(`    ${cyan}Shared framework${reset}  → ${configLabel}/claude-master-setup/ (agents, commands, scripts, hooks)`);
   if (!isSourceRepo && touched.length > 0) {
     console.log(`    ${cyan}Project files${reset}     → ${projectRoot}/`);
     for (const f of touched) {

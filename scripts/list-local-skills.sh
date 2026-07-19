@@ -3,17 +3,12 @@
 # Prints a JSON array of { name, description, path, source }.
 # Priority on duplicate names: project > user > plugin.
 #
-# Env:
-#   HARNESS_SKILLS_SOURCES   comma list: project,user,plugin (default: all three)
-#   HARNESS_SKILLS_MAX       max skills to emit (default 80)
 set -euo pipefail
 
 REPO_ROOT="${CLAUDE_PROJECT_DIR:-$PWD}"
 
 export REPO_ROOT
 export HOME
-export HARNESS_SKILLS_SOURCES="${HARNESS_SKILLS_SOURCES:-project,user,plugin}"
-export HARNESS_SKILLS_MAX="${HARNESS_SKILLS_MAX:-80}"
 
 python3 <<'PY'
 import json
@@ -23,11 +18,8 @@ from pathlib import Path
 
 repo = Path(os.environ["REPO_ROOT"])
 home = Path(os.environ["HOME"])
-sources = {s.strip() for s in os.environ.get("HARNESS_SKILLS_SOURCES", "project,user,plugin").split(",") if s.strip()}
-try:
-    max_skills = max(1, int(os.environ.get("HARNESS_SKILLS_MAX", "80")))
-except ValueError:
-    max_skills = 80
+sources = {"project", "user", "plugin"}
+max_skills = 80
 
 def frontmatter(text: str) -> dict:
     if not text.startswith("---"):

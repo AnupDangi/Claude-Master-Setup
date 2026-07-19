@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# Create / status / merge / cleanup worktrees for implementer fan-out (≤5 slices).
+# Create / status / merge / cleanup worktrees for adaptive fan-out (≤3 slices).
 #
 # Safety (production):
 # - Requires a git work tree; refuses bare / non-repo cwd
-# - Caps slices via HARNESS_MAX_PARALLEL_IMPLEMENTER (default 5, hard max 5)
+# - Caps slices at 3
 # - Validates slice ids + branch names; rejects path traversal in files
 # - Constrains worktree_root under the repo's parent directory
 # - merge refuses dirty integration tree and in-progress merges
@@ -13,7 +13,7 @@
 # {
 #   "base_branch": "feat/foo",
 #   "worktree_root": "../myproj-fanout",
-#   "max_parallel": 5,
+#   "max_parallel": 3,
 #   "slices": [
 #     { "id": "a", "title": "...", "branch": "fanout/a", "files": ["src/a.ts"] }
 #   ]
@@ -27,7 +27,7 @@ usage() {
   cat <<'EOF'
 Usage: bash scripts/worktree-fanout.sh <create|status|merge|cleanup> <manifest.json> [flags]
 
-  create   Add one worktree+branch per slice (max 5, or max_parallel in manifest)
+  create   Add one worktree+branch per slice (max 3, or a lower max_parallel in manifest)
   status   Show worktree paths and whether each branch exists
   merge    Fast-forward each slice into the integration branch when possible;
            otherwise a normal merge (no forced --no-ff). Cleaner history.
@@ -38,8 +38,6 @@ Flags:
   --delete-branches  (cleanup) delete slice branches — default on
   --keep-branches    (cleanup) keep slice branches after removing worktrees
 
-Env:
-  HARNESS_MAX_PARALLEL_IMPLEMENTER  hard cap (default 5, max 5)
 EOF
 }
 
@@ -73,14 +71,7 @@ if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
   exit 1
 fi
 
-MAX_CAP="${HARNESS_MAX_PARALLEL_IMPLEMENTER:-5}"
-if ! [[ "$MAX_CAP" =~ ^[0-9]+$ ]] || [ "$MAX_CAP" -lt 1 ]; then
-  echo "error: HARNESS_MAX_PARALLEL_IMPLEMENTER must be a positive integer" >&2
-  exit 1
-fi
-if [ "$MAX_CAP" -gt 5 ]; then
-  MAX_CAP=5
-fi
+MAX_CAP=3
 
 PARSE_OUT="$(python3 - "$MANIFEST" "$REPO_ROOT" "$MAX_CAP" <<'PY'
 import json, sys, shlex, re
@@ -93,7 +84,7 @@ if not slices:
     print("error: slices must be a non-empty array", file=sys.stderr)
     sys.exit(1)
 
-max_parallel = min(int(data.get("max_parallel") or max_cap), max_cap, 5)
+max_parallel = min(int(data.get("max_parallel") or max_cap), max_cap)
 if len(slices) > max_parallel:
     print(f"error: {len(slices)} slices exceed max_parallel={max_parallel}", file=sys.stderr)
     sys.exit(1)

@@ -1,187 +1,24 @@
-# CLAUDE.md
+# {{PROJECT_NAME}}
 
-Permanent memory for this project. Every Claude Code session reads this first.
-It holds **stable** knowledge only — conventions, workflow, and how this project's
-Claude Master Setup harness operates. Anything current-state (progress, TODOs,
-sprint status) lives in `.master/docs/`, never here.
+{{MISSION}}
 
-> This file is filled in by `/bootstrap`: the project-specific mission, stack,
-> and conventions appear below — the workflow/agent/loop/MCP sections above
-> stay as-is (they describe the harness, not this specific project).
+## Stack
 
----
+{{STACK}}
 
-## What this project is
+## Run and verify
 
-Built with the **Claude Master Setup** harness: an engineered build loop —
-plan → build → validate → review → commit — with specialist subagents and
-hard quality gates. The harness framework itself (agents, commands, scripts,
-reference docs) lives once, shared, outside this project — this repository
-carries only its own state and docs under `.master/`.
+{{RUN_COMMANDS}}
 
-## Read order for every session
+## Conventions
 
-1. `CLAUDE.md` (this file) — conventions and workflow.
-2. `.master/docs/PROJECT_STATE.md` — where the project is right now.
-3. `.master/docs/SESSION.md` — what happened last session.
-4. `.master/docs/DECISIONS.md` — architectural decisions already made (do not re-litigate).
-5. `.master/state/loop.json` — the loop's current phase.
+- Follow the patterns already present in the repository.
+- Keep changes scoped; update tests with behavior changes.
+- Never commit credentials or generated secrets.
 
-Treat the **repository, not the conversation**, as the source of truth.
+## Working context
 
----
-
-## The four memory layers
-
-Knowledge has exactly one home. Do not duplicate a fact across layers.
-
-| Layer | Holds | Changes |
-|---|---|---|
-| `PRD.md` / `PTR.md` | Product & technical requirements | Rarely |
-| `CLAUDE.md` | Stable conventions, workflow, harness rules | Rarely |
-| `.master/docs/` | Shared project knowledge, current state, decisions | Often |
-| Claude Code auto-memory | Per-worktree learned patterns | Continuously |
-
-If a future worktree or session must know something, it goes in `CLAUDE.md` or
-`.master/docs/` — never left only in auto-memory (which is worktree-local).
-
----
-
-## The build loop
-
-The loop is the product. Full spec in `${CLAUDE_PLUGIN_ROOT}/docs/LOOP.md`. Capability layer (local
-skills, hierarchical subagents, worktree fan-out) in
-`${CLAUDE_PLUGIN_ROOT}/docs/CAPABILITY_ORCHESTRATION.md`. One iteration:
-
-```
-SELECT → DISCOVER → PLAN → [gate: approve plan] → BUILD → VALIDATE (hard gate)
-       → REVIEW + SECURITY → [gate: approve merge] → COMMIT → update state → LOOP
-```
-
-- Run it with `/loop`. The **orchestrator** subagent drives it and delegates.
-- Commands state **intent**; orchestrator chooses skills / fan-out / specialists.
-- **Two human gates** (approve the plan; approve the merge) and **one automated
-  gate** (validation). None may be skipped.
-- **Validation hard-blocks.** If `${CLAUDE_PLUGIN_ROOT}/scripts/validate.sh` is RED, the loop returns to
-  BUILD and will not advance. GREEN is binary — never "green with warnings".
-- **One shippable unit per iteration.** New scope goes on the roadmap, not into the
-  current task. Parallel writers only via worktrees under an approved fan-out map.
-
-
-## The subagents
-
-Defined once in the shared framework install. Full reference in `${CLAUDE_PLUGIN_ROOT}/docs/AGENTS.md`.
-
-| Agent | Role | Writes code? |
-|---|---|---|
-| `orchestrator` | Runs the loop, delegates, enforces gates | No |
-| `planner` | Roadmap item → step plan + DoD | No |
-| `architect` | Challenges design, writes Decisions | Docs only |
-| `implementer` | Writes code **and** tests for one task (Sonnet, default) | Yes |
-| `implementer-opus` | Same job, Opus tier — used instead of `implementer` when `task_complexity` is `large` | Yes |
-| `validator` | Runs the gate, reports GREEN/RED | No |
-| `reviewer` | Quality pass, severity-ranked | No |
-| `security` | OWASP/secrets/authz pass | No |
-| `docs-writer` | Keeps docs synced | Docs only |
-| `mcp-scout` | Finds & adds MCP servers (with consent) | `.mcp.json` only |
-| `evaluator` | Objective-metrics scorecard (`/evaluate`) | No |
-
-## Slash commands
-
-**Core:** `/bootstrap` `/loop` `/status` `/pause` `/decide` `/handoff`  
-**Power:** `/plan` `/validate` `/review` `/mcp-add` `/evaluate`
-
-Plugin install namespaces these as `/master:bootstrap`, `/master:loop`, etc.
-Docs: `${CLAUDE_PLUGIN_ROOT}/docs/SETUP.md`. Brownfield:
-`${CLAUDE_PLUGIN_ROOT}/docs/BROWNFIELD.md`. Decisions live in `.master/docs/DECISIONS.md`
-— supersede via `/decide`, never rewrite history silently.
-
-## MCP tools
-
-When the project needs an external service (DB, GitHub, browser, payments…), use
-`/mcp-add`. The **mcp-scout** checks `${CLAUDE_PLUGIN_ROOT}/scripts/mcp-catalog.json`, then the web, and
-asks before wiring anything into `.mcp.json`. Rules: secrets are always `${ENV_VAR}`
-references (never literals), servers are least-privilege, and you must restart
-Claude Code to connect a newly added server. Details in `${CLAUDE_PLUGIN_ROOT}/docs/MCP.md`.
-
----
-
-## Model routing
-
-Use the cheapest model that can do the task well.
-
-- **Haiku** — docs, formatting, status, small mechanical edits.
-- **Sonnet** — features, implementation, validation, reviews, normal engineering.
-- **Opus** — architecture, security review, planning, complex debugging, high-impact
-  decisions.
-
-Agent frontmatter already pins each agent to a sensible model; escalate only when
-complexity justifies the cost. Full tiering table and the target (dynamic,
-scheduler-driven) design in [`${CLAUDE_PLUGIN_ROOT}/docs/MODEL_ROUTING.md`](${CLAUDE_PLUGIN_ROOT}/docs/MODEL_ROUTING.md).
-
-## Git & branching
-
-- Small, atomic commits — one logical change each. Conventional Commit messages:
-  `feat:`, `fix:`, `docs:`, `refactor:`, `test:`, `chore:`.
-- One branch per feature/fix. For parallel work, use git worktrees (see
-  `${CLAUDE_PLUGIN_ROOT}/docs/DEVELOPMENT_WORKFLOW.md`) so independent tasks never collide.
-- Never force-push a shared branch (the harness blocks it).
-- Never commit secrets or `.env`.
-
-## Definition of Ready (before BUILD)
-
-- The task is a single shippable unit with a clear DoD.
-- Files to touch are identified; no ambiguity blocking a start.
-- Any needed external tool is either available or queued via `/mcp-add`.
-
-## Definition of Done (before COMMIT)
-
-- Code **and** tests written; `${CLAUDE_PLUGIN_ROOT}/scripts/validate.sh` is GREEN.
-- **Reviewer and security** findings resolved — no open Critical/High (security
-  runs every iteration; light pass OK on pure docs).
-- Docs updated: `.master/docs/PROJECT_STATE.md`, `.master/docs/CHANGELOG.md`, and any changed surface doc
-  (keep terse on `fast` build-effort tier — see `${CLAUDE_PLUGIN_ROOT}/docs/BUILD_EFFORT.md`).
-- Commit is atomic with a conventional message.
-
----
-
-## Repository rules
-
-**Never:**
-- Duplicate business logic, or bypass an existing security boundary.
-- Advance the loop past a RED validation gate, or weaken a check to make it pass.
-- Redesign approved architecture without a Decision and approval.
-- Introduce breaking changes silently, or add dependencies without justification.
-- Assume ambiguous requirements — ask.
-- Leave debug prints / `console.log` in committed code.
-- Commit secrets; hardcode credentials instead of using env vars.
-
-**Always:**
-- Keep docs synchronized with implementation, in the same iteration.
-- Create or update tests with every code change.
-- Explain the real trade-off behind a design choice.
-- Think production-first; prefer the simplest design that meets the stated scale.
-- Generate `.master/docs/HANDOFF.md` before ending a working session (`/handoff`).
-
----
-
-## Working instructions for Claude
-
-1. Start from the repository, not memory of past chats.
-2. Prefer delegating to the specialist subagent for the phase you're in.
-3. Show working context (phase, task, binding Decisions, next gate) each phase.
-4. On ambiguity → `/pause` — do not invent architecture; supersede via `/decide`.
-5. Promote durable learnings into `.master/docs/` or `CLAUDE.md`.
-
-<!-- BOOTSTRAP FILL-IN (architect completes these after /bootstrap) -->
-## Project mission
-_(filled in by /bootstrap from PRD.md)_
-
-## Architecture overview
-_(filled in by /bootstrap — see .master/docs/ARCHITECTURE.md for detail)_
-
-## Technology stack
-_(filled in by /bootstrap)_
-
-## Coding standards
-_(summary here; full detail in .master/docs/CODING_STANDARDS.md)_
+- Project facts: `.master/project.json`
+- Active loop: `.master/state/loop.json`
+- Resume context: `.master/state/handoff.json`
+- Start work: `/loop "task"` (plugin: `/master:loop`; default 2 iterations)

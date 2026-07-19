@@ -25,8 +25,8 @@
       "Bash(./scripts/:*)",
       "Bash(bash scripts/:*)",
       "Bash(bash */scripts/*.sh:*)",
-      "Bash(bash $HARNESS_FRAMEWORK_ROOT/scripts/:*)",
-      "Bash(bash \"$HARNESS_FRAMEWORK_ROOT/scripts/:*\")"
+      "Bash(bash $CLAUDE_MASTER_ROOT/scripts/:*)",
+      "Bash(bash \"$CLAUDE_MASTER_ROOT/scripts/:*\")"
     ],
     "ask": [
       "WebFetch",
@@ -42,15 +42,7 @@
       "Bash(sudo:*)"
     ]
   },
-  "env": {
-    "HARNESS_LOOP_STRICT": "1",
-    "HARNESS_MAX_VALIDATE_RETRIES": "3",
-    "HARNESS_MAX_ITERATIONS_PER_RUN": "1",
-    "HARNESS_MAX_COMMITS_PER_DAY": "20",
-    "HARNESS_MAX_EVENTS_PER_DAY": "200",
-    "HARNESS_BUDGET_STOP": "1",
-    "HARNESS_LEASE_TTL_SECONDS": "7200"
-  },
+  "env": {},
   "hooks": {
     "SessionStart": [
       {
@@ -105,6 +97,17 @@
       }
     ],
     "Stop": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/loop-stop-hook.sh\""
+          }
+        ],
+        "description": "Continue an active adaptive loop until completion or its iteration cap",
+        "id": "harness:loop-stop"
+      },
       {
         "matcher": "*",
         "hooks": [

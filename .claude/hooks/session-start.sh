@@ -1,15 +1,19 @@
 #!/usr/bin/env bash
-# SessionStart hook: orient a new session. Never fails the session.
-ROOT="${CLAUDE_PROJECT_DIR:-.}"
-echo "── Claude Master Setup ──────────────────────────────"
+ROOT="${CLAUDE_PROJECT_DIR:-$PWD}"
+echo "── master ──"
 if [ -f "$ROOT/.master/state/loop.json" ]; then
-  echo "Loop state: $(cat "$ROOT/.master/state/loop.json")"
+  python3 - "$ROOT/.master/state/loop.json" <<'PY' 2>/dev/null || true
+import json, sys
+from pathlib import Path
+try:
+    s=json.loads(Path(sys.argv[1]).read_text())
+    if s.get("active"):
+        print(f"Active loop: {s.get('iteration')}/{s.get('max_iterations')} · {s.get('execution_mode')} · /cancel to stop")
+    elif s.get("status") not in {None, "idle"}:
+        print(f"Last loop: {s.get('status')}")
+except Exception:
+    print("Loop state is unreadable; /status for details")
+PY
 fi
-if [ -f "$ROOT/.master/docs/PROJECT_STATE.md" ]; then
-  echo "Read first: CLAUDE.md, .master/docs/PROJECT_STATE.md, .master/docs/SESSION.md, .master/docs/DECISIONS.md"
-  echo "Next: run /status to see where the loop is, or /loop to continue building."
-else
-  echo "No project bootstrapped yet. Add PRD.md + PTR.md, then run /bootstrap."
-fi
-echo "─────────────────────────────────────────────────────"
-exit 0
+[ -f "$ROOT/CLAUDE.md" ] && echo "Context: CLAUDE.md → .master/project.json → handoff.json"
+echo 'Start: /loop "task" (default max 2) · /bootstrap · /status · /pause'

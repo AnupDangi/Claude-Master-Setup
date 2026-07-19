@@ -3,11 +3,12 @@
 # typecheck, tests, build. Exit 0 = GREEN. Any non-zero = RED.
 # This script is the hard gate the loop refuses to advance past.
 #
-# Customize per project by editing the run_* functions or setting the
-# HARNESS_* env vars below. Missing steps are skipped, not failed —
+# Customize per project by editing the run_* functions or project scripts.
+# Missing steps are skipped, not failed —
 # but a step that exists and fails makes the whole gate RED.
 set -uo pipefail
-cd "${CLAUDE_PROJECT_DIR:-$PWD}" || exit 3
+REPO_ROOT="${CLAUDE_PROJECT_DIR:-$PWD}"
+cd "$REPO_ROOT" || exit 3
 
 # shellcheck source=detect-stack.sh
 . "$(dirname "$0")/detect-stack.sh"
@@ -85,21 +86,55 @@ case "$STACK" in
   unknown)
     printf '  \033[33m! No known stack detected.\033[0m\n'
     printf '  Edit scripts/validate.sh to define this project'"'"'s checks.\n'
-    # Unknown stack is RED so the gate is never silently open on a real project.
-    # If this is intentional (e.g. docs-only repo), export HARNESS_ALLOW_NO_STACK=1.
-    if [ "${HARNESS_ALLOW_NO_STACK:-0}" = "1" ]; then
+    # Unknown stack is RED unless project.json explicitly marks a docs-only repo.
+    ALLOW_NO_STACK="$(python3 - "$REPO_ROOT/.master/project.json" <<'PY2'
+import json, sys
+from pathlib import Path
+try:
+    print("1" if json.loads(Path(sys.argv[1]).read_text()).get("allow_no_stack") is True else "0")
+except Exception:
+    print("0")
+PY2
+)"
+    if [ "$ALLOW_NO_STACK" = "1" ]; then
       ok "no-stack (allowed)"
     else
-      fail "no-stack (set HARNESS_ALLOW_NO_STACK=1 to allow, or configure validate.sh)"
+      fail "no-stack (configure validate.sh or set allow_no_stack=true in project.json)"
     fi
     ;;
 esac
 
 echo
+record_validation() {
+  local status="$1"
+  python3 - "$REPO_ROOT/.master/state/loop.json" "$status" "$RAN" <<'PY2'
+import json, sys
+from datetime import datetime, timezone
+from pathlib import Path
+p = Path(sys.argv[1])
+if p.is_file():
+    try:
+        state = json.loads(p.read_text(encoding="utf-8"))
+        state["validation"] = {
+            "status": sys.argv[2],
+            "command": "framework:validate",
+            "checks": sys.argv[3].strip().split(),
+            "checked_at": datetime.now(timezone.utc).isoformat(),
+        }
+        state["updated_at"] = datetime.now(timezone.utc).isoformat()
+        p.write_text(json.dumps(state, indent=2) + "\n", encoding="utf-8")
+    except (OSError, json.JSONDecodeError):
+        pass
+PY2
+}
+
 if [ "$FAILED" -eq 0 ]; then
   printf '\033[1;32mGATE: GREEN\033[0m — ran:%s\n' "${RAN:- (nothing)}"
+  record_validation green
+  rm -f "$REPO_ROOT/.master/state/validation-pending"
   exit 0
 else
   printf '\033[1;31mGATE: RED\033[0m — one or more checks failed.\n'
+  record_validation red
   exit 1
 fi

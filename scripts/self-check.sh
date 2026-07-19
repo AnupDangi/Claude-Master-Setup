@@ -1,214 +1,108 @@
 #!/usr/bin/env bash
-# Verifies the harness itself is wired correctly. Run after install or edits.
-# Exit 0 if healthy, 1 if any required piece is missing or malformed.
 set -uo pipefail
 cd "$(dirname "$0")/.." || exit 1
+SELF_ROOT="$PWD"
 FAIL=0
-TMP_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/harness-selfcheck.XXXXXX")"
+TMP_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/master-selfcheck.XXXXXX")"
 trap 'rm -rf "$TMP_ROOT"' EXIT
-ok()   { printf '  \033[32m✓ %s\033[0m\n' "$1"; }
-bad()  { printf '  \033[31m✗ %s\033[0m\n' "$1"; FAIL=1; }
+ok() { printf '  ✓ %s\n' "$1"; }
+bad() { printf '  ✗ %s\n' "$1"; FAIL=1; }
+check() { if "$@"; then ok "$*"; else bad "$*"; fi; }
 
-echo "▶ Harness self-check"
+echo "Adaptive loop self-check"
 
-# Required agents
-for a in orchestrator planner architect implementer implementer-opus validator reviewer security docs-writer mcp-scout evaluator; do
-  f=".claude/agents/$a.md"
-  if [ -f "$f" ] && head -1 "$f" | grep -q '^---'; then ok "agent: $a"; else bad "agent missing/malformed: $a"; fi
+required_commands="bootstrap cancel handoff loop pause status"
+actual_commands="$(for f in .claude/commands/*.md; do basename "$f" .md; done | sort | tr '\n' ' ' | sed 's/ $//')"
+[ "$actual_commands" = "$required_commands" ] && ok "exactly six commands" || bad "command set: $actual_commands"
+
+for a in architect implementer implementer-opus orchestrator planner reviewer validator; do
+  [ -f ".claude/agents/$a.md" ] && ok "agent $a" || bad "missing agent $a"
+done
+for s in setup-loop.sh cancel-loop.sh detect-stack.sh list-local-skills.sh select-skills.sh validate.sh worktree-fanout.sh classify-task.py write-handoff.py; do
+  [ -f "scripts/$s" ] && ok "runtime $s" || bad "missing runtime $s"
+done
+for d in README.md CLAUDE.md docs/SETUP.md docs/LOOP.md docs/SECURITY.md docs/CHANGELOG.md; do
+  [ -f "$d" ] && ok "$d" || bad "missing $d"
 done
 
-# Required commands
-for c in loop plan validate review mcp-add bootstrap handoff status pause decide evaluate; do
-  [ -f ".claude/commands/$c.md" ] && ok "command: /$c" || bad "command missing: /$c"
+for s in scripts/*.sh .claude/hooks/*.sh; do
+  bash -n "$s" || bad "shell syntax: $s"
 done
+node --check bin/cli.js >/dev/null 2>&1 && ok "CLI syntax" || bad "CLI syntax"
+python3 -m py_compile scripts/classify-task.py scripts/write-handoff.py >/dev/null 2>&1 && ok "Python syntax" || bad "Python syntax"
 
-# Required hooks
-for h in session-start pre-bash-guard protect-paths post-edit-track stop-validate-reminder; do
-  [ -f ".claude/hooks/$h.sh" ] && ok "hook: $h" || bad "hook missing: $h"
-done
-
-# Required scripts
-for s in validate.sh detect-stack.sh install.sh self-check.sh mcp-catalog.json list-local-skills.sh worktree-fanout.sh select-skills.sh loop-event.sh lease.sh budget-check.sh write-scorecard.sh estimate-build-effort.sh; do
-  [ -f "scripts/$s" ] && ok "script: $s" || bad "script missing: $s"
-done
-
-# Capability orchestration docs + template + companion skill + AI OS
-for d in docs/CAPABILITY_ORCHESTRATION.md docs/templates/AGENT_TASK.md .claude/skills/capability-orchestrator/SKILL.md docs/AI_OS.md docs/BROWNFIELD.md docs/BUILD_EFFORT.md; do
-  [ -f "$d" ] && ok "capability: $d" || bad "capability missing: $d"
-done
-
-# Plugin packaging (.claude-plugin/) is OPTIONAL here: it only lives in this
-# harness's own source repo, never copied by installLocal() into a consumer
-# project (a --local install has no use for plugin/marketplace manifests).
-# Skip silently if absent; validate fully (JSON + version-sync) if present.
-if [ -f ".claude-plugin/plugin.json" ] || [ -f ".claude-plugin/marketplace.json" ]; then
-  if command -v python3 >/dev/null 2>&1; then
-    if python3 - <<'PY'
+python3 - <<'PY' >/dev/null 2>&1 && ok "manifest versions and agent paths" || bad "manifest versions and agent paths"
 import json
 from pathlib import Path
-plugin = json.loads(Path(".claude-plugin/plugin.json").read_text(encoding="utf-8"))
-market = json.loads(Path(".claude-plugin/marketplace.json").read_text(encoding="utf-8"))
-pkg = json.loads(Path("package.json").read_text(encoding="utf-8"))
-assert plugin.get("name") == "master", f"plugin.json name must be 'master', got {plugin.get('name')!r}"
-assert plugin.get("version") == pkg.get("version"), f"plugin.json version {plugin.get('version')!r} != package.json {pkg.get('version')!r}"
-entries = market.get("plugins") or []
-assert entries and entries[0].get("name") == "master", "marketplace.json must list a 'master' plugin"
-assert entries[0].get("version") == pkg.get("version"), f"marketplace.json plugin version {entries[0].get('version')!r} != package.json {pkg.get('version')!r}"
+pkg=json.loads(Path('package.json').read_text())
+plugin=json.loads(Path('.claude-plugin/plugin.json').read_text())
+market=json.loads(Path('.claude-plugin/marketplace.json').read_text())
+assert pkg['version']==plugin['version']==market['plugins'][0]['version']
+assert all(Path(p.removeprefix('./')).is_file() for p in plugin['agents'])
+assert 'skills' not in plugin
 PY
-    then
-      ok "plugin packaging: .claude-plugin/plugin.json + marketplace.json valid and version-synced"
-    else
-      bad "plugin packaging: .claude-plugin manifests present but invalid or version-drifted from package.json"
-    fi
-  else
-    ok "plugin packaging files present (no python3 to validate JSON/version sync)"
-  fi
-fi
 
-# list-local-skills.sh emits valid JSON
-if bash scripts/list-local-skills.sh >$TMP_ROOT/skills.json 2>/dev/null; then
-  if command -v python3 >/dev/null 2>&1; then
-    python3 -c "import json; json.load(open('$TMP_ROOT/skills.json'))" 2>/dev/null \
-      && ok "list-local-skills.sh emits JSON" \
-      || bad "list-local-skills.sh invalid JSON"
-  else
-    ok "list-local-skills.sh ran (no python3 to validate JSON)"
-  fi
-else
-  bad "list-local-skills.sh failed"
-fi
-
-# worktree-fanout.sh help
-bash scripts/worktree-fanout.sh --help >$TMP_ROOT/fanout-help.txt 2>&1 \
-  && grep -q "create|status|merge|cleanup" $TMP_ROOT/fanout-help.txt \
-  && ok "worktree-fanout.sh help" \
-  || bad "worktree-fanout.sh help missing/malformed"
-
-# worktree-fanout rejects unsafe manifests
-if printf '%s\n' '{"slices":[{"id":"../x","branch":"fanout/a","files":["a.ts"]}]}' >$TMP_ROOT/fanout-bad.json \
-  && ! bash scripts/worktree-fanout.sh status $TMP_ROOT/fanout-bad.json >$TMP_ROOT/fanout-bad.out 2>&1; then
-  ok "worktree-fanout.sh rejects bad slice id"
-else
-  bad "worktree-fanout.sh should reject path-like slice ids"
-fi
-
-# select-skills.sh returns JSON
-if bash scripts/select-skills.sh "capability orchestration" 2 >$TMP_ROOT/select.json 2>$TMP_ROOT/select.err; then
-  if command -v python3 >/dev/null 2>&1; then
-    python3 -c "import json; json.load(open('$TMP_ROOT/select.json'))" 2>/dev/null \
-      && ok "select-skills.sh emits JSON" \
-      || bad "select-skills.sh invalid JSON"
-  else
-    ok "select-skills.sh ran"
-  fi
-else
-  bad "select-skills.sh failed"
-fi
-
-# AI OS scripts smoke
-bash scripts/loop-event.sh select '{"task":"self-check"}' >$TMP_ROOT/event.json 2>&1 \
-  && bash scripts/loop-event.sh summary >$TMP_ROOT/event-summary.json 2>&1 \
-  && ok "loop-event.sh append+summary" \
-  || bad "loop-event.sh failed"
-
-bash scripts/budget-check.sh >$TMP_ROOT/budget.json 2>&1 \
-  && ok "budget-check.sh" \
-  || { [ $? -eq 3 ] && ok "budget-check.sh (stop signaled)" || bad "budget-check.sh failed"; }
-
-bash scripts/lease.sh acquire "self-check-lease" self-check >$TMP_ROOT/lease.json 2>&1 \
-  && bash scripts/lease.sh release "self-check-lease" self-check >/dev/null 2>&1 \
-  && ok "lease.sh acquire+release" \
-  || bad "lease.sh failed"
-
-# build-effort estimator: generic vs hard intents
-if command -v python3 >/dev/null 2>&1; then
-  fast_tier="$(bash scripts/estimate-build-effort.sh /dev/null /dev/null "build a simple todo cli app" 2>/dev/null | python3 -c "import json,sys; print(json.load(sys.stdin).get('tier',''))" 2>/dev/null || true)"
-  hard_tier="$(bash scripts/estimate-build-effort.sh /dev/null /dev/null "build a gta vice city game clone and productionize train an llm" 2>/dev/null | python3 -c "import json,sys; print(json.load(sys.stdin).get('tier',''))" 2>/dev/null || true)"
-  if [ "$fast_tier" = "fast" ] || [ "$fast_tier" = "standard" ]; then
-    ok "estimate-build-effort: simple todo → $fast_tier"
-  else
-    bad "estimate-build-effort: expected fast/standard for todo cli (got: $fast_tier)"
-  fi
-  if [ "$hard_tier" = "rigorous" ]; then
-    ok "estimate-build-effort: game+llm → rigorous"
-  else
-    bad "estimate-build-effort: expected rigorous for game+llm (got: $hard_tier)"
-  fi
-fi
-
-# protect-paths blocks .env (force override off — user env may have it set)
-if echo '{"file_path":"/tmp/x/.env"}' | HARNESS_ALLOW_PROTECTED_EDITS=0 bash .claude/hooks/protect-paths.sh >$TMP_ROOT/protect-env.out 2>&1; then
-  bad "protect-paths should block .env"
-else
-  ok "protect-paths blocks .env"
-fi
-if echo '{"file_path":"scripts/validate.sh"}' | HARNESS_ALLOW_PROTECTED_EDITS=0 bash .claude/hooks/protect-paths.sh >$TMP_ROOT/protect-validate.out 2>&1; then
-  bad "protect-paths should block validate.sh"
-else
-  ok "protect-paths blocks control-plane validate.sh"
-fi
-# Embedded-quote regression: reconstruct payload without putting the bad pattern in this file as a runnable sample.
-_bg_payload="$(python3 -c 'import json; print(json.dumps({"command": "git commit -m x && " + "rm" + " -rf " + "~"}))')"
-if printf '%s' "$_bg_payload" | bash .claude/hooks/pre-bash-guard.sh >$TMP_ROOT/bash-guard.out 2>&1; then
-  bad "pre-bash-guard should block home wipe with embedded quotes"
-else
-  ok "pre-bash-guard blocks dangerous cmd with embedded quotes"
-fi
-
-# JSON validity
-# Statusline: user-level only (project settings must not wire CLAUDE_PROJECT_DIR statusline)
-if command -v python3 >/dev/null 2>&1; then
-  if python3 - <<'PY'
-import json
-from pathlib import Path
-p = Path(".claude/settings.json")
-s = json.loads(p.read_text(encoding="utf-8"))
-cmd = (s.get("statusLine") or {}).get("command") or ""
-if "statusline" in cmd and "CLAUDE_PROJECT_DIR" in cmd:
-    raise SystemExit(1)
+HOME="$TMP_ROOT/home" CLAUDE_PROJECT_DIR="$TMP_ROOT/project" mkdir -p "$TMP_ROOT/home" "$TMP_ROOT/project"
+export HOME="$TMP_ROOT/home" CLAUDE_PROJECT_DIR="$TMP_ROOT/project"
+bash "$SELF_ROOT/scripts/setup-loop.sh" "fix typo" >/dev/null || bad "setup default"
+python3 - "$CLAUDE_PROJECT_DIR/.master/state/loop.json" <<'PY' >/dev/null 2>&1 && ok "default max=2 and direct routing" || bad "default loop state"
+import json,sys
+s=json.load(open(sys.argv[1])); assert s['max_iterations']==2 and s['execution_mode']=='direct' and s['active']
 PY
-  then
-    ok "project settings: no project-path statusLine"
-  else
-    bad "project settings must not wire \$CLAUDE_PROJECT_DIR statusline"
-  fi
-  fake_root="$(mktemp -d "${TMPDIR:-/tmp}/harness-statusline.XXXXXX")"
-  mkdir -p "$fake_root/nested"
-  sample='{"model":{"display_name":"Test"},"workspace":{"current_dir":"'"$fake_root"'/nested"},"context_window":{"used_percentage":10}}'
-  out="$(printf '%s' "$sample" | CLAUDE_PROJECT_DIR="$fake_root" python3 .claude/statusline.sh 2>/dev/null || true)"
-  expect_name="$(basename "$fake_root")"
-  case "$out" in
-    *"📁 ${expect_name}"*) ok "statusline uses CLAUDE_PROJECT_DIR root" ;;
-    *) bad "statusline should show project root from CLAUDE_PROJECT_DIR (got: $out)" ;;
-  esac
-  rm -rf "$fake_root"
+
+bash "$SELF_ROOT/scripts/setup-loop.sh" "implement authentication feature across frontend backend api database with tests and migration for all services" --max-iterations 4 --completion-promise DONE >/dev/null
+python3 - "$CLAUDE_PROJECT_DIR/.master/state/loop.json" <<'PY' >/dev/null 2>&1 && ok "options, complex routing, skill cap" || bad "adaptive state"
+import json,sys
+s=json.load(open(sys.argv[1])); assert s['max_iterations']==4 and s['completion_promise']=='DONE'; assert s['execution_mode']=='parallel'; assert len(s['selected_skills'])<=3
+s['validation']['status']='green'; open(sys.argv[1],'w').write(json.dumps(s,indent=2)+'\n')
+PY
+printf '%s\n' '{"message":{"role":"assistant","content":[{"type":"text","text":"<promise>DONE</promise>"}]}}' > "$TMP_ROOT/transcript.jsonl"
+printf '{"transcript_path":"%s"}' "$TMP_ROOT/transcript.jsonl" | bash "$SELF_ROOT/.claude/hooks/loop-stop-hook.sh" >/dev/null
+python3 - "$CLAUDE_PROJECT_DIR/.master/state/loop.json" "$CLAUDE_PROJECT_DIR/.master/state/handoff.json" <<'PY' >/dev/null 2>&1 && ok "GREEN completion and automatic handoff" || bad "completion/handoff"
+import json,sys,os
+assert json.load(open(sys.argv[1]))['status']=='completed'; assert os.path.isfile(sys.argv[2])
+PY
+
+bash "$SELF_ROOT/scripts/setup-loop.sh" "another task" >/dev/null
+bash "$SELF_ROOT/scripts/cancel-loop.sh" >/dev/null
+python3 - "$CLAUDE_PROJECT_DIR/.master/state/loop.json" <<'PY' >/dev/null 2>&1 && ok "cancel persists cancelled state" || bad "cancel state"
+import json,sys
+s=json.load(open(sys.argv[1])); assert s['status']=='cancelled' and not s['active']
+PY
+
+printf '{bad json' > "$CLAUDE_PROJECT_DIR/.master/state/loop.json"
+printf '{}' | bash "$SELF_ROOT/.claude/hooks/loop-stop-hook.sh" >/dev/null 2>&1
+[ ! -f "$CLAUDE_PROJECT_DIR/.master/state/loop.json" ] && ok "corrupt state stops safely" || bad "corrupt state not removed"
+
+bash "$SELF_ROOT/scripts/setup-loop.sh" "missing transcript check" >/dev/null
+printf '{}' | bash "$SELF_ROOT/.claude/hooks/loop-stop-hook.sh" >/dev/null 2>&1
+python3 - "$CLAUDE_PROJECT_DIR/.master/state/loop.json" <<'PY' >/dev/null 2>&1 && ok "missing transcript stops safely" || bad "missing transcript state"
+import json,sys
+s=json.load(open(sys.argv[1])); assert s['status']=='error' and not s['active']
+PY
+
+[ "$(python3 "$SELF_ROOT/scripts/classify-task.py" 'fix typo' | python3 -c 'import json,sys; print(json.load(sys.stdin)["execution_mode"])')" = direct ] && ok "direct classifier" || bad "direct classifier"
+[ "$(python3 "$SELF_ROOT/scripts/classify-task.py" 'implement authentication feature' | python3 -c 'import json,sys; print(json.load(sys.stdin)["execution_mode"])')" = delegated ] && ok "delegated classifier" || bad "delegated classifier"
+
+cd "$SELF_ROOT" || exit 1
+bash scripts/worktree-fanout.sh --help 2>&1 | grep -q 'create|status|merge|cleanup' && ok "fanout help" || bad "fanout help"
+if printf '%s\n' '{"slices":[{"id":"../x","branch":"fanout/a","files":["a.ts"]}]}' > "$TMP_ROOT/bad.json" && ! bash scripts/worktree-fanout.sh status "$TMP_ROOT/bad.json" >/dev/null 2>&1; then ok "fanout rejects unsafe id"; else bad "fanout unsafe id"; fi
+
+if command -v rg >/dev/null 2>&1; then
+  for pattern in 'HARNESS_MAX_' 'loop.local.md' '/go'; do
+    if rg -n "$pattern" --glob '!docs/CHANGELOG.md' --glob '!scripts/self-check.sh' . >/dev/null 2>&1; then bad "stale reference: $pattern"; else ok "no stale $pattern"; fi
+  done
+else
+  bad "ripgrep required for stale-reference checks"
 fi
 
-for j in .claude/settings.json scripts/mcp-catalog.json; do
-  if command -v python3 >/dev/null 2>&1; then
-    python3 -c "import json,sys; json.load(open('$j'))" 2>/dev/null && ok "valid JSON: $j" || bad "invalid JSON: $j"
-  fi
-done
-# .mcp.json and .claude-plugin/*.json are optional but must be valid if present
-for j in .mcp.json .claude-plugin/plugin.json .claude-plugin/marketplace.json; do
-  if [ -f "$j" ] && command -v python3 >/dev/null 2>&1; then
-    python3 -c "import json; json.load(open('$j'))" 2>/dev/null && ok "valid JSON: $j" || bad "invalid JSON: $j"
-  fi
-done
-
-# Core docs
-for d in CLAUDE.md docs/LOOP.md docs/AGENTS.md docs/MCP.md docs/SETUP.md; do
-  [ -f "$d" ] && ok "doc: $d" || bad "doc missing: $d"
-done
-
-# validate.sh runs and reports a gate verdict. npm test sets the skip flag to
-# avoid test → self-check → validate → npm test recursion.
-if [ "${HARNESS_SELF_CHECK_SKIP_VALIDATE:-0}" = "1" ]; then
-  ok "validate.sh verdict skipped by npm test (recursion guard)"
-elif bash scripts/validate.sh >"$TMP_ROOT/validate.log" 2>&1 || true; then
-  grep -qE "GATE: (GREEN|RED)" "$TMP_ROOT/validate.log" && ok "validate.sh reports a gate verdict" || bad "validate.sh did not report a gate verdict"
+if [ "${MASTER_SELF_CHECK_SKIP_VALIDATE:-0}" = 1 ]; then
+  ok "full validation skipped inside npm test"
+else
+  bash scripts/validate.sh >"$TMP_ROOT/validate.log" 2>&1 || true
+  grep -q 'GATE: ' "$TMP_ROOT/validate.log" && ok "validation reports verdict" || bad "validation verdict"
 fi
 
 echo
-[ "$FAIL" -eq 0 ] && echo "Harness OK." || echo "Harness has issues — see ✗ above."
-exit $FAIL
+[ "$FAIL" -eq 0 ] && echo "Self-check OK" || echo "Self-check failed"
+exit "$FAIL"

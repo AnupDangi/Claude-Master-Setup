@@ -1,179 +1,68 @@
 # Claude Master Setup
 
-[![npm version](https://img.shields.io/npm/v/claude-master-setup?style=for-the-badge&logo=npm&logoColor=white&color=CB3837)](https://www.npmjs.com/package/claude-master-setup)
-[![License](https://img.shields.io/badge/license-MIT-blue?style=for-the-badge)](LICENSE)
-[![GitHub](https://img.shields.io/badge/github-AnupDangi%2FClaude--Master--Setup-181717?style=for-the-badge&logo=github)](https://github.com/AnupDangi/Claude-Master-Setup)
+A small Claude Code extension for shipping code through adaptive, validated loops.
+It reads the project first, keeps machine state in JSON, and uses extra agents only
+when the task benefits from them.
 
-**Engineering OS for Claude Code** — a repeatable loop (plan → build → validate → review → commit) with specialist subagents and hard quality gates. Your app stays clean: only `CLAUDE.md` + `.master/`.
+## Install
 
-<img width="1536" height="1024" alt="image" src="https://github.com/user-attachments/assets/c100b996-c69a-442c-ae55-d2210550885f" />
-
-
-## Recommended: plugin (5 minutes)
+Plugin:
 
 ```bash
-# 1) Install the plugin once (Claude Code)
 claude plugin marketplace add AnupDangi/Claude-Master-Setup
 claude plugin install master@claude-master-setup
-
-# 2) In your app repo
-cd ~/code/my-app
-# add PRD.md and PTR.md (product + technical requirements)
-
-claude   # start Claude Code in this repo
 ```
 
-Then run:
-
-```text
-/master:bootstrap   # scaffolds .master if needed + foundation from PRD/PTR (no feature code)
-/master:loop        # one shippable unit: plan → build → validate → review → commit
-/master:status      # phase, task, what the agent is doing
-/master:pause       # stop mid-work when confused or interrupted
-/master:decide      # supersede an architecture Decision (do not rewrite history)
-/master:handoff     # end of session
-```
-
-### What your app looks like after `/master:bootstrap`
-
-```text
-my-app/
-├── PRD.md
-├── PTR.md
-├── CLAUDE.md                 # stable conventions (commit)
-└── .master/
-    ├── docs/                 # PROJECT_STATE, ROADMAP, DECISIONS, … (commit)
-    └── state/                # loop.json, leases, events (gitignored)
-```
-
-The plugin supplies agents, commands, hooks, and scripts from Claude Code’s plugin
-cache (machine-level `.claude` / plugin root — **not** copied into your app).
-
-### Worked example
+Or install the shared runtime and seed the current project:
 
 ```bash
-mkdir -p ~/tmp/demo-harness && cd ~/tmp/demo-harness
-git init
-# Write a short PRD.md and PTR.md describing a tiny Node CLI
-claude
-# → /master:bootstrap   (scaffolds + foundation; approve)
-# → /master:loop        (approve plan, then merge)
-# → /master:pause       if stuck; /master:decide if architecture must change
+npx claude-master-setup@latest
 ```
 
-## Alternate: npm installer
-
-Same project footprint; commands are **unprefixed** (`/loop` instead of `/master:loop`).
-
-```bash
-cd ~/code/my-app
-npx claude-master-setup          # wires Claude config + seeds .master/ here
-claude
-# → /bootstrap → /loop → /status → /handoff
-```
-
-| Flag | Meaning |
-|---|---|
-| *(default)* | Shared framework + seed current project |
-| `--framework-only` | Framework only (no project seed) |
-| `--global` / `--local` | Thin aliases (compat) |
-
-> **Pick one path per machine:** plugin **or** npm. Both at once double-fires hooks.
-
-## How machine `.claude` and project `.master` work together
-
-| Layer | Where | Role |
-|---|---|---|
-| Plugin / user Claude config | Machine | Agents, `/master:*` commands, hooks, scripts |
-| `.master/docs/` | Your repo | Project memory (roadmap, decisions, narrative) |
-| `.master/state/` | Your repo (gitignored) | Loop machine state |
-| `CLAUDE.md` | Your repo | Stable rules the loop always reads first |
-
-`templates/master-docs/` in **this** GitHub repo are blank stubs copied into `.master/docs/` when `/master:bootstrap` scaffolds — not a second docs system for your app.
-
-## Local skills
-
-On `/master:loop`, the orchestrator discovers local `SKILL.md` files from:
-
-1. `./.claude/skills/` (optional project skills)
-2. User `~/.claude/skills/`
-3. Installed Claude Code plugins
-
-Top ≤3 relevant skills are injected into Tasks. No web search for skills mid-loop.
+Then open Claude Code in the project and run `/master:bootstrap` once (or
+`/bootstrap` with the npm install).
 
 ## Commands
 
-**Core**
+- `/bootstrap` — inspect the repository and create minimal project context
+- `/loop "task"` — implement and validate; default maximum is 2 iterations
+- `/cancel` — stop the active loop
+- `/status` — show compact JSON-backed status
+- `/pause` — preserve a blocker for another session
+- `/handoff` — refresh and summarize cross-session state
 
-| Plugin | npm | Purpose |
-|---|---|---|
-| `/master:bootstrap` | `/bootstrap` | Scaffold `.master` if needed + foundation (no feature code) |
-| `/master:loop` | `/loop` | One build-loop iteration |
-| `/master:status` | `/status` | Phase, task, pause/clarify state |
-| `/master:pause` | `/pause` | Stop mid-work; persist why |
-| `/master:decide` | `/decide` | Supersede an architecture Decision |
-| `/master:handoff` | `/handoff` | End-of-session handoff |
+Plugin commands are namespaced as `/master:*`.
 
-**Power tools**
-
-| Plugin | npm | Purpose |
-|---|---|---|
-| `/master:plan` | `/plan` | Plan only |
-| `/master:validate` | `/validate` | Validation gate alone |
-| `/master:review` | `/review` | Quality + security alone |
-| `/master:mcp-add` | `/mcp-add` | Add MCP server (with consent) |
-| `/master:evaluate` | `/evaluate` | Optional objective scorecard |
-
-**Architecture decisions** live in `.master/docs/DECISIONS.md` as numbered
-**Decision 001, Decision 002, …** — never silently reverse one; use `/master:decide`
-to supersede.
-
-## Why it exists
+## Loop examples
 
 ```text
-Without:  Prompt → Code → Prompt → Code …
-With:     Goal → Plan → [approve] → Build → Validate → Review → [approve] → Commit
+/master:loop "fix checkout tax rounding"
+/master:loop "add OAuth login" --max-iterations 5
+/master:loop "finish migration" --completion-promise "migration is verified"
 ```
 
-Two human gates + one hard validate gate + reviewer/security every iteration.
-Stop anytime; resume with `/master:status` then `/master:loop` — **disk** remembers.
+Routing is adaptive:
 
-## Uninstall
+- simple work runs directly with no subagent;
+- medium work delegates one bounded implementation slice;
+- complex work gets a dependency graph and at most three independent worktree
+  writers with explicit file ownership.
 
-1. Uninstall the plugin via Claude Code plugin UI / `claude plugin uninstall master@claude-master-setup`.
-2. If you used npm: remove the shared `claude-master-setup` folder under your Claude config and the `harness:*` hooks / `HARNESS_FRAMEWORK_ROOT` env entry from `settings.json`.
-3. In the project: delete `CLAUDE.md` and `.master/`.
+Completion requires the signal to be true and validation to be GREEN. Reaching the
+iteration limit stops safely with resumable state; it does not pretend the task is done.
 
-## Troubleshooting
+## Project footprint
 
-- **Missing `.master/`** → run `/master:bootstrap` (scaffolds automatically).
-- **`validate.sh` not found** → lives in the plugin/framework root, not your app.
-- **Permission prompts on scripts** → allow shared `*/scripts/*.sh` once.
-- **Resume after crash** → `/master:status` then `/master:loop`.
-- Full guide: [`docs/SETUP.md`](docs/SETUP.md).
+The installer creates only project-specific `CLAUDE.md`, `.master/project.json`,
+`.master/state/loop.json`, and a short optional roadmap. Runtime handoff files stay
+under `.master/state/`. It does not create `.env`, `.github`, agent, command, or
+framework documentation folders in the project.
 
-## For harness developers (this GitHub repo)
+## Update
 
-Cloning **this** repository is for developing the harness itself — not for starting a product.
+npm users rerun `npx claude-master-setup@latest`. Plugin users update the
+`claude-master-setup` marketplace and the `master` plugin; plugins are not assumed
+to auto-update immediately.
 
-```bash
-git clone https://github.com/AnupDangi/Claude-Master-Setup.git
-cd Claude-Master-Setup
-bash scripts/install.sh    # contributor setup
-npm test
-```
-
-See [`docs/OPERATIONS.md`](docs/OPERATIONS.md).
-
-## Publish (maintainers)
-
-Branch: **`v2-os`**. Version: **0.4.1**.
-
-```bash
-bash scripts/self-check.sh
-# npm publish only when you intentionally release
-```
-
----
-
-Drop a star if it helped you.
+See [setup](docs/SETUP.md), [loop behavior](docs/LOOP.md), and
+[security](docs/SECURITY.md).

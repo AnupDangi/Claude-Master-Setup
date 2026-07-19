@@ -69,13 +69,14 @@ case "$norm" in
   */claude-master-setup/hooks/*|*/claude-master-setup/scripts/*) control_plane=1 ;;
 esac
 case "$base" in
-  validate.sh|budget-check.sh|lease.sh|loop-event.sh|worktree-fanout.sh|pre-bash-guard.sh|protect-paths.sh|estimate-build-effort.sh|self-check.sh|session-start.sh|post-edit-track.sh|stop-validate-reminder.sh)
+  validate.sh|setup-loop.sh|cancel-loop.sh|worktree-fanout.sh|pre-bash-guard.sh|protect-paths.sh|self-check.sh|session-start.sh|post-edit-track.sh|loop-stop-hook.sh|stop-validate-reminder.sh)
     control_plane=1 ;;
 esac
 
 # Block writes under the active shared framework root (npm path)
-if [ -n "${HARNESS_FRAMEWORK_ROOT:-}" ]; then
-  fw="$(printf '%s' "$HARNESS_FRAMEWORK_ROOT" | tr '\\' '/' | sed 's:/*$::')"
+framework_root="${CLAUDE_MASTER_ROOT:-${HARNESS_FRAMEWORK_ROOT:-}}"
+if [ -n "$framework_root" ]; then
+  fw="$(printf '%s' "$framework_root" | tr '\\' '/' | sed 's:/*$::')"
   case "$norm" in
     "$fw"|"$fw"/*) control_plane=1 ;;
   esac

@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "name": null,
+  "maturity": "new",
+  "stack": {},
+  "entrypoints": [],
+  "commands": [],
+  "validate_cmd": "bash ${CLAUDE_PLUGIN_ROOT}/scripts/validate.sh",
+  "source_of_truth": [
+    "README.md",
+    "project manifests",
+    "source code",
+    "tests",
+    "PRD.md and PTR.md when present"
+  ],
+  "read_order": [
+    "CLAUDE.md",
+    ".master/project.json",
+    ".master/state/handoff.json",
+    ".master/state/loop.json"
+  ],
+  "allow_no_stack": false
+}

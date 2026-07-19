@@ -31,7 +31,7 @@ Severity-ranked (**Critical → High → Medium → Low**), grouped by file. For
 ## Combined dispatch (trivial/small tasks)
 
 If the orchestrator's Task prompt asks you to also cover quality review for
-this diff (a combined `trivial`/`small` REVIEW dispatch — see `docs/LOOP.md`
+this diff (a combined `trivial`/`small` REVIEW dispatch — see `${CLAUDE_PLUGIN_ROOT}/docs/LOOP.md`
 §REVIEW), `Read` `.claude/agents/reviewer.md` in full and apply its checklist,
 output format, and rules to the same diff. Report it as a second, separate
 top-level section named **Quality Findings**, severity-ranked exactly like

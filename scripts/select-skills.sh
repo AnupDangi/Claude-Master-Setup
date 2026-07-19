@@ -5,7 +5,7 @@
 #   bash scripts/list-local-skills.sh | bash scripts/select-skills.sh --stdin "task text..." [max]
 set -euo pipefail
 
-REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 FROM_STDIN=0
 if [ "${1:-}" = "--stdin" ]; then
@@ -27,7 +27,7 @@ trap 'rm -f "$TMP"' EXIT
 if [ "$FROM_STDIN" -eq 1 ]; then
   cat >"$TMP"
 else
-  bash "$REPO_ROOT/scripts/list-local-skills.sh" >"$TMP"
+  bash "$SCRIPT_DIR/list-local-skills.sh" >"$TMP"
 fi
 
 python3 - "$TMP" "$QUERY" "$MAX" <<'PY'

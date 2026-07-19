@@ -5,13 +5,13 @@
 #   bash scripts/loop-event.sh summary
 #   bash scripts/loop-event.sh count <event_type>
 #
-# Events append one JSON line to .claude/state/history/events.jsonl (gitignored).
+# Events append one JSON line to .master/state/history/events.jsonl (gitignored).
 set -euo pipefail
 
-REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+REPO_ROOT="${CLAUDE_PROJECT_DIR:-$PWD}"
 cd "$REPO_ROOT"
 
-HIST_DIR=".claude/state/history"
+HIST_DIR=".master/state/history"
 LOG="$HIST_DIR/events.jsonl"
 mkdir -p "$HIST_DIR"
 
@@ -115,7 +115,7 @@ if not isinstance(extra, dict):
     sys.exit(1)
 
 # Load loop.json snapshot fields if present
-loop_path = Path(".claude/state/loop.json")
+loop_path = Path(".master/state/loop.json")
 loop_bits = {}
 if loop_path.is_file():
     try:

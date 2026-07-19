@@ -4,11 +4,11 @@
 # Or pipe JSON on stdin: ... | bash scripts/write-scorecard.sh --stdin
 set -euo pipefail
 
-REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+REPO_ROOT="${CLAUDE_PROJECT_DIR:-$PWD}"
 cd "$REPO_ROOT"
-mkdir -p .claude/state
+mkdir -p .master/state
 
-OUT=".claude/state/last_scorecard.json"
+OUT=".master/state/last_scorecard.json"
 
 if [ "${1:-}" = "--stdin" ]; then
   cat >"$OUT.tmp"
@@ -32,5 +32,6 @@ path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
 print(json.dumps({"ok": True, "path": str(path)}))
 PY
 
-# Also log evaluate event
-bash scripts/loop-event.sh evaluate "{\"path\":\"$OUT\"}" >/dev/null || true
+# Also log evaluate event (same scripts/ dir as this file — works from shared framework root)
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+bash "$SCRIPT_DIR/loop-event.sh" evaluate "{\"path\":\"$OUT\"}" >/dev/null || true

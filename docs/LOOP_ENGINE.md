@@ -34,11 +34,11 @@ SELECT → DISCOVER → PLAN → [GATE 1] → BUILD → VALIDATE (hard gate) →
   of silently planning only the first slice. GATE 1 approves the whole
   graph's scope once; GATE 2 and validation still apply per sub-task.
 - **VALIDATE** has a real, working **retry cap**: `validate_attempts` in
-  `.claude/state/loop.json` increments on each RED result; when it hits
+  `.master/state/loop.json` increments on each RED result; when it hits
   `max_validate_retries` (`$HARNESS_MAX_VALIDATE_RETRIES`, default 3, or
   `/loop max-retries=N`), the orchestrator stops and enters
   `await-human-on-red` instead of retrying forever.
-- **State** persists in `.claude/state/loop.json`, one task at a time — see
+- **State** persists in `.master/state/loop.json`, one task at a time — see
   [`STATE_ENGINE.md`](STATE_ENGINE.md).
 - There is no **Measure** step and no **Update Memory** step beyond what
   `docs-writer` already does (refresh `PROJECT_STATE.md`/`CHANGELOG.md`/

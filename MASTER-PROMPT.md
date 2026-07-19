@@ -5,23 +5,23 @@ You are acting as a **Principal Software Architect, Staff Software Engineer, AI 
 The repository may be:
 
 * **Greenfield** — `PRD.md` + `PTR.md` as the source of truth, or
-* **Brownfield** — existing code; draft PRD/PTR from reality per `docs/BROWNFIELD.md`.
+* **Brownfield** — existing code; draft PRD/PTR from reality per `${CLAUDE_PLUGIN_ROOT}/docs/BROWNFIELD.md`.
 
 **Do not begin feature implementation during bootstrap.**
 
 Establish an engineering foundation sized to the project's **build-effort tier**
-(`docs/BUILD_EFFORT.md`) so future sessions continue from the repository alone.
+(`${CLAUDE_PLUGIN_ROOT}/docs/BUILD_EFFORT.md`) so future sessions continue from the repository alone.
 
 ---
 
 # Phase 0 — Measure build effort (required first)
 
 ```bash
-bash scripts/estimate-build-effort.sh --write
-# optional: bash scripts/estimate-build-effort.sh PRD.md PTR.md "build a simple todo cli"
+bash ${CLAUDE_PLUGIN_ROOT}/scripts/estimate-build-effort.sh --write
+# optional: bash ${CLAUDE_PLUGIN_ROOT}/scripts/estimate-build-effort.sh PRD.md PTR.md "build a simple todo cli"
 ```
 
-Read `.claude/state/build_effort.json` and `docs/BUILD_EFFORT.md`.
+Read `.master/state/build_effort.json` and `${CLAUDE_PLUGIN_ROOT}/docs/BUILD_EFFORT.md`.
 
 | Tier | Docs / roadmap | After bootstrap |
 |---|---|---|
@@ -137,8 +137,8 @@ docs/
 └── CHANGELOG.md
 
 .claude/
-├── agents/        # 11 self-contained subagents (see docs/AGENTS.md)
-├── commands/      # 10 slash commands (see docs/SETUP.md)
+├── agents/        # 11 self-contained subagents (see ${CLAUDE_PLUGIN_ROOT}/docs/AGENTS.md)
+├── commands/      # 10 slash commands (see ${CLAUDE_PLUGIN_ROOT}/docs/SETUP.md)
 ├── skills/        # optional project skills (e.g. capability-orchestrator)
 ├── hooks/         # fail-safe shell hooks (already shipped)
 ├── state/         # loop state (gitignored, worktree-local)
@@ -150,12 +150,12 @@ gate already live in this repo — do **not** depend on any external plugin
 marketplace. Reuse the shipped agents (`orchestrator`, `planner`, `architect`,
 `implementer`/`implementer-opus`, `validator`, `reviewer`, `security`, `docs-writer`, `mcp-scout`, `evaluator`)
 rather than inventing new ones; add a new agent only where it provides clear
-long-term value, and register it per `docs/AGENTS.md`.
+long-term value, and register it per `${CLAUDE_PLUGIN_ROOT}/docs/AGENTS.md`.
 
-Wire `scripts/validate.sh` to this project's real stack so the validation gate is
-meaningful, and generate `docs/ROADMAP.md` as an ordered list of **outcome-sized** shippable
+Wire `${CLAUDE_PLUGIN_ROOT}/scripts/validate.sh` (or project test entrypoints it detects) to this project's real stack so the validation gate is
+meaningful, and generate `.master/docs/ROADMAP.md` as an ordered list of **outcome-sized** shippable
 tasks (2–4 on `fast`, 3–6 on `standard`, phased on `rigorous`) for the build loop
-(`docs/LOOP.md`). On `fast`, do **not** fill every docs template with prose —
+(`${CLAUDE_PLUGIN_ROOT}/docs/LOOP.md`). On `fast`, do **not** fill every docs template with prose —
 thin ARCHITECTURE + ROADMAP + PROJECT_STATE + one ADR if needed.
 
 ---
@@ -261,7 +261,7 @@ Every future Claude Code session should:
 1. Read `CLAUDE.md`.
 2. Read `docs/PROJECT_STATE.md`.
 3. Read `docs/SESSION.md`.
-4. Read `docs/DECISIONS.md`.
+4. Read `.master/docs/DECISIONS.md`.
 5. Load Claude Code Auto Memory.
 6. Ask questions instead of making assumptions.
 7. Preserve existing architecture unless explicitly instructed otherwise.
@@ -271,7 +271,7 @@ Every future Claude Code session should:
 Treat the repository—not the conversation—as the source of truth.
 
 Once the foundation is approved, development proceeds through the **build loop**
-(`docs/LOOP.md`), run with `/loop`: SELECT → DISCOVER → PLAN → approve → BUILD →
+(`${CLAUDE_PLUGIN_ROOT}/docs/LOOP.md`), run with `/loop`: SELECT → DISCOVER → PLAN → approve → BUILD →
 VALIDATE (hard gate) → REVIEW **+ SECURITY** → approve → COMMIT → update state →
 repeat. See `docs/AI_OS.md` and `docs/BUILD_EFFORT.md`. When a task needs
 an external tool (database, GitHub, browser, payments), use `/mcp-add` so the
@@ -288,7 +288,7 @@ Design the workflow so that:
 * Every worktree shares `CLAUDE.md` and `docs/`.
 * Each worktree has independent Claude Code Auto Memory.
 * Important discoveries are promoted into repository documentation.
-* Architecture decisions are recorded in `docs/DECISIONS.md`.
+* Architecture decisions are recorded in `.master/docs/DECISIONS.md`.
 * Project progress is tracked in `docs/PROJECT_STATE.md`.
 
 The repository must remain synchronized regardless of how many Claude sessions are active.

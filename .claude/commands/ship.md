@@ -1,6 +1,6 @@
 ---
 description: Final pre-merge checklist for the current change
-allowed-tools: Task, Bash(git diff:*), Bash(bash scripts/:*), Read, Grep, Glob
+allowed-tools: Task, Bash(git diff:*), Read, Grep, Glob, Bash(bash scripts/:*), Bash(./scripts/:*), Bash(bash */scripts/*.sh:*)
 model: sonnet
 ---
 

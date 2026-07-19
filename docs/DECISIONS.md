@@ -272,3 +272,101 @@
   gate alone to catch it — if that proves too thin in practice, tightening the
   checklist (or reverting to always dispatching `planner`) is a small,
   contained change, not a redesign.
+
+## ADR-007: Shared-framework distribution model (`.master/`-only project footprint)
+- Date: 2026-07-19
+- Status: accepted — supersedes ADR-000's "fully self-contained, no external
+  dependency" framing for what an *installed project* looks like
+- Context: every install path (`--global`, `--local`, and the `master` plugin
+  from ADR-005) was duplicating the full framework — `scripts/`, `docs/`,
+  `.claude/hooks/`, `CLAUDE.md`, `MASTER-PROMPT.md` — into every consumer
+  project. Direct inspection of `SanthoshVishnuRajamanickam/forge-framework`
+  (cloned and read in full, not inferred from docs) showed the working
+  alternative: source files hardcode a placeholder path in their prose; the
+  installer performs a literal text substitution at copy time, rewriting that
+  placeholder to wherever the framework actually landed (`~/.claude/`, a
+  custom config dir, or `./.claude/`); the framework bundle itself is copied
+  once into a `.claude/<framework-name>/` subfolder (already inside the
+  config directory Claude Code users expect, not visible top-level clutter);
+  and project-specific state (`.forge/PROJECT.md`/`STATE.md`/`ROADMAP.md`) is
+  created later by an init command, not by the installer. The user explicitly
+  requested this exact model, having independently identified and reported a
+  real bug this design also fixes in passing: `.github/workflows` (this
+  repo's own CI) was leaking into every `--local` install.
+- Options considered:
+  (A) Leave the full per-project copy as-is — matches ADR-000's original
+      wording literally, but every project keeps duplicating the entire
+      framework, contradicts the user's explicit "I don't want its source
+      code inside my project" requirement, and doesn't fix the confirmed
+      `.github/workflows` leak (a symptom of the same root cause: nothing
+      distinguished "framework" files from "project" files in the copy list).
+  (B) Shared-framework model: the framework (agents, commands, skills,
+      scripts, hooks, reference docs, `CLAUDE.md.starter`, `MASTER-PROMPT.md`)
+      lives once, at `<config-dir>/claude-master-setup/` for npm installs or
+      the plugin's own cache for the plugin path — never duplicated. A
+      project gets only `.master/` (state + its own docs) and `CLAUDE.md`.
+      `${CLAUDE_PLUGIN_ROOT}` is the one literal token every agent/command
+      source file uses for framework-reference paths; the plugin path
+      resolves it natively, and `bin/cli.js` performs the identical text
+      substitution itself at copy time for the two npm paths (mirroring
+      FORGE's mechanism exactly, confirmed against its real source).
+  (C) A per-project private framework cache (e.g. `./.master/framework/`)
+      instead of one shared machine-wide location — rejected: recreates the
+      exact duplication problem this ADR exists to remove, just moved one
+      level down.
+- Decision: (B). Concretely:
+  - **11 scripts** switched their project-root resolution from
+    `cd "$(dirname "$0")/.."` (assumes colocation with the project) to
+    `${CLAUDE_PROJECT_DIR:-$PWD}` — verified this actually works, not just
+    assumed, by invoking the shared-location copy of `validate.sh` and
+    `loop-event.sh` against a separate sandboxed project directory and
+    confirming they operated on that project, not on themselves. Two
+    explicit exceptions, not covered by the uniform fix: `select-skills.sh`
+    (its `REPO_ROOT` only ever located a sibling framework script, fixed to
+    `SCRIPT_DIR` instead) and `self-check.sh`/`install.sh` (these check the
+    *harness source repo's own* file inventory for `package.json`'s
+    `test`/`prepack` and this repo's own CI — never meant to run against a
+    consumer project, left untouched).
+  - **5 hooks**: bodies already used `$CLAUDE_PROJECT_DIR` internally (3 of
+    5) or had no location dependency (2 of 5) — confirmed via direct
+    inspection, no hook logic changes needed. `.claude-plugin/plugin.json`
+    gained a `hooks` block (`${CLAUDE_PLUGIN_ROOT}`-based) and
+    `bin/cli.js`'s `mergeFrameworkSettings` gained an equivalent
+    `$HARNESS_FRAMEWORK_ROOT`-based block for the npm paths — completing
+    what ADR-005 explicitly deferred ("option B"), since both reasons for
+    deferring it (double-firing risk with a `--local` scaffold that also
+    copied hooks; hooks needing per-project `.claude/state/`) no longer
+    apply once state lives in `.master/state/` and `--local` stops copying
+    hook files into the project.
+  - **This repo's own source stays exactly as it is today** — full
+    `scripts/`/`docs/`/`.claude/` visible, unmigrated. It is the origin the
+    framework bundle gets copied *from*, not a consumer of it; `.master/`
+    applies only to projects built *with* the harness. `git clone` +
+    `scripts/install.sh` is repositioned as a harness-*development* path
+    (forking/extending the harness itself), not a recommended way to start a
+    new product — cloning the whole framework repo into your own project is
+    exactly the duplication this ADR removes.
+  - New assets required and created: `templates/master-docs/*.md` (10
+    starter project-doc stubs — 4 reused verbatim from this repo's own
+    already-blank templates; 6 newly written) and
+    `templates/CLAUDE.md.starter` (this repo's own `CLAUDE.md`, adapted:
+    "What this repository is" reframed as "what this *project* is, built
+    with the harness" rather than describing the harness itself).
+- Consequences: `npx claude-master-setup --local` no longer requires a
+  separate `--global` run — it calls the same idempotent
+  `ensureFrameworkInstalled()` first, so the shared framework materializes
+  transparently on first use either way. An npm-path project has **no**
+  project-level `.claude/` folder at all; agents/commands/hooks are 100%
+  user-scope (per-project overrides remain possible by hand via
+  `./.claude/settings.local.json`, just not scaffolded by default). Running
+  *both* the npm package globally and the `master` plugin on the same
+  machine double-fires hooks (Claude Code doesn't dedupe hooks from two
+  sources) — documented as a known limitation, the two paths are meant to be
+  mutually exclusive per machine, not a bug to silently paper over. One
+  follow-up deliberately left open rather than rushed: the `Bash(bash
+  scripts/:*)`-style tool-permission allowlist patterns in
+  `.claude/settings.json` and several agent/command frontmatter blocks are
+  literal-prefix matches that won't match the new absolute-path script
+  invocations; broadening them needs its own explicit, scoped decision
+  (flagged to the human, not silently widened) rather than folding it into
+  this already-large change.

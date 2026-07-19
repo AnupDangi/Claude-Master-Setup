@@ -39,11 +39,11 @@ Project **build-effort tier** (`fast|standard|rigorous` from
 not whether VALIDATE / REVIEW / SECURITY run (they always do).
 
 ### 1. SELECT
-If `.claude/state/loop.json` has a `task_graph` with pending sub-tasks, the
+If `.master/state/loop.json` has a `task_graph` with pending sub-tasks, the
 orchestrator continues it — straight to PLAN for the next sub-task, no fresh GATE 1.
 
-Otherwise it reads `docs/ROADMAP.md`, `docs/PROJECT_STATE.md`, and optionally
-`.claude/state/last_scorecard.json` (bias among unblocked items — never invent
+Otherwise it reads `.master/docs/ROADMAP.md`, `.master/docs/PROJECT_STATE.md`, and optionally
+`.master/state/last_scorecard.json` (bias among unblocked items — never invent
 new rows). Scan the roadmap **top-to-bottom within the current milestone**: skip
 `[x]` done, skip `[!]` blocked, and skip anything whose `(depends: ...)` annotation
 names another item that isn't `[x]` done yet — this catches a dependency even if
@@ -55,7 +55,7 @@ no one remembered to mark the dependent item `[!]`. Acquire a lease with
 unblocked peers only). The Task Graph (see PLAN, below) owns sizing: if the item
 SELECT picks turns out to be too large for one iteration, `planner` slices it.
 
-`docs/ROADMAP.md` items may append `(depends: <other item>)` to declare an ordering
+`.master/docs/ROADMAP.md` items may append `(depends: <other item>)` to declare an ordering
 requirement beyond plain file order.
 
 ### 1b. DISCOVER (local skills)
@@ -193,7 +193,7 @@ stops here** until you approve the commit/merge.
 
 ### 6. COMMIT
 One atomic commit with a conventional message. Then `docs-writer` updates
-`docs/PROJECT_STATE.md`, `docs/CHANGELOG.md`, and `docs/DECISIONS.md` (if a
+`.master/docs/PROJECT_STATE.md`, `.master/docs/CHANGELOG.md`, and `.master/docs/DECISIONS.md` (if a
 decision was made). `docs/SESSION.md` is **not** touched here — it's a running
 log of the session, not the commit, and is only refreshed by `/handoff` (see
 `.claude/commands/handoff.md`) when the session actually ends.
@@ -207,11 +207,11 @@ Back to SELECT. Continue until the roadmap has no unblocked work.
    zero conversation history.
 2. `main` (or the working branch) is never left with a RED gate committed.
 3. Every committed code change has tests and a docs update in the same iteration.
-4. `.claude/state/loop.json` reflects the true current phase.
+4. `.master/state/loop.json` reflects the true current phase.
 
 ## State file
 
-`.claude/state/loop.json` (gitignored, worktree-local) tracks the loop:
+`.master/state/loop.json` (gitignored, worktree-local) tracks the loop:
 
 ```json
 {

@@ -1,106 +1,147 @@
 # Setup & Usage
 
-Everything you need to go from a fresh clone to a running, self-driving build loop.
+Everything you need to go from a fresh install to a running build loop.
 
 ## Prerequisites
 
-- **Claude Code** — install: `curl -fsSL https://claude.ai/install.sh | bash`
-- **Node.js** (for many MCP servers and JS/TS projects) — optional otherwise.
-- **git**.
+- **Claude Code** — install: `npm install -g @anthropic-ai/claude-code` or `brew install --cask claude-code`
+- **Node.js ≥ 18** (for `npx claude-master-setup` and many MCP servers)
+- **git**
 
-No plugin marketplace, no signup, no config wizard. The harness is just files in
-this repo that Claude Code already knows how to read.
+No plugin marketplace required, no signup, no config wizard.
 
-## Install
+## Install (one command)
 
 ```bash
-git clone <this-repo> my-project
-cd my-project
-bash scripts/install.sh      # makes scripts/hooks executable, seeds .env & state
-claude                       # start Claude Code — hooks & permissions load automatically
-bash scripts/self-check.sh   # verify the harness is wired correctly
+npx claude-master-setup
 ```
 
-## Bootstrap a project
+From inside your project directory. Installs the shared framework once at `~/.claude/claude-master-setup/` (idempotent — safe to re-run for any future project) and seeds **this** project's `.master/` + `CLAUDE.md`.
 
-### Greenfield
+**Config dir resolution** (in order):
+1. `--config-dir <path>` — explicit flag
+2. `CLAUDE_CONFIG_DIR` — environment variable
+3. `~/.claude` — default
 
-Drop your requirements in the repo root:
+```bash
+# Framework only (no project seed)
+npx claude-master-setup --framework-only
+
+# Aliases
+npx claude-master-setup --global    # alias for --framework-only
+npx claude-master-setup --local     # alias for default (framework + seed)
+
+# Custom config dir
+npx claude-master-setup --config-dir /path/to/config
+# or:
+CLAUDE_CONFIG_DIR=/path/to/config npx claude-master-setup
+```
+
+After install, verify the shared framework (optional):
+
+```bash
+bash "$HOME/.claude/claude-master-setup/scripts/self-check.sh"
+```
+
+## What lands where
+
+| Location | What | Committed? |
+|---|---|---|
+| `~/.claude/agents/` | 11 specialist subagents | n/a (shared) |
+| `~/.claude/commands/` | 11 slash commands | n/a (shared) |
+| `~/.claude/claude-master-setup/` | Scripts, hooks, docs, templates | n/a (shared) |
+| `~/.claude/settings.json` | Hooks, `HARNESS_FRAMEWORK_ROOT`, companion flags | n/a (shared) |
+| `CLAUDE.md` | Permanent harness memory for this project | ✓ commit |
+| `.master/docs/` | Starter project docs (PROJECT_STATE, ROADMAP, …) | ✓ commit |
+| `.master/state/` | Loop state, leases, event log | gitignored |
+| `.env.example` | Env var stubs | ✓ commit |
+
+The framework never lands inside your project (ADR-007).
+
+## Plugin install (namespaced `/master:*` commands)
+
+Prefer namespaced `/master:*` commands? Install as a Claude Code plugin instead:
+
+```bash
+claude plugin marketplace add AnupDangi/Claude-Master-Setup
+claude plugin install master@claude-master-setup
+```
+
+Every command becomes `/master:loop`, `/master:bootstrap`, `/master:init`, etc.
+The 11 subagents, `capability-orchestrator` skill, and 5 safety hooks install automatically — nothing to copy.
+
+**Run once per project:**
+
+```
+/master:init        # seeds .master/ + CLAUDE.md
+```
+
+Then the same loop flow applies: `/master:bootstrap` → `/master:loop`.
+
+> **Mutually exclusive with npm install:** don't run both on one machine — hooks fire twice (ADR-007). Pick one path per machine.
+
+**Local testing note:** `claude plugin marketplace add <local-path>` copies your literal working tree. A real install via `claude plugin marketplace add AnupDangi/Claude-Master-Setup` clones from GitHub — prefer the GitHub form beyond local smoke-testing.
+
+## Five-minute tour
+
+```
+/init          # (or /master:init) — seed this project's .master/ + CLAUDE.md (once per project)
+/bootstrap     # PRD.md + PTR.md → architecture, docs, roadmap (no feature code yet)
+/loop          # plan → approve → build → validate → review → approve → commit
+/status        # where are we? (loop phase + project state)
+/handoff       # write HANDOFF.md + sync state before ending a session
+```
+
+### Greenfield setup
+
+Drop your requirements in the project root:
 
 ```
 my-project/
-├── PRD.md   # Product Requirements Document
-└── PTR.md   # Project Technical Requirements
+├── PRD.md   # Product Requirements Document (problem, users, must-have)
+└── PTR.md   # Project Technical Requirements (stack, constraints)
 ```
 
-### Brownfield (existing code)
+Then run `/bootstrap` (or `/master:bootstrap`). The `architect` reviews both files, asks clarifying questions, and generates `CLAUDE.md`'s project sections, `.master/docs/ARCHITECTURE.md`, `.master/docs/CODING_STANDARDS.md`, `.master/docs/TESTING.md`, and `.master/docs/ROADMAP.md`. **No feature code is written yet.** Read what it wrote before continuing.
 
-If the repo already has a stack/manifests and PRD/PTR are missing, `/bootstrap`
-still works — it inventories the tree, drafts requirements from reality, and
-writes a coarse adoption roadmap. See [`BROWNFIELD.md`](BROWNFIELD.md).
+### Brownfield setup
 
-Then, in Claude Code:
+Existing repo without PRD/PTR? See [`BROWNFIELD.md`](BROWNFIELD.md) — `/bootstrap` inventories the tree and drafts requirements from reality.
 
-```
-/bootstrap
-```
-
-The architect reviews the design, asks clarifying questions, and generates
-`CLAUDE.md` project sections, the full `docs/` set, and `docs/ROADMAP.md` — an
-ordered list of small tasks the loop can consume. **No feature code is written
-yet.** You approve the foundation before building starts.
-
-AI OS control plane (event log, leases, budget): [`AI_OS.md`](AI_OS.md).
-Build-effort dial (fast vs rigorous from your PRD/PTR): [`BUILD_EFFORT.md`](BUILD_EFFORT.md).
-
-## Build
+## Build: one loop iteration
 
 ```
 /loop
 ```
 
-The orchestrator runs the loop from `docs/LOOP.md`: it picks the next task, discovers
-local Claude Code skills, plans it (planner may fan out ≤3 research subagents),
-waits for your approval, builds it with tests (optional ≤5 worktree writers when
-you approve a file-disjoint fan-out map), runs the validation gate (hard-blocks
-on RED), reviews it, waits for your merge approval, commits, updates docs, and
-repeats. Stop any time; resume with `/loop` — the repository remembers where it was.
+The orchestrator:
+1. **SELECT** — picks the next unblocked task from `.master/docs/ROADMAP.md`
+2. **DISCOVER** — finds local Claude Code skills automatically (`list-local-skills.sh`)
+3. **PLAN** — generates a step plan; you approve or correct it (GATE 1)
+4. **BUILD** — `implementer` writes code + tests (optional ≤5 worktree fan-out if approved)
+5. **VALIDATE** — `validator` runs `scripts/validate.sh`; RED blocks (hard gate)
+6. **REVIEW + SECURITY** — quality and OWASP pass; Critical/High loop back to BUILD
+7. **GATE 2** — you approve the diff/commit
+8. **COMMIT** — one atomic commit; `docs-writer` updates `.master/docs/`
 
-Capability protocol (skills, caps, worktrees):
-[`CAPABILITY_ORCHESTRATION.md`](CAPABILITY_ORCHESTRATION.md). Companion skill:
-`.claude/skills/capability-orchestrator/`.
+Stop any time; resume with `/loop` — `.master/state/loop.json` remembers the phase.
 
-## Worked example: your first feature, end to end
+**After an interrupt:** run `/status` to see the current phase, then `/loop` to continue.
 
-A concrete walkthrough, using a toy example — a CLI word-counter.
+## Local skills — auto-discovered on every `/loop`
 
-**1. Write `PRD.md` / `PTR.md`** — a few paragraphs each, not a spec document:
+The DISCOVER phase runs `list-local-skills.sh`, which indexes `SKILL.md` files from:
+1. Project `.claude/skills/` (highest priority)
+2. User `~/.claude/skills/`
+3. Plugin caches under `~/.claude/plugins/`
 
-```markdown
-# PRD.md
-## Problem
-Need a CLI that counts words/lines/chars in a text file, like `wc`.
-## Users
-Developers running it from the terminal.
-## Must-have
-- `wordcount <file>` prints word/line/char counts
-- Handles a missing file with a clear error
-## Out of scope
-- Piping stdin, multiple files, JSON output
-```
+Top ≤3 relevant skills are injected into each Task prompt. No web search, no marketplace — local filesystem only. Install companion skill packs (e.g. [Antigravity Skills](https://github.com/sickn33/antigravity-awesome-skills)) and they're automatically discovered.
 
-```markdown
-# PTR.md
-## Stack
-Python 3.11, stdlib only (argparse), pytest for tests.
-## Constraints
-Single small package, no external dependencies.
-```
+## Worked example: first feature end-to-end
 
-**2. `/bootstrap`** — `architect` reads both files, may ask a clarifying
-question or two (e.g. "missing file: exit 1 or 2?"), then writes `CLAUDE.md`'s
-project sections (previously templates), `docs/ARCHITECTURE.md`,
-`docs/CODING_STANDARDS.md`, `docs/TESTING.md`, and `docs/ROADMAP.md` — e.g.:
+**1. Write `PRD.md` / `PTR.md`** — a few paragraphs each.
+
+**2. `/bootstrap`** — `architect` generates `.master/docs/ROADMAP.md`:
 
 ```
 ## Milestone 1 — Core counting
@@ -108,200 +149,59 @@ project sections (previously templates), `docs/ARCHITECTURE.md`,
 - [ ] Handle missing file: exit 1, clear stderr message
 ```
 
-**No code exists yet.** Read what it wrote before continuing — this is the
-cheapest point to correct a wrong assumption.
-
 **3. `/loop`** — one iteration, concretely:
 
-- **SELECT** — orchestrator picks "Parse CLI args, read file, print counts"
-  (topmost unblocked), states why.
-- **PLAN** — classifies it `small` (one small file, no architectural impact)
-  → skips `architect`, delegates to `planner`. You get back a plan: which
-  files (`wordcount/cli.py`, `wordcount/count.py`, `tests/test_count.py` —
-  all new), the test cases (a known file counts correctly; an empty file
-  counts as zero), and a Definition of Done (`python -m wordcount
-  example.txt` prints the right counts).
-- **GATE 1** — the plan above is shown to you. **You type "approve"** (or a
-  correction — "also handle directories" — and it replans). Nothing is
-  written until you do.
-- **BUILD** — `implementer` (Sonnet — `task_complexity` was `small`, not
-  `large`, so no `implementer-opus`) writes the three files together.
-- **VALIDATE** — `validator` runs `scripts/validate.sh`; pytest runs; GREEN.
-  (Had a test failed, you'd see a precise RED report and BUILD would retry —
-  up to `HARNESS_MAX_VALIDATE_RETRIES`, default 3 — before stopping to ask
-  you, rather than looping forever.)
-- **REVIEW + SECURITY** — `reviewer` checks edge cases (0-byte file? a
-  directory passed by mistake?) and reports findings, severity-ranked.
-  `security` still runs every iteration (a light pass is OK when nothing
-  touches auth, input-trust boundaries, or secrets).
-- **GATE 2** — you see the diff, the GREEN result, and the review findings.
-  **You type "approve"** (or ask for a fix first).
-- **COMMIT** — one commit (e.g. `feat: add wordcount CLI with counts`);
-  `docs-writer` updates `docs/PROJECT_STATE.md` and `docs/CHANGELOG.md`.
-- **LOOP** — back to SELECT, which now picks "Handle missing file" next.
+- **SELECT** — picks "Parse CLI args…", states why
+- **PLAN** — classifies as `small`; you get a plan with files + tests + DoD
+- **GATE 1** — you type "approve" (or correct it)
+- **BUILD** — `implementer` (Sonnet) writes the files + tests
+- **VALIDATE** — `validator` runs pytest; GREEN
+- **REVIEW** — severity-ranked findings
+- **GATE 2** — you approve
+- **COMMIT** — `feat: add wordcount CLI`; `docs-writer` updates `.master/docs/PROJECT_STATE.md` and `.master/docs/CHANGELOG.md`
+- **LOOP** — back to SELECT, picks next task
 
-**4. Repeat `/loop`** until the roadmap has no unblocked items. Run
-`/mcp-add <tool>` the moment a task needs an external service, and
-`/evaluate` any time you want an objective read on tests/docs/iteration
-count instead of a vibe check.
-
-Every feature after this one follows the same shape — see `docs/LOOP.md` for
-the exact phase contract and `docs/AGENTS.md` for what each subagent does.
+**4. Repeat** until roadmap has no unblocked items. Run `/evaluate` any time for an objective scorecard.
 
 ## Command reference
 
-Installed via `--global`/`--local`, these are bare (`/loop`); installed as the
-`master` plugin (see [Plugin install](#plugin-install-namespaced-master-commands)
-above), they're namespaced (`/master:loop`).
+Bare names when installed via npm; prefixed with `/master:` when using the plugin.
 
 | Command | What it does |
 |---|---|
+| `/init` | Seed `.master/` + `CLAUDE.md` (once per project, plugin path) |
 | `/bootstrap` | PRD + PTR → engineering foundation (no code) |
-| `/loop` | Run/resume the plan→build→validate→review→commit loop |
+| `/loop` | Run/resume the build loop |
 | `/plan [task]` | Plan a task without building it |
-| `/validate` | Run the validation gate now (GREEN/RED) |
+| `/validate` | Run the validation gate (GREEN/RED) |
 | `/review [paths]` | Review the current diff (quality + security) |
-| `/mcp-add <tool>` | Check for an MCP server and add it (with consent) |
-| `/handoff` | Write HANDOFF.md and sync state before ending a session |
-| `/status` | Print the loop phase and project state |
+| `/mcp-add <tool>` | Find an MCP server and add it (with consent) |
+| `/handoff` | Write HANDOFF.md + sync state before ending session |
+| `/status` | Print loop phase and project state |
 | `/ship` | Final pre-merge GO/NO-GO checklist |
 | `/evaluate` | Objective-metrics scorecard (tests, iterations, doc completeness) |
-| `/init` | Plugin-only: scaffold `scripts/`/`docs/`/hooks into this project once |
 
 ## Scripts
 
+Live once in `~/.claude/claude-master-setup/scripts/` (or `${CLAUDE_PLUGIN_ROOT}/scripts/` for the plugin path), never copied into a project.
+
 | Script | Purpose |
 |---|---|
-| `scripts/install.sh` | One-shot setup (idempotent) |
-| `scripts/validate.sh` | The gate: format, lint, typecheck, test, build (auto-detected) |
-| `scripts/detect-stack.sh` | Stack/package-manager detection (sourced by validate) |
-| `scripts/self-check.sh` | Verify all harness pieces are present and valid |
-| `scripts/mcp-catalog.json` | Curated tool → MCP-server map |
+| `install.sh` | Harness-**development** setup only (contributor, git-clone path) |
+| `validate.sh` | The hard gate: format, lint, typecheck, test, build (auto-detected per stack) |
+| `detect-stack.sh` | Stack/package-manager detection (sourced by validate) |
+| `self-check.sh` | Verify harness source repo's own files are wired correctly |
+| `mcp-catalog.json` | Curated tool → MCP-server map |
+| `list-local-skills.sh` | Index local Claude Code skills (project/user/plugin) |
+| `select-skills.sh` | Token-rank skills index and return top ≤3 for a task |
 
 ### Configuring the gate for your stack
 
-`validate.sh` auto-detects Node (npm/pnpm/yarn), Python (pip/poetry/uv), Rust, Go,
-and Makefile projects, and runs the standard scripts/targets for each. Missing
-steps are skipped; a step that exists and fails makes the gate RED. To customize,
-edit the `step` lines in `scripts/validate.sh` — e.g. point `test` at your exact
-command, or add an integration-test stage. For a docs-only repo, set
-`HARNESS_ALLOW_NO_STACK=1`.
-
-## Plugin install (namespaced `/master:*` commands)
-
-Claude Code only namespaces commands/skills that ship **inside an installed
-plugin** — a `.claude/commands/<subdir>/` doesn't create a namespace (that's
-documented but non-functional upstream). This repo ships `.claude-plugin/plugin.json`
-(name `master`) + `.claude-plugin/marketplace.json` (marketplace id
-`claude-master-setup`) so it can be installed as a real plugin:
-
-```bash
-claude plugin marketplace add AnupDangi/Claude-Master-Setup
-claude plugin install master@claude-master-setup
-```
-
-Every command in `.claude/commands/` becomes `/master:loop`, `/master:bootstrap`,
-`/master:plan`, `/master:validate`, `/master:review`, `/master:mcp-add`,
-`/master:handoff`, `/master:status`, `/master:ship`, `/master:evaluate`,
-`/master:init` — Claude Code prefixes plugin-shipped commands with the plugin's
-`name` automatically. The 11 subagents and the `capability-orchestrator` skill
-install the same way, no renaming needed.
-
-**What the plugin install does *not* give you automatically:** the actual
-gated loop needs project-local files — `scripts/validate.sh` (the hard gate),
-`docs/` (project memory), and `.claude/hooks/*.sh` + `.claude/settings.json`
-(the safety guards: `pre-bash-guard`, `protect-paths`, etc.). Those are
-intentionally per-project, not global (ADR-000's self-contained identity), and
-v1 of the plugin does not ship them as plugin-level hooks. Run **`/master:init`**
-once per project after installing the plugin: it copies `scripts/`, `docs/`,
-`.claude/hooks/`, `CLAUDE.md`, `MASTER-PROMPT.md`, and `.env.example` from the
-plugin's own bundle (`${CLAUDE_PLUGIN_ROOT}`) into the current project —
-skipping anything that already exists — then seeds `.claude/state/loop.json`
-and runs `scripts/self-check.sh`. After that, `/master:bootstrap` →
-`/master:loop` work exactly like the file-copy install. See ADR-005 in
-[`DECISIONS.md`](DECISIONS.md) for the full design and its stated limitations.
-
-This is **additive**, not a replacement: `npx claude-master-setup --global`/
-`--local` still install the same files with bare command names (`/loop`,
-`/bootstrap`, …) and remain the default, no-marketplace-required path.
-
-**Testing note:** `claude plugin marketplace add <local-path>` uses a
-`directory` source that copies your literal working tree, including untracked
-and gitignored files (`.env`, `.claude/state/`). A real install via
-`claude plugin marketplace add AnupDangi/Claude-Master-Setup` clones from
-GitHub instead, so only committed, non-gitignored files are ever included —
-prefer the GitHub form for anything beyond local smoke-testing.
-
-## Installation scope: project, user, or session
-
-Preferred (npm):
-
-```bash
-npx claude-master-setup              # interactive: Global vs Local
-npx claude-master-setup --global     # → ~/.claude agents + commands + companion settings
-npx claude-master-setup --local      # → ./.claude + scripts/docs (full gate)
-```
-
-After install, add companions (claude-mem, superpowers, code-review, Antigravity
-skills) — see [`COMPANIONS.md`](COMPANIONS.md). `--global` merges marketplaces
-into `~/.claude/settings.json`; you still run `/plugin install …` once in Claude Code.
-- **Project level (local).** `.claude/agents/`, `.claude/commands/`,
-  `.claude/hooks/`, `.claude/settings.json`, and `scripts/` all live in the
-  project repo root and apply only when Claude Code runs from there.
-  Committed and shared with the team — this is what `--local` installs.
-
-- **User level (global, every project).** `npx claude-master-setup --global`
-  copies agents + commands into `~/.claude/` (or `$CLAUDE_CONFIG_DIR`) and
-  reference docs into `~/.claude/claude-master-setup/`. Equivalent manual copy:
-  ```bash
-  cp .claude/agents/*.md ~/.claude/agents/
-  cp .claude/commands/*.md ~/.claude/commands/
-  ```
-  The 11 subagents and 10 commands are then available in any project.
-  `scripts/validate.sh` is stack-specific, so for the hard gate also run
-  `--local` in that repo (or copy `scripts/`).
-
-- **Session level (try before installing, or a true one-off).** Two ways,
-  neither touches your global config:
-  - `claude --settings .claude/settings.json` (run from this repo, or point
-    at a copy of the file) loads the harness's permissions and hooks for that
-    one session only.
-  - Or simplest: `cd` into a clone or `git worktree add` of this repo and run
-    `claude` there. Nothing is installed anywhere — the harness applies only
-    because you're standing inside its directory, for as long as that
-    session lasts.
-
-## Staged growth path
-
-Start minimal; add capability only when a real need appears.
-
-**Stage 1 — Solo, single stream (day one).**
-`/bootstrap` → `/loop`. One task at a time, both gates on. This alone is a complete
-workflow.
-
-**Stage 2 — Add external tools.**
-When a task needs a DB, GitHub, or a browser, run `/mcp-add`. Keep it to what the
-task needs.
-
-**Stage 3 — Parallel work with worktrees.**
-Once you're juggling independent features, use git worktrees (see
-`docs/DEVELOPMENT_WORKFLOW.md`). Each worktree shares `CLAUDE.md` and `docs/` but has
-its own auto-memory, so two loops can run without colliding.
-
-**Stage 4 — Loosen autonomy where it's earned.**
-In a well-scoped, trusted project, let the orchestrator auto-approve GATE 1 for
-low-risk tasks. The validation gate stays mandatory; GATE 2 stays manual for
-anything touching security or data.
-
-**Stage 5 — Bundle & share.**
-When your agent/command set stabilizes, package it as a Claude Code plugin so other
-repos install it in one step, and add project-specific reviewers (e.g.
-`python-reviewer`) as the codebase grows.
+`validate.sh` auto-detects Node (npm/pnpm/yarn), Python (pip/poetry/uv), Rust, Go, and Makefile projects in the **current project** (resolved via `$CLAUDE_PROJECT_DIR`). Missing steps are skipped; a step that exists and fails makes the gate RED. Customize via your own `package.json`/`Makefile`/etc. — `validate.sh` itself lives in the shared framework, not your project. For a docs-only repo, set `HARNESS_ALLOW_NO_STACK=1`.
 
 ## Statusline (user-level only)
 
-The status bar script lives at **`~/.claude/statusline.sh`**, wired in
-**`~/.claude/settings.json`** as:
+The status bar lives at `~/.claude/statusline.sh`, wired in `~/.claude/settings.json`:
 
 ```json
 "statusLine": {
@@ -310,22 +210,77 @@ The status bar script lives at **`~/.claude/statusline.sh`**, wired in
 }
 ```
 
-Project `.claude/settings.json` must **not** set `statusLine` to
-`$CLAUDE_PROJECT_DIR/.claude/statusline.sh`. Hooks/scripts stay project-local;
-the statusline always reads the Claude user root. Project name/git use
-`$CLAUDE_PROJECT_DIR` (repo root), not a nested working directory.
-`npx claude-master-setup --local` / `--global` syncs the script into `~/.claude`
-and strips any project-level `statusLine`.
+Always points at `$HOME/.claude/statusline.sh` — never at a project path. `npx claude-master-setup` syncs and wires it automatically.
+
+## Installation scope
+
+| Path | When | What |
+|---|---|---|
+| `npx claude-master-setup` (default) | New project | Shared framework + seed this project |
+| `npx claude-master-setup --framework-only` | First machine setup or framework refresh | Shared framework only |
+| Plugin install | Prefer namespaced commands | Same shared-framework model, `/master:*` prefix |
+| Session-only (no install) | Trying it out | `claude --settings .claude/settings.json` from a clone |
+
+## Uninstall
+
+```bash
+# Remove shared framework
+rm -rf ~/.claude/claude-master-setup ~/.claude/agents ~/.claude/commands
+
+# Remove harness entries from ~/.claude/settings.json:
+#   hooks keys: harness:session-start, harness:pre-bash-guard, harness:protect-paths,
+#               harness:post-edit-track, harness:stop-validate-reminder
+#   env.HARNESS_FRAMEWORK_ROOT
+
+# Remove project footprint
+rm -rf CLAUDE.md .master/
+```
 
 ## Troubleshooting
 
-- **Hooks not running?** Ensure `scripts/install.sh` ran (it `chmod +x`es hooks) and
-  that you started `claude` from the repo root so `$CLAUDE_PROJECT_DIR` resolves.
-- **Wrong project name in statusline?** Confirm statusLine points at
-  `$HOME/.claude/statusline.sh` (not the project tree) and restart Claude Code.
-- **Gate always RED with "no-stack"?** Your stack isn't auto-detected — configure
-  `scripts/validate.sh`, or set `HARNESS_ALLOW_NO_STACK=1` for a docs-only repo.
-- **An agent isn't triggering?** Its description may overlap another's. Make the
-  descriptions distinct, and restart the session to reload edited agent files.
-- **MCP server won't connect?** Validate `.mcp.json` (`python3 -m json.tool .mcp.json`),
-  confirm the env vars are set, and restart Claude Code.
+- **Hooks not running?** Confirm they're wired in `~/.claude/settings.json`'s `hooks` block (npm path) or `.claude-plugin/plugin.json` (plugin path), and that you started `claude` from inside your project so `$CLAUDE_PROJECT_DIR` resolves correctly.
+
+- **`validate.sh`/`self-check.sh` not found?** They live in the shared framework (`~/.claude/claude-master-setup/scripts/` or `${CLAUDE_PLUGIN_ROOT}/scripts/` for the plugin path), not your project — agent/command prompts reference them via `$HARNESS_FRAMEWORK_ROOT`/`${CLAUDE_PLUGIN_ROOT}`, not a bare `scripts/` path.
+
+- **`.master/` missing after install?** Run `npx claude-master-setup` from inside your project (npm path) or `/master:init` (plugin path).
+
+- **Wrong project name in statusline?** Confirm `statusLine` points at `$HOME/.claude/statusline.sh` (not the project tree) and restart Claude Code.
+
+- **Gate always RED with "no-stack"?** Your stack isn't auto-detected — set `HARNESS_ALLOW_NO_STACK=1` for a docs-only repo.
+
+- **An agent isn't triggering?** Its description may overlap another's. Make the descriptions distinct, and restart the session to reload edited agent files.
+
+- **Both npm-installed AND plugin-installed on one machine?** Hooks fire twice — pick one install path per machine (ADR-007).
+
+- **MCP server won't connect?** Validate `.mcp.json` (`python3 -m json.tool .mcp.json`), confirm the env vars are set, and restart Claude Code.
+
+- **Loop interrupted mid-task?** Run `/status` to see the current phase, then `/loop` to continue — `.master/state/loop.json` remembers exactly where it stopped.
+
+- **Gate stuck on RED after 3 retries?** The loop enters `await-human-on-red` — investigate the root cause manually (or with `/review`), fix it, then resume `/loop`. Never loosen the check to force a pass.
+
+## Session-level install (try before installing)
+
+```bash
+git clone https://github.com/AnupDangi/Claude-Master-Setup.git
+cd Claude-Master-Setup
+claude --settings .claude/settings.json
+```
+
+This loads the harness's permissions and hooks for that one session only — nothing installed anywhere. Good for evaluating before committing. See [`OPERATIONS.md`](OPERATIONS.md) for the contributor/developer setup.
+
+## Staged growth path
+
+**Stage 1 — Solo, single stream (day one).**
+`/bootstrap` → `/loop`. One task at a time, both gates on. Complete workflow.
+
+**Stage 2 — Add external tools.**
+When a task needs a DB, GitHub, or a browser: `/mcp-add`. Keep it to what the task needs.
+
+**Stage 3 — Parallel work with worktrees.**
+For independent features, use git worktrees — each shares `CLAUDE.md` and `.master/docs/` but has its own auto-memory. See [`DEVELOPMENT_WORKFLOW.md`](DEVELOPMENT_WORKFLOW.md).
+
+**Stage 4 — Loosen autonomy where it's earned.**
+In a well-scoped, trusted project, let the orchestrator auto-approve GATE 1 for low-risk tasks. The validation gate stays mandatory; GATE 2 stays manual for anything touching security or data.
+
+**Stage 5 — Bundle & share.**
+Extend or fork this harness and package your fork as a Claude Code plugin (ADR-005) so other repos install it in one step.

@@ -23,7 +23,10 @@
       "Bash(go:*)",
       "Bash(make:*)",
       "Bash(./scripts/:*)",
-      "Bash(bash scripts/:*)"
+      "Bash(bash scripts/:*)",
+      "Bash(bash */scripts/*.sh:*)",
+      "Bash(bash $HARNESS_FRAMEWORK_ROOT/scripts/:*)",
+      "Bash(bash \"$HARNESS_FRAMEWORK_ROOT/scripts/:*\")"
     ],
     "ask": [
       "WebFetch",

@@ -104,8 +104,8 @@ Persisted when run with `--write`:
 
 | Path | Fields |
 |---|---|
-| `.claude/state/build_effort.json` | Full estimator output |
-| `.claude/state/loop.json` | `build_effort_tier`, `build_effort_score`, `docs_profile` |
+| `.master/state/build_effort.json` | Full estimator output |
+| `.master/state/loop.json` | `build_effort_tier`, `build_effort_score`, `docs_profile` |
 
 Bootstrap and orchestrator **must** read this before sizing docs / SELECT posture.
 

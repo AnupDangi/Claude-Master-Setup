@@ -22,7 +22,7 @@ Documentation          6/9 template docs filled  (completeness, not quality)
 Manual Interventions   2    (await_human_on_red + gate rejects from event log)
 ```
 
-Persisted to `.claude/state/last_scorecard.json` via `scripts/write-scorecard.sh`
+Persisted to `.master/state/last_scorecard.json` via `scripts/write-scorecard.sh`
 for orchestrator SELECT bias — see [`AI_OS.md`](AI_OS.md).
 
 ## Target: full `/evaluate` scorecard
@@ -78,7 +78,7 @@ the scorecard doesn't overstate its own precision:
 
 ## Continuous improvement loop
 
-`/evaluate` persists `.claude/state/last_scorecard.json`; the orchestrator reads
+`/evaluate` persists `.master/state/last_scorecard.json`; the orchestrator reads
 it during SELECT. Current feedback is deliberately narrow: RED tests bias toward
 fix/test work, low documentation completeness biases toward already-existing
 docs work, and high manual interventions favors smaller slices or escalation.

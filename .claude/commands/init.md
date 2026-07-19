@@ -1,39 +1,47 @@
 ---
-description: Scaffold local harness files (scripts/, docs/, hooks, state) into this project — needed once when installed via the Claude Code plugin
-allowed-tools: Read, Write, Edit, Bash(test:*), Bash(mkdir:*), Bash(cp:*), Bash(chmod:*), Bash(git:*), Bash(bash scripts/:*)
+description: Scaffold this project's .master/ folder (state + starter docs) — needed once before /master:bootstrap
+allowed-tools: Read, Write, Edit, Bash(test:*), Bash(mkdir:*), Bash(cp:*), Bash(git:*)
 model: sonnet
 ---
 
-# Initialize Local Harness Files
+# Initialize `.master/`
 
-Already scaffolded check: !`test -f scripts/validate.sh && echo "scripts/validate.sh found — already scaffolded, nothing to do" || echo "not scaffolded yet — will copy harness files into this project"`
+Already scaffolded check: !`test -f .master/docs/PROJECT_STATE.md && echo ".master/docs/PROJECT_STATE.md found — already scaffolded" || echo "not scaffolded yet — will create .master/"`
 
 ## Why this command exists
 
-Installing this harness as a Claude Code **plugin** (`claude plugin install master@claude-master-setup`) gives you the namespaced `/master:*` commands and 11 subagents immediately — but the actual gated loop needs project-local files: `scripts/validate.sh` (the hard gate), `docs/` (project memory), and `.claude/hooks/*.sh` + `.claude/settings.json` (the safety guards). Those are intentionally per-project, not global — this harness's whole identity is "self-contained files in your repo," not a background daemon. If you installed via `npx claude-master-setup --local` instead, those files already exist and this command is a no-op.
+The harness framework (agents, commands, scripts, hooks) lives **once**, shared —
+via the Claude Code **plugin** (recommended) or `npx claude-master-setup`. It is
+never copied into your app.
+
+Every project still needs its own memory:
+
+- `.master/state/` — loop machine state (`loop.json`, leases, events) — gitignored
+- `.master/docs/` — this project's ROADMAP, PROJECT_STATE, DECISIONS, … — committed
+- `CLAUDE.md` — stable project conventions
 
 ## Steps
 
-1. If `scripts/validate.sh` already exists (see check above), stop immediately and tell the human: "Already scaffolded — run `/master:bootstrap` next." Do not touch or overwrite anything.
-2. Otherwise, copy from this plugin's own bundled copy into the current project root, **skipping any path that already exists** — never overwrite a file the user already has:
-   - `${CLAUDE_PLUGIN_ROOT}/scripts` → `./scripts`
-   - `${CLAUDE_PLUGIN_ROOT}/docs` → `./docs`
-   - `${CLAUDE_PLUGIN_ROOT}/.claude/hooks` → `./.claude/hooks`
-   - `${CLAUDE_PLUGIN_ROOT}/.claude/context` → `./.claude/context`
-   - `${CLAUDE_PLUGIN_ROOT}/CLAUDE.md` → `./CLAUDE.md` (skip if `./CLAUDE.md` already exists — never clobber an existing project memory file)
-   - `${CLAUDE_PLUGIN_ROOT}/MASTER-PROMPT.md` → `./MASTER-PROMPT.md`
-   - `${CLAUDE_PLUGIN_ROOT}/.env.example` → `./.env.example`
-3. `chmod +x` everything under `./scripts/*.sh` and `./.claude/hooks/*.sh`.
-4. If `./.claude/settings.json` does not exist yet, copy `${CLAUDE_PLUGIN_ROOT}/.claude/settings.json` to `./.claude/settings.json` so the safety hooks (pre-bash-guard, protect-paths, session-start, post-edit-track, stop-validate-reminder) actually run in this project. If it already exists, leave it alone and tell the human they can merge the `hooks` block from the plugin's `.claude/settings.json` manually if they want the guards.
-5. Ensure `./.gitignore` contains (append any missing lines, create the file if absent): `.env`, `.env.*`, `!.env.example`, `.claude/state/`, `/tmp/harness_*`.
-6. Seed `./.claude/state/loop.json` only if it does not already exist:
+1. If `.master/docs/PROJECT_STATE.md` already exists, stop and say:
+   "Already scaffolded — run `/master:bootstrap` next." Do not overwrite.
+2. Otherwise create `.master/state/` and write full `.master/state/loop.json`:
    ```json
    { "iteration": 0, "phase": "idle", "task": null, "validate_attempts": 0, "max_validate_retries": 3, "task_graph": null, "task_complexity": null, "plan_source": null, "review_dispatch": null, "skills_index": null, "skills_assigned": [], "skills_skipped": [], "fanout": null, "iterations_this_run": 0, "max_iterations_per_run": 1, "build_effort_tier": null, "build_effort_score": null, "docs_profile": null }
    ```
-7. Run `bash scripts/self-check.sh` (it now exists locally) and report GREEN/issues.
+   If `loop.json` already exists but is missing `"phase"`, merge these defaults
+   in (do not wipe existing build_effort fields).
+3. Create `.master/docs/` and copy stubs from
+   `${CLAUDE_PLUGIN_ROOT}/templates/master-docs/` (PROJECT_STATE, ROADMAP,
+   DECISIONS, ARCHITECTURE, CODING_STANDARDS, SECURITY, TESTING, SESSION,
+   HANDOFF, CHANGELOG) — skip files that already exist.
+4. Create `./CLAUDE.md` from `${CLAUDE_PLUGIN_ROOT}/templates/CLAUDE.md.starter`
+   only if missing.
+5. Ensure `.gitignore` includes: `.env`, `.env.*`, `!.env.example`, `.master/state/`.
+6. Report done → tell the human to run `/master:bootstrap` next.
 
 ## Do Not
 
-- Do not overwrite any file that already exists in the project — check before every copy.
-- Do not run `/master:bootstrap` automatically. Scaffold, report, and stop — bootstrapping is its own step with its own approval.
-- Do not touch `.env` (only `.env.example`), and never print secret values.
+- Do not overwrite existing project files.
+- Do not auto-run `/master:bootstrap`.
+- Do not copy `scripts/`, framework `docs/`, or hooks into the project.
+- Do not touch `.env` or print secrets.

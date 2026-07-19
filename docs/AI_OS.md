@@ -8,8 +8,8 @@
 
 | Capability | Mechanism |
 |---|---|
-| Persistent loop event log | `scripts/loop-event.sh` → `.claude/state/history/events.jsonl` |
-| Eval → SELECT feedback | `scripts/write-scorecard.sh` → `.claude/state/last_scorecard.json`; orchestrator reads on SELECT |
+| Persistent loop event log | `scripts/loop-event.sh` → `.master/state/history/events.jsonl` |
+| Eval → SELECT feedback | `scripts/write-scorecard.sh` → `.master/state/last_scorecard.json`; orchestrator reads on SELECT |
 | Harness CI | `.github/workflows/harness-ci.yml` |
 | Hard path blocking | `.claude/hooks/protect-paths.sh` exit 2 (override: `HARNESS_ALLOW_PROTECTED_EDITS=1`) |
 | Cost/budget stop | `scripts/budget-check.sh` + env caps + orchestrator STOP |

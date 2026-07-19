@@ -19,8 +19,8 @@ It does **not** add a generic internet “capability search.”
 ## DISCOVER
 
 ```bash
-bash scripts/list-local-skills.sh
-bash scripts/select-skills.sh "<task text>"   # top ≤3
+bash "${CLAUDE_PLUGIN_ROOT}/scripts/list-local-skills.sh"
+bash "${CLAUDE_PLUGIN_ROOT}/scripts/select-skills.sh" "<task text>"   # top ≤3
 ```
 
 Returns JSON: `{ name, description, path, source }` where `source` is
@@ -37,7 +37,7 @@ Score keyword overlap between (task title + plan file paths) and
 
 ## Task contract
 
-Every L0/L1 Task uses `docs/templates/AGENT_TASK.md`:
+Every L0/L1 Task uses `${CLAUDE_PLUGIN_ROOT}/docs/templates/AGENT_TASK.md`:
 
 - Objective, Context, Inputs, Constraints
 - Relevant Skills (≤3 paths or _(none)_)
@@ -107,7 +107,7 @@ Per-slice smoke tests are advisory. Only integration VALIDATE advances the loop.
 
 ## Metrics
 
-Persist via `scripts/loop-event.sh` / `.claude/state/events.jsonl`:
+Persist via `scripts/loop-event.sh` / `.master/state/history/events.jsonl`:
 `skills_applied`, `orch_parallel`, `nested_parallel`, `worktree_fanout_size`,
 `validate_attempts`, plus SELECT/PLAN/BUILD/VALIDATE/REVIEW/SECURITY/COMMIT
 phase events. See `docs/AI_OS.md`.

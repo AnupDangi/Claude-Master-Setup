@@ -5,6 +5,40 @@
 
 ## [Unreleased]
 
+### Changed
+- **Shared-framework distribution model (ADR-007):** every install path
+  (`--global`, `--local`, and the `master` plugin) now leaves a project with
+  **only** `.master/` (state + its own docs) + `CLAUDE.md` — no `scripts/`,
+  `docs/`, or `.claude/` copied per project. The framework itself
+  (agents/commands/skills/scripts/docs/hooks) lives once, shared, at
+  `~/.claude/claude-master-setup/` for npm installs or the plugin's own cache.
+  Design verified directly against `SanthoshVishnuRajamanickam/forge-framework`
+  (cloned and read in full) — `${CLAUDE_PLUGIN_ROOT}` is the one literal token
+  every agent/command uses for framework-reference paths; `bin/cli.js`
+  performs the identical copy-time text substitution FORGE uses for the two
+  npm paths.
+  - 11 scripts switched project-root resolution from `dirname "$0"` to
+    `${CLAUDE_PROJECT_DIR:-$PWD}` — verified end-to-end by invoking the
+    shared-location `validate.sh`/`loop-event.sh` against a separate
+    sandboxed project and confirming they operated on it correctly, not on
+    themselves. `self-check.sh`/`install.sh` intentionally untouched (they
+    check this repo's own files, never a consumer project).
+  - `.claude-plugin/plugin.json` gained a `hooks` block; `bin/cli.js` gained
+    the npm-path equivalent (`$HARNESS_FRAMEWORK_ROOT`-based) — completing
+    ADR-005's deferred "plugin hooks" option now that state lives in
+    `.master/state/` instead of per-project `.claude/state/`.
+  - `/init` (`/master:init` on the plugin) redesigned: seeds only `.master/` +
+    `CLAUDE.md`, no longer copies scripts/docs/hooks.
+  - New `templates/master-docs/*.md` (10 starter project-doc stubs) and
+    `templates/CLAUDE.md.starter`.
+  - `bin/cli.js`'s `installLocal()` now auto-installs the shared framework
+    first if absent — never requires a separate `--global` run.
+- Fixed a bug this same pass introduced and caught via a fresh scratch-dir
+  smoke test: `self-check.sh` required `.claude-plugin/plugin.json`/
+  `marketplace.json` unconditionally, which would have failed on every
+  `--local` install (that path never has `.claude-plugin/`) — now skips
+  gracefully when absent, validates fully when present.
+
 ### Added
 - **Plugin packaging (ADR-005):** `.claude-plugin/plugin.json` (name `master`)
   + `.claude-plugin/marketplace.json` (id `claude-master-setup`) ship this

@@ -2,7 +2,7 @@
 
 ## What's built today
 
-The loop's state lives entirely in one file, `.claude/state/loop.json`
+The loop's state lives entirely in one file, `.master/state/loop.json`
 (gitignored, worktree-local), tracking exactly one active task:
 
 ```json
@@ -78,7 +78,7 @@ Capability-orchestration fields (see
   (default max 1). Prevents grinding an entire roadmap in one background
   session. See [`LOOP.md`](LOOP.md) "Iteration budget".
 
-### Companion state (AI OS — also under `.claude/state/`, gitignored)
+### Companion state (AI OS — also under `.master/state/`, gitignored)
 
 | Path | Role |
 |---|---|

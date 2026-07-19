@@ -8,15 +8,15 @@
 #   bash scripts/lease.sh status [task title]
 #   bash scripts/lease.sh heartbeat "<task title>" [owner_id]
 #
-# Leases live in .claude/state/leases.json (gitignored). Stale after
+# Leases live in .master/state/leases.json (gitignored). Stale after
 # HARNESS_LEASE_TTL_SECONDS (default 7200 = 2h) without heartbeat.
 set -euo pipefail
 
-REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+REPO_ROOT="${CLAUDE_PROJECT_DIR:-$PWD}"
 cd "$REPO_ROOT"
 
-LEASE_FILE=".claude/state/leases.json"
-mkdir -p .claude/state
+LEASE_FILE=".master/state/leases.json"
+mkdir -p .master/state
 TTL="${HARNESS_LEASE_TTL_SECONDS:-7200}"
 CMD="${1:-}"
 TASK="${2:-}"

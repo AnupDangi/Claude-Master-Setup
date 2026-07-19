@@ -88,6 +88,17 @@ built in one pass.
       the project-local gated loop. Validated end-to-end (`claude plugin
       validate .`, install into an isolated sandbox config dir) but not yet
       published/announced as a public marketplace source.
+- [x] Shared-framework distribution model (ADR-007): every install path
+      (`--global`, `--local`, `master` plugin) now leaves a project with only
+      `.master/` (state + its own docs) + `CLAUDE.md` — the framework itself
+      (agents/commands/skills/scripts/docs/hooks) lives once, shared, never
+      duplicated per project. Pulled forward on explicit user direction after
+      a direct comparison against FORGE Framework. Verified end-to-end in
+      isolated sandboxes (token substitution, `$CLAUDE_PROJECT_DIR`-based
+      script resolution against a separate project, fresh `--global`/`--local`
+      runs). One deliberately open follow-up: the `Bash(bash scripts/:*)`
+      tool-permission allowlist patterns need a human-approved fix for the
+      new absolute-path script invocations (see `docs/PROJECT_STATE.md`).
 - [ ] Benchmark suite: run the harness end-to-end against reference projects
       (e.g. a small Linear-style tracker, a CRM) and record comparable
       `/evaluate` scores — only once Milestone 2 is trusted on real projects

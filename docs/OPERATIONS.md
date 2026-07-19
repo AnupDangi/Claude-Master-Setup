@@ -10,28 +10,44 @@ than one agent at a time.
 ### How it works today
 
 `package.json` + `bin/cli.js` (no dependencies, no lifecycle scripts).
-`npx claude-master-setup@0.4.0 [target-dir]` (or `npx
-github:AnupDangi/Claude-Master-Setup` from a tagged/default branch) runs
-`bin/cli.js`, which copies `.claude/`, `docs/`, `scripts/`, `CLAUDE.md`,
-`MASTER-PROMPT.md`, `.env.example` into the target (skipping anything already
-there) and **seeds project state inline** via `seedProject()` — it does **not**
-invoke `scripts/install.sh`. The git-clone path still uses
-`bash scripts/install.sh` for the same end state. Current pack is ~91 files /
-~125 kB (`npm pack --dry-run`). Works **without** publishing when using the
-GitHub URL.
+`npx claude-master-setup@0.4.0` (or `npx github:AnupDangi/Claude-Master-Setup`
+from a tagged/default branch) runs `bin/cli.js`. Both `--global` and `--local`
+call the same idempotent `ensureFrameworkInstalled(configDir)`: copies
+agents/commands/skills into `configDir` (applying `${CLAUDE_PLUGIN_ROOT}` →
+resolved-absolute-path text substitution to every `.md`/`.json` file, mirroring
+FORGE Framework's copy-time path-rewrite mechanism — see ADR-007), and
+populates `configDir/claude-master-setup/` with the active shared framework
+(docs, scripts, hooks, templates). `--local` additionally calls
+`seedMasterFolder()`: creates the current project's `.master/state/` +
+`.master/docs/` (from `templates/master-docs/`) + `CLAUDE.md` (from
+`templates/CLAUDE.md.starter`) — nothing else goes into the project. The
+git-clone path (`bash scripts/install.sh`) is for developing the harness
+itself, not for starting a new project — it seeds *this* repo's own
+`.claude/state/`, unrelated to `.master/`. Current pack is ~104 files
+(`npm pack --dry-run`). Works **without** publishing when using the GitHub URL.
 
 ### Local development loop
 
-Before changing `bin/cli.js`, verify it still works end to end:
+Before changing `bin/cli.js`, verify it still works end to end — including the
+shared-framework mechanics, not just that files land somewhere:
 
 ```bash
-node -c bin/cli.js                          # syntax check
-npx --yes . /tmp/some-scratch-dir            # actually run the scaffold
-cd /tmp/some-scratch-dir && bash scripts/self-check.sh   # confirm the result is healthy
+node -c bin/cli.js                                          # syntax check
+node bin/cli.js --global --config-dir /tmp/cms-global-test   # shared framework only
+grep -L '${CLAUDE_PLUGIN_ROOT}' /tmp/cms-global-test/agents/*.md   # confirm token substitution ran
+cd /tmp/some-scratch-dir && HOME=/tmp/cms-local-home node /path/to/bin/cli.js --local
+# confirm the scratch project has ONLY .master/ + CLAUDE.md (+.gitignore/.env*) at root
+find /tmp/some-scratch-dir -maxdepth 1
+# confirm scripts operate on the PROJECT, not the framework location:
+CLAUDE_PROJECT_DIR=/tmp/some-scratch-dir bash /tmp/cms-local-home/.claude/claude-master-setup/scripts/validate.sh
 ```
 
-This is exactly how it was verified when built — don't skip the actual run;
-a syntax-valid script can still copy the wrong files or seed state incorrectly.
+`--local` doesn't take `--config-dir` (by design — always resolves the shared
+framework via `os.homedir()`); redirect it with the `HOME` env var when
+testing in a sandbox, never against your real `~/.claude`. This is exactly how
+it was verified when built — don't skip the actual run; a syntax-valid script
+can still copy the wrong files, skip the token substitution, or seed state
+against the wrong directory.
 
 ### Versioning discipline
 

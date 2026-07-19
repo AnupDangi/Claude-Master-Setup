@@ -30,6 +30,15 @@ done
 for s in scripts/*.sh .claude/hooks/*.sh; do
   bash -n "$s" || bad "shell syntax: $s"
 done
+
+python3 - <<'PY' >/dev/null 2>&1 && ok "settings permission rules well-formed" || bad "settings permission rules malformed"
+import json
+from pathlib import Path
+for rule in json.loads(Path(".claude/settings.json").read_text()).get("permissions", {}).get("allow", []):
+    if ":*" in rule and not rule.endswith(":*)"):
+        raise SystemExit(1)
+PY
+
 node --check bin/cli.js >/dev/null 2>&1 && ok "CLI syntax" || bad "CLI syntax"
 python3 -m py_compile scripts/classify-task.py scripts/write-handoff.py >/dev/null 2>&1 && ok "Python syntax" || bad "Python syntax"
 

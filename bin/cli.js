@@ -46,8 +46,45 @@ const SKIP_RELATIVE = new Set([
   '.claude/settings.local.json',
   '.cursor',
   '.git',
+  '.github',
   'node_modules',
+  '.env',
+  '.env.example',
 ]);
+
+/** Consumer reference docs shipped into the shared framework (keep in sync with package.json "files"). */
+const FRAMEWORK_DOCS = [
+  'AGENTS.md',
+  'AI_OS.md',
+  'BROWNFIELD.md',
+  'BUILD_EFFORT.md',
+  'CAPABILITY_ORCHESTRATION.md',
+  'COMPANIONS.md',
+  'DEVELOPMENT_WORKFLOW.md',
+  'EVALUATION.md',
+  'LOOP.md',
+  'MCP.md',
+  'MODEL_ROUTING.md',
+  'OPERATIONS.md',
+  'SECURITY.md',
+  'SETUP.md',
+  'VALIDATION.md',
+];
+
+/** Runtime scripts shipped into the shared framework (keep in sync with package.json "files"). */
+const FRAMEWORK_SCRIPTS = [
+  'budget-check.sh',
+  'detect-stack.sh',
+  'estimate-build-effort.sh',
+  'lease.sh',
+  'list-local-skills.sh',
+  'loop-event.sh',
+  'mcp-catalog.json',
+  'select-skills.sh',
+  'validate.sh',
+  'worktree-fanout.sh',
+  'write-scorecard.sh',
+];
 
 const args = process.argv.slice(2);
 const hasGlobal = args.includes('--global') || args.includes('-g');
@@ -212,7 +249,7 @@ function printHelp() {
 
   ${yellow}What gets installed:${reset}
     ${dim}Shared framework${reset}   agents/  commands/  skills/  claude-master-setup/ (scripts, hooks, docs, templates)
-    ${dim}Per-project${reset}        .master/ (state + starter docs, gitignored state)  CLAUDE.md  .env.example
+    ${dim}Per-project${reset}        .master/ (state + starter docs, gitignored state)  CLAUDE.md
 
   ${yellow}Five-minute tour (plugin path):${reset}
     ${cyan}claude plugin marketplace add AnupDangi/Claude-Master-Setup${reset}
@@ -391,24 +428,12 @@ function seedMasterFolder(projectRoot, frameworkRoot) {
     console.log(`  ${dim}skip (already exists): CLAUDE.md${reset}`);
   }
 
-  const envExample = path.join(projectRoot, '.env.example');
-  const envFile = path.join(projectRoot, '.env');
-  const pkgEnvExample = path.join(PKG_ROOT, '.env.example');
-  if (!fs.existsSync(envExample) && fs.existsSync(pkgEnvExample)) {
-    fs.copyFileSync(pkgEnvExample, envExample);
-    touched.push('.env.example');
-  }
-  if (fs.existsSync(envExample) && !fs.existsSync(envFile)) {
-    fs.copyFileSync(envExample, envFile);
-    touched.push('.env');
-    console.log(`  ${green}✓${reset} created .env from .env.example (fill in your secrets)`);
-  }
-
   const giPath = path.join(projectRoot, '.gitignore');
   if (!fs.existsSync(giPath)) fs.writeFileSync(giPath, '', 'utf8');
   let gi = fs.readFileSync(giPath, 'utf8');
   const lines = gi.split(/\r?\n/);
-  const patterns = ['.env', '.env.*', '!.env.example', '.master/state/'];
+  // Ignore secrets + loop state if the project later creates them — do not seed .env files.
+  const patterns = ['.env', '.env.*', '.master/state/'];
   let changed = false;
   for (const pat of patterns) {
     if (!lines.includes(pat)) {
@@ -420,7 +445,7 @@ function seedMasterFolder(projectRoot, frameworkRoot) {
     fs.writeFileSync(giPath, gi, 'utf8');
     touched.push('.gitignore (updated)');
   }
-  console.log(`  ${green}✓${reset} .gitignore updated (secrets and .master/state/ excluded)`);
+  console.log(`  ${green}✓${reset} .gitignore updated (.env* and .master/state/ excluded)`);
   console.log(`  ${green}✓${reset} node ${process.version}`);
 
   return touched;
@@ -463,30 +488,54 @@ function ensureFrameworkInstalled(configDir) {
     console.log(`  ${dim}↳ backed up existing claude-master-setup → ${path.basename(packBackup)}${reset}`);
   }
   fs.mkdirSync(packDest, { recursive: true });
-  for (const item of ['docs', 'MASTER-PROMPT.md', 'CLAUDE.md', 'templates']) {
+
+  // Docs: allowlisted consumer references only (never maintainer working memory).
+  const docsDest = path.join(packDest, 'docs');
+  fs.mkdirSync(docsDest, { recursive: true });
+  for (const name of FRAMEWORK_DOCS) {
+    const src = path.join(PKG_ROOT, 'docs', name);
+    if (!fs.existsSync(src)) continue;
+    fs.copyFileSync(src, path.join(docsDest, name));
+  }
+  const templatesDocsSrc = path.join(PKG_ROOT, 'docs', 'templates');
+  if (fs.existsSync(templatesDocsSrc)) {
+    copyRecursive(templatesDocsSrc, path.join(docsDest, 'templates'));
+  }
+
+  for (const item of ['MASTER-PROMPT.md', 'templates']) {
     const src = path.join(PKG_ROOT, item);
     if (!fs.existsSync(src)) continue;
     const dest = path.join(packDest, item);
     copyRecursive(src, dest);
   }
-  // Scripts + hooks are the ACTIVE shared framework now (not passive reference).
-  for (const item of ['.claude/hooks', '.claude/context', 'scripts']) {
+
+  // Hooks + context (full dirs — all are runtime).
+  for (const item of ['.claude/hooks', '.claude/context']) {
     const src = path.join(PKG_ROOT, item);
     if (!fs.existsSync(src)) continue;
-    const destName = item.startsWith('.claude/') ? item.slice('.claude/'.length) : item;
+    const destName = item.slice('.claude/'.length);
     copyRecursive(src, path.join(packDest, destName));
   }
+
+  // Scripts: allowlisted runtime only (never install.sh / self-check.sh).
+  const scriptsDest = path.join(packDest, 'scripts');
+  fs.mkdirSync(scriptsDest, { recursive: true });
+  for (const name of FRAMEWORK_SCRIPTS) {
+    const src = path.join(PKG_ROOT, 'scripts', name);
+    if (!fs.existsSync(src)) continue;
+    fs.copyFileSync(src, path.join(scriptsDest, name));
+  }
+
   const companionsSrc = path.join(PKG_ROOT, 'docs', 'COMPANIONS.md');
   if (fs.existsSync(companionsSrc)) {
     fs.copyFileSync(companionsSrc, path.join(packDest, 'COMPANIONS.md'));
   }
   // Scripts must be executable wherever they end up.
-  const scriptsDir = path.join(packDest, 'scripts');
-  if (fs.existsSync(scriptsDir)) {
-    for (const f of fs.readdirSync(scriptsDir)) {
+  if (fs.existsSync(scriptsDest)) {
+    for (const f of fs.readdirSync(scriptsDest)) {
       if (f.endsWith('.sh')) {
         try {
-          fs.chmodSync(path.join(scriptsDir, f), 0o755);
+          fs.chmodSync(path.join(scriptsDest, f), 0o755);
         } catch {
           /* best-effort */
         }

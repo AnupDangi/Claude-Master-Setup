@@ -9,7 +9,7 @@ _(who might attack, what they'd want, the highest-value assets to protect)_
 _(how identity is established and how access is enforced; roles/permissions)_
 
 ## Secrets management
-- All secrets in env vars; `.env` gitignored; `.env.example` documents names.
+- All secrets in env vars; `.env` gitignored; document names in README (or `.env.example` if the project uses one).
 - MCP servers reference `${ENV_VAR}` only — never literals in `.mcp.json`.
 - No secret in source, logs, or API responses.
 

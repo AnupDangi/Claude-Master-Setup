@@ -1,5 +1,7 @@
-# Keep the published tarball lean and user-safe.
-# package.json "files" is the allowlist; this further excludes local/runtime junk.
+# Keep the published tarball lean.
+# package.json "files" is the real allowlist (npm does not reliably
+# subtract .npmignore entries from an included directory). This file
+# only excludes local/runtime junk that might otherwise sneak in.
 
 .claude/state/
 .claude/settings.local.json
@@ -10,4 +12,4 @@ test-harness/
 *.tgz
 .env
 .env.*
-!.env.example
+.github/

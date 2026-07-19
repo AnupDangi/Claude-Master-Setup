@@ -24,7 +24,7 @@ You fire when a plan, a dependency, or the user mentions an external service: Po
    - stdio: `{ "type": "stdio", "command": "...", "args": [...], "env": { "VAR": "${VAR}" } }`
    - http:  `{ "type": "http", "url": "...", "headers": { "Authorization": "Bearer ${TOKEN}" } }`
    - Always reference secrets as `${ENV_VAR}` — never write a literal key. Use `${VAR:-default}` for non-secret defaults.
-6. **Record required env vars** in `.env.example` (create/update it) and note them in `${CLAUDE_PLUGIN_ROOT}/docs/MCP.md` and the project README so teammates know what to set.
+6. **Document required env vars** in the project README (and update `.env.example` only if the project already has one). Never invent a secrets file the project does not use.
 7. **Tell the user the activation step**: they must restart Claude Code (or run `claude mcp list`) to connect the server, and Claude Code will prompt once to approve a project-scoped server from `.mcp.json`.
 
 ## Rules

@@ -15,7 +15,7 @@ ceremony dial (Decision 006), and a **shared-framework distribution model**
 shared, never duplicated into a project. 11 agents, 11 commands (core:
 `bootstrap`/`loop`/`status`/`pause`/`decide`/`handoff`; power:
 `plan`/`validate`/`review`/`mcp-add`/`evaluate` — no `/init` or `/ship`), skill
-`capability-orchestrator`. npm package **v0.4.0** is publish-ready: self-check,
+`capability-orchestrator`. npm package **v0.4.1** is publish-ready: self-check,
 prepack, and `npm publish --dry-run` are GREEN. Real publish remains an
 explicit human action.
 
@@ -63,7 +63,7 @@ explicit human action.
 - None. Branch `v2-os` is ready for final push/tag/publish approval.
 
 ## Next up
-1. Push `v2-os`, tag `v0.4.0`, and publish when approved.
+1. Push `v2-os`, tag `v0.4.1`, and publish when approved.
 2. Human runs a genuinely fresh `npx claude-master-setup` to test the new
    `.master/`-only model firsthand (global `~/.claude` was cleaned for exactly
    this).

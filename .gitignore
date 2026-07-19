@@ -3,9 +3,12 @@
 .env.*
 !.env.example
 
-# Harness local state (worktree-local, not shared)
-.claude/state/
+# Harness local state (worktree-local, not shared — ADR-007)
+.master/state/
 /tmp/harness_*
+
+# Legacy location (kept during migration; agents/settings in .claude/ are still committed)
+.claude/state/
 
 # Nested local worktree used for npm install testing (not part of the package)
 /test-harness/

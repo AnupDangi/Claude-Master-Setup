@@ -13,7 +13,7 @@
 # Override: HARNESS_BUILD_EFFORT_TIER=fast|standard|rigorous
 set -euo pipefail
 
-REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+REPO_ROOT="${CLAUDE_PROJECT_DIR:-$PWD}"
 cd "$REPO_ROOT"
 
 WRITE=0
@@ -210,25 +210,49 @@ out = {
 print(json.dumps(out, indent=2, ensure_ascii=False))
 
 if write:
-    state_dir = Path(".claude/state")
+    defaults = {
+        "iteration": 0,
+        "phase": "idle",
+        "task": None,
+        "validate_attempts": 0,
+        "max_validate_retries": 3,
+        "task_graph": None,
+        "task_complexity": None,
+        "plan_source": None,
+        "review_dispatch": None,
+        "skills_index": None,
+        "skills_assigned": [],
+        "skills_skipped": [],
+        "fanout": None,
+        "iterations_this_run": 0,
+        "max_iterations_per_run": 1,
+        "build_effort_tier": None,
+        "build_effort_score": None,
+        "docs_profile": None,
+    }
+    state_dir = Path(".master/state")
     state_dir.mkdir(parents=True, exist_ok=True)
     (state_dir / "build_effort.json").write_text(
         json.dumps(out, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
     )
     loop_path = state_dir / "loop.json"
-    loop = {}
+    loop = dict(defaults)
     if loop_path.is_file():
         try:
-            loop = json.loads(loop_path.read_text(encoding="utf-8"))
+            existing = json.loads(loop_path.read_text(encoding="utf-8"))
+            if isinstance(existing, dict):
+                loop.update(existing)
         except json.JSONDecodeError:
-            loop = {}
+            pass
     loop["build_effort_tier"] = tier
     loop["build_effort_score"] = score
     loop["docs_profile"] = docs_profile
+    if "phase" not in loop or loop.get("phase") is None:
+        loop["phase"] = "idle"
     loop_path.write_text(json.dumps(loop, indent=2) + "\n", encoding="utf-8")
 PY
 
-# Best-effort event (ignore failure if script missing mid-bootstrap)
+# Best-effort event from this script directory (shared framework path)
 if [ "$WRITE" = "1" ]; then
-  bash scripts/loop-event.sh build_effort_estimate '{}' >/dev/null 2>&1 || true
+  bash "$(cd "$(dirname "$0")" && pwd)/loop-event.sh" build_effort_estimate '{}' >/dev/null 2>&1 || true
 fi

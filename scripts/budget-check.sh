@@ -10,7 +10,7 @@
 #   HARNESS_BUDGET_STOP              default 1 (set 0 to disable hard stop)
 set -euo pipefail
 
-REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+REPO_ROOT="${CLAUDE_PROJECT_DIR:-$PWD}"
 cd "$REPO_ROOT"
 
 STOP="${HARNESS_BUDGET_STOP:-1}"
@@ -25,7 +25,7 @@ from pathlib import Path
 stop_on, max_commits, max_events = sys.argv[1] == "1", int(sys.argv[2]), int(sys.argv[3])
 today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
 
-loop_path = Path(".claude/state/loop.json")
+loop_path = Path(".master/state/loop.json")
 iters = 0
 max_iters = int(os.environ.get("HARNESS_MAX_ITERATIONS_PER_RUN", "1") or "1")
 if loop_path.is_file():
@@ -37,7 +37,7 @@ if loop_path.is_file():
     except (OSError, json.JSONDecodeError, ValueError):
         pass
 
-log = Path(".claude/state/history/events.jsonl")
+log = Path(".master/state/history/events.jsonl")
 day_commits = 0
 day_events = 0
 if log.is_file():

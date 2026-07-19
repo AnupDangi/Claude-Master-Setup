@@ -8,6 +8,6 @@ case "$FP" in
   *.md|*.txt|*.json|*.lock) exit 0 ;;   # docs/config edits don't need the code gate
   "") exit 0 ;;
 esac
-mkdir -p "$ROOT/.claude/state" 2>/dev/null
-touch "$ROOT/.claude/state/validation-pending" 2>/dev/null
+mkdir -p "$ROOT/.master/state" 2>/dev/null
+touch "$ROOT/.master/state/validation-pending" 2>/dev/null
 exit 0

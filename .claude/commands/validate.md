@@ -1,6 +1,6 @@
 ---
 description: Run the validation gate (format, lint, typecheck, tests, build)
-allowed-tools: Task, Bash(bash scripts/:*), Bash(./scripts/:*)
+allowed-tools: Task, Bash(bash scripts/:*), Bash(./scripts/:*), Bash(bash */scripts/*.sh:*)
 model: sonnet
 ---
 

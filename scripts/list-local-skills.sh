@@ -8,7 +8,7 @@
 #   HARNESS_SKILLS_MAX       max skills to emit (default 80)
 set -euo pipefail
 
-REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+REPO_ROOT="${CLAUDE_PROJECT_DIR:-$PWD}"
 
 export REPO_ROOT
 export HOME

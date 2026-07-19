@@ -28,6 +28,17 @@ Severity-ranked (**Critical → High → Medium → Low**), grouped by file. For
 - **Code touching auth, input, secrets, payments, uploads, network, or data access** — full OWASP checklist below.
 - **Pure docs / roadmap / harness-markdown** — short pass: no secrets in docs, no weakened security guidance; state "light pass".
 
+## Combined dispatch (trivial/small tasks)
+
+If the orchestrator's Task prompt asks you to also cover quality review for
+this diff (a combined `trivial`/`small` REVIEW dispatch — see `${CLAUDE_PLUGIN_ROOT}/docs/LOOP.md`
+§REVIEW), `Read` `.claude/agents/reviewer.md` in full and apply its checklist,
+output format, and rules to the same diff. Report it as a second, separate
+top-level section named **Quality Findings**, severity-ranked exactly like
+your own security findings — do not blend the two sections together. This
+only happens for `trivial`/`small` `task_complexity`; `medium`/`large` review
+runs as your security findings alone, with `reviewer` dispatched separately.
+
 ## Rules
 
 - Assume all input is hostile until proven validated.
@@ -36,3 +47,7 @@ Severity-ranked (**Critical → High → Medium → Low**), grouped by file. For
 - If the change is security-clean, say so and note any residual risk to watch.
 - Never help weaken a control to make something "work" — flag such a request instead.
 - **Build-effort `fast` is not a free pass** — you still run; only the depth may shrink for pure-docs diffs.
+- **Single source of truth.** Whether you run standalone (`medium`/`large`) or
+  apply `reviewer.md`'s checklist yourself for a combined trivial/small
+  dispatch, that file is the one place its checklist and depth rules live —
+  never paraphrase it elsewhere.

@@ -39,11 +39,11 @@ Project **build-effort tier** (`fast|standard|rigorous` from
 not whether VALIDATE / REVIEW / SECURITY run (they always do).
 
 ### 1. SELECT
-If `.claude/state/loop.json` has a `task_graph` with pending sub-tasks, the
+If `.master/state/loop.json` has a `task_graph` with pending sub-tasks, the
 orchestrator continues it — straight to PLAN for the next sub-task, no fresh GATE 1.
 
-Otherwise it reads `docs/ROADMAP.md`, `docs/PROJECT_STATE.md`, and optionally
-`.claude/state/last_scorecard.json` (bias among unblocked items — never invent
+Otherwise it reads `.master/docs/ROADMAP.md`, `.master/docs/PROJECT_STATE.md`, and optionally
+`.master/state/last_scorecard.json` (bias among unblocked items — never invent
 new rows). Scan the roadmap **top-to-bottom within the current milestone**: skip
 `[x]` done, skip `[!]` blocked, and skip anything whose `(depends: ...)` annotation
 names another item that isn't `[x]` done yet — this catches a dependency even if
@@ -55,7 +55,7 @@ no one remembered to mark the dependent item `[!]`. Acquire a lease with
 unblocked peers only). The Task Graph (see PLAN, below) owns sizing: if the item
 SELECT picks turns out to be too large for one iteration, `planner` slices it.
 
-`docs/ROADMAP.md` items may append `(depends: <other item>)` to declare an ordering
+`.master/docs/ROADMAP.md` items may append `(depends: <other item>)` to declare an ordering
 requirement beyond plain file order.
 
 ### 1b. DISCOVER (local skills)
@@ -73,12 +73,41 @@ First, the orchestrator classifies the task's rough complexity —
 `planner`) and feeds future evaluation tracking (`docs/EVALUATION.md`). At BUILD it
 also chooses `implementer` vs `implementer-opus` (see `docs/MODEL_ROUTING.md`).
 
-Then delegates to `planner` (and `architect` first per the classification above)
-using the standard Task template (`docs/templates/AGENT_TASK.md`), with the skill
-shortlist in **Relevant Skills**. Planner may spawn ≤3 nested read-only research
-subagents. Output: the files to touch, the tests to write, dependencies, a
-Definition of Done, optional `recommended_skills`, and optional worktree
-`fanout` map when BUILD should parallelize. No code is written yet.
+**`trivial` eligibility (all five must hold, or treat the task as `small` and
+delegate to `planner` as usual):**
+1. Exactly one file is created or edited.
+2. Zero new dependencies, migrations, env vars, or public interface/API/schema
+   changes.
+3. The entire change is already fully specified by the roadmap item / human
+   instruction — no design decision remains for a planner to make.
+4. It is a docs/comment/config-only edit, or the mechanical addition of one
+   artifact whose complete content is already dictated (e.g. one
+   already-fully-specified command file).
+5. No worktree fan-out and no Task Graph could plausibly apply.
+
+When `task_complexity == trivial` and all five hold, the orchestrator **plans
+inline** instead of dispatching `planner` as a Task: in its own turn it
+produces the identical Output Contract defined in `.claude/agents/planner.md`
+(Task, Approach, Files, Tests, Dependencies, Definition of Done, Out of scope,
+Recommended skills, Fan-out — always `null` here). This still goes to **GATE
+1** exactly as a planner-produced plan would — GATE 1 is never skipped, only
+the `planner` *dispatch* is. Record `loop.json.plan_source = "inline"`.
+
+For every other complexity, delegates to `planner` (and `architect` first per
+the classification above) using the standard Task template
+(`docs/templates/AGENT_TASK.md`), with the skill shortlist in **Relevant
+Skills**. Planner may spawn ≤3 nested read-only research subagents. Output: the
+files to touch, the tests to write, dependencies, a Definition of Done,
+optional `recommended_skills`, and optional worktree `fanout` map when BUILD
+should parallelize. No code is written yet. Record `loop.json.plan_source =
+"planner"`.
+
+**Escape hatch.** If BUILD (or VALIDATE/REVIEW) later reveals the task was not
+actually trivial — more than one file needed, a real design choice surfaced, a
+dependency appeared — the orchestrator stops BUILD, resets `task_complexity` to
+`small` or higher, discards the inline plan, dispatches a real `planner` Task,
+and returns to a **fresh GATE 1**. An inline plan discovered wrong mid-BUILD is
+never patched in place and pushed through the original gate.
 
 If the roadmap item is too large for one iteration, `planner` instead returns a
 **Task Graph** — the ordered list of shippable sub-tasks that together deliver it,
@@ -89,10 +118,15 @@ orchestrator reaches them (the repo has moved on since the graph was drawn), not
 at once up front.
 
 ### GATE 1 — approve the plan
-The plan (or the whole Task Graph + sub-task 1's detailed plan, plus any worktree
-`fanout` map) is presented to you in a tight summary. **The loop stops here** until
-you approve. Silence is not approval. This is where you catch a wrong direction
-before any code exists — the cheapest possible place to correct course.
+The plan (planner-produced, or orchestrator-inline for a `trivial` task —
+presentation and the stop-and-wait rule are identical either way; or the whole
+Task Graph + sub-task 1's detailed plan, plus any worktree `fanout` map) is
+presented to you in a tight summary. **The loop stops here** until you approve.
+Silence is not approval. This is where you catch a wrong direction before any
+code exists — the cheapest possible place to correct course. For an inline
+plan, this gate is the *only* independent check before code is written (there
+is no separate planner disagreeing with the orchestrator first) — read it
+deliberately rather than skimming.
 
 Approving a Task Graph approves its scope and order for every sub-task in it — later
 sub-tasks skip this gate and go straight from PLAN to BUILD, **unless** the fresh
@@ -104,7 +138,10 @@ approval.
 ### 3. BUILD
 Delegates to `implementer` (or `implementer-opus` when `task_complexity` is
 `large`), which writes the code **and** its tests for exactly this task — nothing
-more. Scope creep is rejected here.
+more. Scope creep is rejected here. If `plan_source` was `inline` and the task
+turns out not to fit the trivial-eligibility checklist after all (see PLAN
+above), stop here and return to PLAN for a real `planner` dispatch + fresh
+GATE 1 — do not push an inline plan through past its scope.
 
 When GATE 1 approved a worktree `fanout` map, the implementer acts as **parent**:
 creates ≤5 worktrees via `scripts/worktree-fanout.sh`, launches child Tasks in
@@ -131,12 +168,24 @@ waits — it does not keep guessing or loosen the gate to force a pass. A human 
 fixes it manually, splits the task, or explicitly raises the cap and resumes `/loop`.
 
 ### 5. REVIEW
-Always delegates to `reviewer` **and** `security` in parallel (counts toward the
-orchestrator's ≤3 top-level cap). Security depth may be light on pure-docs diffs;
-full OWASP when auth/input/secrets/payments/uploads/network/data. Both are
-read-only and return severity-ranked findings. **Critical/High findings loop back
-to BUILD.** Applies on every build-effort tier (`fast` included) — see
-[`BUILD_EFFORT.md`](BUILD_EFFORT.md).
+Quality and security review always run — dispatch shape depends on
+`task_complexity`:
+
+- **`trivial` / `small`:** one Task to `security`, whose prompt additionally
+  instructs it to `Read` `.claude/agents/reviewer.md` and apply its checklist,
+  reporting a second, separately severity-ranked **Quality Findings** section
+  in the same report. Counts as **one** Task toward the orchestrator's ≤3
+  top-level cap. Runs on `security`'s pinned model (opus), preserving that
+  tier for the judgment-heavy security check even though dispatch count drops.
+- **`medium` / `large`:** `reviewer` **and** `security` dispatch as two
+  separate parallel Tasks, as before (counts as two toward the ≤3 cap).
+
+Security depth may still be light on pure-docs diffs; full OWASP when
+auth/input/secrets/payments/uploads/network/data — identical rule either way.
+Both forms are read-only and return severity-ranked findings. **Critical/High
+findings loop back to BUILD.** Neither form is ever skipped, on any
+build-effort tier (`fast` included) — see [`BUILD_EFFORT.md`](BUILD_EFFORT.md).
+Record `loop.json.review_dispatch` (`combined` or `separate`).
 
 ### GATE 2 — approve the merge
 You see the diff summary, the GREEN gate result, and the review findings. **The loop
@@ -144,8 +193,10 @@ stops here** until you approve the commit/merge.
 
 ### 6. COMMIT
 One atomic commit with a conventional message. Then `docs-writer` updates
-`docs/PROJECT_STATE.md`, `docs/CHANGELOG.md`, `docs/SESSION.md`, and
-`docs/DECISIONS.md` (if a decision was made).
+`.master/docs/PROJECT_STATE.md`, `.master/docs/CHANGELOG.md`, and `.master/docs/DECISIONS.md` (if a
+decision was made). `docs/SESSION.md` is **not** touched here — it's a running
+log of the session, not the commit, and is only refreshed by `/handoff` (see
+`.claude/commands/handoff.md`) when the session actually ends.
 
 ### 7. LOOP
 Back to SELECT. Continue until the roadmap has no unblocked work.
@@ -156,11 +207,11 @@ Back to SELECT. Continue until the roadmap has no unblocked work.
    zero conversation history.
 2. `main` (or the working branch) is never left with a RED gate committed.
 3. Every committed code change has tests and a docs update in the same iteration.
-4. `.claude/state/loop.json` reflects the true current phase.
+4. `.master/state/loop.json` reflects the true current phase.
 
 ## State file
 
-`.claude/state/loop.json` (gitignored, worktree-local) tracks the loop:
+`.master/state/loop.json` (gitignored, worktree-local) tracks the loop:
 
 ```json
 {
@@ -171,6 +222,7 @@ Back to SELECT. Continue until the roadmap has no unblocked work.
   "validate_attempts": 0,
   "max_validate_retries": 3,
   "task_complexity": "small",
+  "plan_source": "planner",
   "task_graph": {
     "root": "add full auth system",
     "subtasks": [
@@ -201,6 +253,10 @@ done`. Cleared once every sub-task is `done`.
 `task_complexity` ∈ `null | trivial | small | medium | large`, set once per task at
 the start of PLAN. It's a coarse classification, not a token/cost estimate — see
 `docs/LOOP_ENGINE.md` for the gap between this and the target "Estimate Cost" stage.
+
+`plan_source` ∈ `null | inline | planner` — `inline` only when `task_complexity`
+was `trivial` and the orchestrator self-planned per the trivial-eligibility
+checklist above; `planner` otherwise. Set at PLAN, cleared at next SELECT.
 
 `skills_index` / `skills_assigned` / `skills_skipped` / `fanout` support
 capability-driven orchestration — see

@@ -65,11 +65,21 @@ case "$norm" in
   */.claude/hooks/*|.claude/hooks/*|*/.claude/settings.json|.claude/settings.json) control_plane=1 ;;
   */.claude/agents/*|.claude/agents/*|*/.claude/commands/*|.claude/commands/*) control_plane=1 ;;
   */scripts/validate.sh|scripts/validate.sh) control_plane=1 ;;
+  # ADR-007 shared framework (npm): hooks/scripts under claude-master-setup/
+  */claude-master-setup/hooks/*|*/claude-master-setup/scripts/*) control_plane=1 ;;
 esac
 case "$base" in
-  validate.sh|budget-check.sh|lease.sh|loop-event.sh|worktree-fanout.sh|pre-bash-guard.sh|protect-paths.sh|estimate-build-effort.sh|self-check.sh)
+  validate.sh|budget-check.sh|lease.sh|loop-event.sh|worktree-fanout.sh|pre-bash-guard.sh|protect-paths.sh|estimate-build-effort.sh|self-check.sh|session-start.sh|post-edit-track.sh|stop-validate-reminder.sh)
     control_plane=1 ;;
 esac
+
+# Block writes under the active shared framework root (npm path)
+if [ -n "${HARNESS_FRAMEWORK_ROOT:-}" ]; then
+  fw="$(printf '%s' "$HARNESS_FRAMEWORK_ROOT" | tr '\\' '/' | sed 's:/*$::')"
+  case "$norm" in
+    "$fw"|"$fw"/*) control_plane=1 ;;
+  esac
+fi
 
 if [ "$control_plane" = "1" ]; then
   if [ "$allow" = "1" ]; then warn "editing harness control-plane file $FP (override on)"; exit 0; fi

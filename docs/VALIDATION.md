@@ -23,7 +23,7 @@ this harness and taken through:
 
 1. **Bootstrap** — the `architect` persona (dispatched as a real subagent,
    not simulated) evaluated the proposed stack, accepted it, and wrote
-   ADR-001 to `docs/DECISIONS.md` plus a filled `docs/ARCHITECTURE.md`.
+   Decision 001 to `docs/DECISIONS.md` plus a filled `docs/ARCHITECTURE.md`.
 2. **SELECT → PLAN** — the `planner` persona turned two roadmap items into
    one concrete, file-by-file plan with a Definition of Done, correctly
    proposing to combine Milestone 0+1 into one shippable slice with a

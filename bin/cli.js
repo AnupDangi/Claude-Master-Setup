@@ -1,19 +1,23 @@
 #!/usr/bin/env node
 'use strict';
 /**
- * Installs the Claude Master Setup harness into Claude Code
- * (global ~/.claude or local ./.claude) — Forge-style UX.
+ * Installs the Claude Master Setup harness into Claude Code.
+ *
+ * Framework files (agents, commands, skills, scripts, docs, hooks) live once,
+ * shared, at the resolved config dir — never duplicated per project.
+ * A project only ever gets `.master/` (state + its own docs) + `CLAUDE.md`.
+ * See docs/DECISIONS.md Decision 007.
  *
  * Usage:
- *   npx claude-master-setup              # interactive
- *   npx claude-master-setup --global     # ~/.claude
- *   npx claude-master-setup --local      # ./.claude + project scripts/docs
- *   npx claude-master-setup --scaffold [dir]  # legacy: dump harness into a folder
+ *   npx claude-master-setup                   # install framework + seed current project
+ *   npx claude-master-setup --framework-only  # install shared framework only (no project seed)
+ *   npx claude-master-setup --global          # alias for --framework-only
+ *   npx claude-master-setup --local           # alias for default (framework + seed)
+ *   npx claude-master-setup --scaffold [dir]  # legacy: copy harness into a folder
  */
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
-const readline = require('readline');
 // Install is filesystem copy + settings merge only; companion install is printed.
 
 const PKG_ROOT = path.resolve(__dirname, '..');
@@ -48,11 +52,15 @@ const SKIP_RELATIVE = new Set([
 const args = process.argv.slice(2);
 const hasGlobal = args.includes('--global') || args.includes('-g');
 const hasLocal = args.includes('--local') || args.includes('-l');
+const hasFrameworkOnly = args.includes('--framework-only') || args.includes('-F');
 const hasHelp = args.includes('--help') || args.includes('-h');
 const hasForce = args.includes('--force') || args.includes('-f');
 const scaffoldIdx = args.findIndex((a) => a === '--scaffold' || a === '-s');
 const wantsScaffold = scaffoldIdx !== -1;
 
+/**
+ * Resolve config dir: --config-dir flag → CLAUDE_CONFIG_DIR env → ~/.claude
+ */
 function parseConfigDirArg() {
   const idx = args.findIndex((a) => a === '--config-dir' || a === '-c');
   if (idx !== -1) {
@@ -64,7 +72,10 @@ function parseConfigDirArg() {
     return next;
   }
   const eq = args.find((a) => a.startsWith('--config-dir=') || a.startsWith('-c='));
-  return eq ? eq.split('=')[1] : null;
+  if (eq) return eq.split('=')[1];
+  // Honor CLAUDE_CONFIG_DIR environment variable (Decision 007)
+  if (process.env.CLAUDE_CONFIG_DIR) return process.env.CLAUDE_CONFIG_DIR;
+  return null;
 }
 
 const explicitConfigDir = parseConfigDirArg();
@@ -180,27 +191,38 @@ function printHelp() {
   console.log(banner);
   console.log(`  ${yellow}Usage:${reset} npx claude-master-setup [options]
 
+  ${yellow}Default (no flags):${reset}
+    Install the shared framework once into Claude Code config, then seed this
+    project's ${cyan}.master/${reset} + ${cyan}CLAUDE.md${reset}. Skip seed when run inside the harness
+    source repo itself. This is the recommended path for every new project.
+
   ${yellow}Options:${reset}
-    ${cyan}-g, --global${reset}              Install into Claude config (~/.claude) — all projects
-    ${cyan}-l, --local${reset}               Install into ./.claude + project scripts/docs
-    ${cyan}-c, --config-dir <path>${reset}   Custom Claude config dir (with --global)
+    ${cyan}--framework-only, -F${reset}      Install shared framework only — do not seed a project
+    ${cyan}--global, -g${reset}              Alias for --framework-only (kept for backward compat)
+    ${cyan}--local, -l${reset}               Alias for default (framework + seed current project)
+    ${cyan}-c, --config-dir <path>${reset}   Custom Claude config dir (overrides CLAUDE_CONFIG_DIR env)
     ${cyan}-s, --scaffold [dir]${reset}      Legacy: copy full harness into a directory
     ${cyan}-f, --force${reset}               Install even if Claude Code CLI is missing
     ${cyan}-h, --help${reset}                Show this help
 
-  ${yellow}Examples:${reset}
-    ${dim}# Interactive (asks global vs local)${reset}
-    npx claude-master-setup
-
-    ${dim}# Global — agents + commands + settings merge${reset}
-    npx claude-master-setup --global
-
-    ${dim}# Local — full harness in this project${reset}
-    npx claude-master-setup --local
+  ${yellow}Config dir resolution (in order):${reset}
+    1. ${cyan}--config-dir <path>${reset}    explicit flag
+    2. ${cyan}CLAUDE_CONFIG_DIR${reset}      environment variable
+    3. ${cyan}~/.claude${reset}              default
 
   ${yellow}What gets installed:${reset}
-    ${dim}global${reset}  agents/  commands/  claude-master-setup/ + settings.json merge
-    ${dim}local${reset}   .claude/  scripts/  docs/  CLAUDE.md  MASTER-PROMPT.md
+    ${dim}Shared framework${reset}   agents/  commands/  skills/  claude-master-setup/ (scripts, hooks, docs, templates)
+    ${dim}Per-project${reset}        .master/ (state + starter docs, gitignored state)  CLAUDE.md  .env.example
+
+  ${yellow}Five-minute tour (plugin path):${reset}
+    ${cyan}claude plugin marketplace add AnupDangi/Claude-Master-Setup${reset}
+    ${cyan}claude plugin install master@claude-master-setup${reset}
+    Then: ${cyan}/master:bootstrap${reset} → ${cyan}/master:loop${reset} → ${cyan}/master:status${reset} → ${cyan}/master:pause${reset} / ${cyan}/master:decide${reset} → ${cyan}/master:handoff${reset}
+
+  ${yellow}Uninstall:${reset}
+    Remove ${cyan}~/.claude/claude-master-setup/${reset}, ${cyan}~/.claude/agents/</cyan>, ${cyan}~/.claude/commands/${reset}
+    Remove the harness blocks from ${cyan}~/.claude/settings.json${reset} (hooks, HARNESS_FRAMEWORK_ROOT)
+    In project: delete ${cyan}CLAUDE.md${reset} and ${cyan}.master/${reset}
 `);
 }
 
@@ -220,6 +242,37 @@ function copyRecursive(src, dest) {
   }
 }
 
+/**
+ * Recursively copy, replacing the literal token `${CLAUDE_PLUGIN_ROOT}` in
+ * text files with `replacement` (an absolute path). Mirrors FORGE Framework's
+ * copy-time path substitution: agent/command source files hardcode the token
+ * assuming plugin-native resolution; for the npm install paths we perform the
+ * identical substitution ourselves at copy time so every reference is already
+ * a literal, correct absolute path by the time Claude Code loads the file.
+ */
+function copyWithTokenSubstitution(src, dest, replacement) {
+  const rel = path.relative(PKG_ROOT, src);
+  if (SKIP_RELATIVE.has(rel)) return;
+
+  const stat = fs.statSync(src);
+  if (stat.isDirectory()) {
+    fs.mkdirSync(dest, { recursive: true });
+    for (const entry of fs.readdirSync(src)) {
+      copyWithTokenSubstitution(path.join(src, entry), path.join(dest, entry), replacement);
+    }
+    return;
+  }
+
+  fs.mkdirSync(path.dirname(dest), { recursive: true });
+  if (src.endsWith('.md') || src.endsWith('.json')) {
+    const content = fs.readFileSync(src, 'utf8');
+    const replaced = content.split('${CLAUDE_PLUGIN_ROOT}').join(replacement);
+    fs.writeFileSync(dest, replaced, 'utf8');
+  } else {
+    fs.copyFileSync(src, dest);
+  }
+}
+
 function backupIfExists(dir) {
   if (!fs.existsSync(dir)) return null;
   const stamp = new Date().toISOString().replace(/[:.]/g, '-');
@@ -228,7 +281,7 @@ function backupIfExists(dir) {
   return backup;
 }
 
-function copyDirContents(srcDir, destDir) {
+function copyDirContents(srcDir, destDir, replacement) {
   if (!fs.existsSync(srcDir)) return 0;
   fs.mkdirSync(destDir, { recursive: true });
   let n = 0;
@@ -237,7 +290,10 @@ function copyDirContents(srcDir, destDir) {
     const dest = path.join(destDir, entry);
     const stat = fs.statSync(src);
     if (stat.isDirectory()) {
-      copyRecursive(src, dest);
+      copyWithTokenSubstitution(src, dest, replacement);
+    } else if (entry.endsWith('.md') || entry.endsWith('.json')) {
+      const content = fs.readFileSync(src, 'utf8');
+      fs.writeFileSync(dest, content.split('${CLAUDE_PLUGIN_ROOT}').join(replacement), 'utf8');
     } else {
       fs.copyFileSync(src, dest);
     }
@@ -246,31 +302,105 @@ function copyDirContents(srcDir, destDir) {
   return n;
 }
 
-function chmodHooksAndScripts(claudeDir, projectRoot) {
-  const hookDir = path.join(claudeDir, 'hooks');
-  if (fs.existsSync(hookDir)) {
-    for (const f of fs.readdirSync(hookDir)) {
-      if (f.endsWith('.sh')) fs.chmodSync(path.join(hookDir, f), 0o755);
-    }
+/** Copy only files that don't already exist at dest — never clobber. */
+function copyDirContentsIfAbsent(srcDir, destDir) {
+  if (!fs.existsSync(srcDir)) return 0;
+  fs.mkdirSync(destDir, { recursive: true });
+  let n = 0;
+  for (const entry of fs.readdirSync(srcDir)) {
+    const dest = path.join(destDir, entry);
+    if (fs.existsSync(dest)) continue;
+    fs.copyFileSync(path.join(srcDir, entry), dest);
+    n += 1;
   }
-  const scriptsDir = path.join(projectRoot, 'scripts');
-  if (fs.existsSync(scriptsDir)) {
-    for (const f of fs.readdirSync(scriptsDir)) {
-      if (f.endsWith('.sh')) fs.chmodSync(path.join(scriptsDir, f), 0o755);
-    }
-  }
+  return n;
 }
 
-/** Pure-Node project seed (mkdir, copy, chmod, write seed files). */
-function seedProject(projectRoot) {
-  console.log('  Seeding project harness state…');
-  chmodHooksAndScripts(path.join(projectRoot, '.claude'), projectRoot);
-  console.log(`  ${green}✓${reset} scripts and hooks are executable`);
+/**
+ * Create fresh loop state (same shape everywhere: bin/cli.js, scripts/install.sh,
+ * bootstrap scaffold, and scripts/install.sh — keep in sync when the schema changes).
+ */
+function loopStateJson() {
+  return (
+    JSON.stringify(
+      {
+        iteration: 0,
+        phase: 'idle',
+        task: null,
+        validate_attempts: 0,
+        max_validate_retries: 3,
+        task_graph: null,
+        task_complexity: null,
+        plan_source: null,
+        review_dispatch: null,
+        skills_index: null,
+        skills_assigned: [],
+        skills_skipped: [],
+        fanout: null,
+        iterations_this_run: 0,
+        max_iterations_per_run: 1,
+        build_effort_tier: null,
+        build_effort_score: null,
+        docs_profile: null,
+        pause_reason: null,
+        await_clarify_questions: null,
+      },
+      null,
+      2
+    ) + '\n'
+  );
+}
+
+/**
+ * Seed a project's `.master/` (state + starter docs) and `./CLAUDE.md` — the
+ * only things this harness ever puts in a project. Never overwrites existing
+ * files. `frameworkRoot` is the shared install (for CLAUDE.md.starter's own
+ * ${CLAUDE_PLUGIN_ROOT} references, which get the same copy-time substitution).
+ *
+ * Returns an array of strings describing what was touched (for success summary).
+ */
+function seedMasterFolder(projectRoot, frameworkRoot) {
+  console.log('  Seeding .master/…');
+  const touched = [];
+
+  const stateDir = path.join(projectRoot, '.master', 'state');
+  fs.mkdirSync(stateDir, { recursive: true });
+  const loopPath = path.join(stateDir, 'loop.json');
+  if (!fs.existsSync(loopPath)) {
+    fs.writeFileSync(loopPath, loopStateJson(), 'utf8');
+    touched.push('.master/state/loop.json');
+  }
+  console.log(`  ${green}✓${reset} .master/state/ initialized`);
+
+  const docsDir = path.join(projectRoot, '.master', 'docs');
+  const masterDocsSrc = path.join(PKG_ROOT, 'templates', 'master-docs');
+  const docsN = copyDirContentsIfAbsent(masterDocsSrc, docsDir);
+  if (docsN > 0) touched.push(`.master/docs/ (${docsN} starter docs)`);
+  console.log(`  ${green}✓${reset} .master/docs/ seeded (${docsN} starter docs)`);
+
+  const claudeMdDest = path.join(projectRoot, 'CLAUDE.md');
+  if (!fs.existsSync(claudeMdDest)) {
+    const starterSrc = path.join(PKG_ROOT, 'templates', 'CLAUDE.md.starter');
+    if (fs.existsSync(starterSrc)) {
+      const content = fs.readFileSync(starterSrc, 'utf8');
+      fs.writeFileSync(claudeMdDest, content.split('${CLAUDE_PLUGIN_ROOT}').join(frameworkRoot), 'utf8');
+      touched.push('CLAUDE.md');
+      console.log(`  ${green}✓${reset} CLAUDE.md created`);
+    }
+  } else {
+    console.log(`  ${dim}skip (already exists): CLAUDE.md${reset}`);
+  }
 
   const envExample = path.join(projectRoot, '.env.example');
   const envFile = path.join(projectRoot, '.env');
+  const pkgEnvExample = path.join(PKG_ROOT, '.env.example');
+  if (!fs.existsSync(envExample) && fs.existsSync(pkgEnvExample)) {
+    fs.copyFileSync(pkgEnvExample, envExample);
+    touched.push('.env.example');
+  }
   if (fs.existsSync(envExample) && !fs.existsSync(envFile)) {
     fs.copyFileSync(envExample, envFile);
+    touched.push('.env');
     console.log(`  ${green}✓${reset} created .env from .env.example (fill in your secrets)`);
   }
 
@@ -278,7 +408,7 @@ function seedProject(projectRoot) {
   if (!fs.existsSync(giPath)) fs.writeFileSync(giPath, '', 'utf8');
   let gi = fs.readFileSync(giPath, 'utf8');
   const lines = gi.split(/\r?\n/);
-  const patterns = ['.env', '.env.*', '!.env.example', '.claude/state/', '/tmp/harness_*'];
+  const patterns = ['.env', '.env.*', '!.env.example', '.master/state/'];
   let changed = false;
   for (const pat of patterns) {
     if (!lines.includes(pat)) {
@@ -286,75 +416,48 @@ function seedProject(projectRoot) {
       changed = true;
     }
   }
-  if (changed) fs.writeFileSync(giPath, gi, 'utf8');
-  console.log(`  ${green}✓${reset} .gitignore updated (secrets and local state excluded)`);
-
-  const stateDir = path.join(projectRoot, '.claude', 'state');
-  fs.mkdirSync(stateDir, { recursive: true });
-  const loopPath = path.join(stateDir, 'loop.json');
-  if (!fs.existsSync(loopPath)) {
-    fs.writeFileSync(
-      loopPath,
-      JSON.stringify(
-        {
-          iteration: 0,
-          phase: 'idle',
-          task: null,
-          validate_attempts: 0,
-          max_validate_retries: 3,
-          task_graph: null,
-          task_complexity: null,
-          skills_index: null,
-          skills_assigned: [],
-          skills_skipped: [],
-          fanout: null,
-          iterations_this_run: 0,
-          max_iterations_per_run: 1,
-          build_effort_tier: null,
-          build_effort_score: null,
-          docs_profile: null,
-        },
-        null,
-        2
-      ) + '\n',
-      'utf8'
-    );
+  if (changed) {
+    fs.writeFileSync(giPath, gi, 'utf8');
+    touched.push('.gitignore (updated)');
   }
-  console.log(`  ${green}✓${reset} loop state initialized`);
+  console.log(`  ${green}✓${reset} .gitignore updated (secrets and .master/state/ excluded)`);
   console.log(`  ${green}✓${reset} node ${process.version}`);
+
+  return touched;
 }
 
 /**
- * Global: wire agents + commands into Claude Code user config.
- * Hooks stay project-local (they need $CLAUDE_PROJECT_DIR/scripts).
+ * Idempotent: install/refresh the shared framework (agents, commands, skills,
+ * plus the reference bundle — docs/scripts/hooks/templates) at `configDir`.
+ * Both default and --framework-only call this; default additionally seeds a project's
+ * own `.master/`. This is the ONE place framework files live per install —
+ * never duplicated per project (Decision 007).
+ *
+ * Returns frameworkRoot (the absolute path to the installed framework bundle).
  */
-function installGlobal() {
-  // Prefer --config-dir; otherwise ~/.claude under the user home directory.
-  const configDir = expandTilde(explicitConfigDir) || path.join(os.homedir(), '.claude');
-  const label = configDir.replace(os.homedir(), '~');
-
-  console.log(`  Installing to ${cyan}${label}${reset}\n`);
-
+function ensureFrameworkInstalled(configDir) {
   fs.mkdirSync(configDir, { recursive: true });
+
+  const packDest = path.join(configDir, 'claude-master-setup');
+  const frameworkRoot = path.resolve(packDest);
 
   const agentsSrc = path.join(PKG_ROOT, '.claude', 'agents');
   const agentsDest = path.join(configDir, 'agents');
-  const agentsN = copyDirContents(agentsSrc, agentsDest);
+  const agentsN = copyDirContents(agentsSrc, agentsDest, frameworkRoot);
   console.log(`  ${green}✓${reset} Installed agents/ (${agentsN} agents)`);
 
   const commandsSrc = path.join(PKG_ROOT, '.claude', 'commands');
   const commandsDest = path.join(configDir, 'commands');
-  const commandsN = copyDirContents(commandsSrc, commandsDest);
+  const commandsN = copyDirContents(commandsSrc, commandsDest, frameworkRoot);
   console.log(`  ${green}✓${reset} Installed commands/ (${commandsN} commands)`);
 
   const skillsSrc = path.join(PKG_ROOT, '.claude', 'skills');
   if (fs.existsSync(skillsSrc)) {
     const skillsDest = path.join(configDir, 'skills');
-    const skillsN = copyDirContents(skillsSrc, skillsDest);
+    const skillsN = copyDirContents(skillsSrc, skillsDest, frameworkRoot);
     console.log(`  ${green}✓${reset} Installed skills/ (${skillsN} skills)`);
   }
 
-  const packDest = path.join(configDir, 'claude-master-setup');
   const packBackup = backupIfExists(packDest);
   if (packBackup) {
     console.log(`  ${dim}↳ backed up existing claude-master-setup → ${path.basename(packBackup)}${reset}`);
@@ -366,7 +469,7 @@ function installGlobal() {
     const dest = path.join(packDest, item);
     copyRecursive(src, dest);
   }
-  // Keep a copy of hooks/scripts as reference for adopters
+  // Scripts + hooks are the ACTIVE shared framework now (not passive reference).
   for (const item of ['.claude/hooks', '.claude/context', 'scripts']) {
     const src = path.join(PKG_ROOT, item);
     if (!fs.existsSync(src)) continue;
@@ -377,17 +480,35 @@ function installGlobal() {
   if (fs.existsSync(companionsSrc)) {
     fs.copyFileSync(companionsSrc, path.join(packDest, 'COMPANIONS.md'));
   }
-  console.log(`  ${green}✓${reset} Installed claude-master-setup/ (docs + references)`);
+  // Scripts must be executable wherever they end up.
+  const scriptsDir = path.join(packDest, 'scripts');
+  if (fs.existsSync(scriptsDir)) {
+    for (const f of fs.readdirSync(scriptsDir)) {
+      if (f.endsWith('.sh')) {
+        try {
+          fs.chmodSync(path.join(scriptsDir, f), 0o755);
+        } catch {
+          /* best-effort */
+        }
+      }
+    }
+  }
+  const hookDir = path.join(packDest, 'hooks');
+  if (fs.existsSync(hookDir)) {
+    for (const f of fs.readdirSync(hookDir)) {
+      if (f.endsWith('.sh')) {
+        try {
+          fs.chmodSync(path.join(hookDir, f), 0o755);
+        } catch {
+          /* best-effort */
+        }
+      }
+    }
+  }
+  console.log(`  ${green}✓${reset} Installed claude-master-setup/ (shared framework: docs, scripts, hooks, templates)`);
 
-  mergeCompanionSettings(configDir);
-  installStatusline(configDir);
-  printCompanionNextSteps();
-
-  console.log(`  ${green}Done!${reset} Run ${cyan}claude${reset}, then ${cyan}/status${reset} or ${cyan}/loop${reset}.
-
-  ${dim}Note: validate hooks + scripts/validate.sh are project-local.
-  For a full gate in one repo, also run:${reset} ${cyan}npx claude-master-setup --local${reset}
-`);
+  mergeFrameworkSettings(configDir, frameworkRoot);
+  return frameworkRoot;
 }
 
 /** Recommended Claude Code plugins (Forge-style settings merge into ~/.claude). */
@@ -407,11 +528,110 @@ const COMPANION_PLUGINS = {
   'antigravity-awesome-skills@antigravity-awesome-skills': true,
 };
 
+/** The 5 hooks, wired via $HARNESS_FRAMEWORK_ROOT (mirrors .claude-plugin/plugin.json's ${CLAUDE_PLUGIN_ROOT} form). */
+function harnessHooksBlock() {
+  const h = (name) => `bash "$HARNESS_FRAMEWORK_ROOT/hooks/${name}.sh"`;
+  return {
+    SessionStart: [
+      {
+        matcher: '*',
+        hooks: [{ type: 'command', command: h('session-start') }],
+        description: 'Print loop state and remind to read CLAUDE.md on new session',
+        id: 'harness:session-start',
+      },
+    ],
+    PreToolUse: [
+      {
+        matcher: 'Bash',
+        hooks: [{ type: 'command', command: h('pre-bash-guard') }],
+        description: 'Block dangerous shell commands (rm -rf /, piped installers, secret reads)',
+        id: 'harness:pre-bash-guard',
+      },
+      {
+        matcher: 'Write|Edit|MultiEdit',
+        hooks: [{ type: 'command', command: h('protect-paths') }],
+        description:
+          'BLOCK .env*/lockfiles/CI/control-plane unless HARNESS_ALLOW_PROTECTED_EDITS=1',
+        id: 'harness:protect-paths',
+      },
+    ],
+    PostToolUse: [
+      {
+        matcher: 'Write|Edit|MultiEdit',
+        hooks: [{ type: 'command', command: h('post-edit-track'), async: true, timeout: 15 }],
+        description: 'Record edited source files so the loop knows validation is pending',
+        id: 'harness:post-edit-track',
+      },
+    ],
+    Stop: [
+      {
+        matcher: '*',
+        hooks: [{ type: 'command', command: h('stop-validate-reminder'), async: true, timeout: 10 }],
+        description: 'Remind to run the validation gate if source changed but validate did not run',
+        id: 'harness:stop-validate-reminder',
+      },
+    ],
+  };
+}
+
+
 /**
- * Safely merge companion marketplaces + enabledPlugins into settings.json.
- * Never deletes unrelated keys (permissions, hooks, etc.).
+ * Merge harness hook phases without wiping user hooks.
+ * Replaces only entries whose id starts with "harness:"; keeps all other hooks.
  */
-function mergeCompanionSettings(configDir) {
+function mergeHookPhases(existingHooks, harnessHooks) {
+  const out = { ...(existingHooks || {}) };
+  for (const [phase, harnessEntries] of Object.entries(harnessHooks || {})) {
+    const prev = Array.isArray(out[phase]) ? out[phase] : [];
+    const nonHarness = prev.filter(
+      (e) => !(e && typeof e.id === 'string' && e.id.startsWith('harness:'))
+    );
+    out[phase] = [...nonHarness, ...(harnessEntries || [])];
+  }
+  return out;
+}
+
+/** Permissions from shipped .claude/settings.json — allow/deny for shared scripts + secrets. */
+function harnessPermissionsFromPackage() {
+  const settingsPath = path.join(PKG_ROOT, '.claude', 'settings.json');
+  if (!fs.existsSync(settingsPath)) return null;
+  try {
+    const s = JSON.parse(fs.readFileSync(settingsPath, 'utf8'));
+    return s.permissions || null;
+  } catch {
+    return null;
+  }
+}
+
+function mergePermissions(existing, harness) {
+  if (!harness) return existing || {};
+  const out = { ...(existing || {}) };
+  if (harness.defaultMode && !out.defaultMode) out.defaultMode = harness.defaultMode;
+  for (const key of ['allow', 'ask', 'deny']) {
+    const prev = Array.isArray(out[key]) ? out[key] : [];
+    const add = Array.isArray(harness[key]) ? harness[key] : [];
+    const seen = new Set(prev);
+    const merged = [...prev];
+    for (const p of add) {
+      if (!seen.has(p)) {
+        seen.add(p);
+        merged.push(p);
+      }
+    }
+    out[key] = merged;
+  }
+  return out;
+}
+
+/**
+ * Merge companion marketplaces/plugins, HARNESS_FRAMEWORK_ROOT env var, and
+ * the 5 harness hooks into settings.json. Never deletes unrelated keys.
+ * Note: if the `master` Claude Code plugin is ALSO installed on this machine,
+ * hooks fire twice (Claude Code doesn't dedupe hooks from two sources) — the
+ * npm path and the plugin path are meant to be mutually exclusive per machine
+ * (see docs/DECISIONS.md Decision 007).
+ */
+function mergeFrameworkSettings(configDir, frameworkRoot) {
   const settingsPath = path.join(configDir, 'settings.json');
   let settings = {};
   if (fs.existsSync(settingsPath)) {
@@ -419,7 +639,7 @@ function mergeCompanionSettings(configDir) {
       settings = JSON.parse(fs.readFileSync(settingsPath, 'utf8'));
     } catch (err) {
       console.log(
-        `  ${yellow}!${reset} Could not parse ${settingsPath} — skipping companion settings merge (${err.message})`
+        `  ${yellow}!${reset} Could not parse ${settingsPath} — skipping settings merge (${err.message})`
       );
       return;
     }
@@ -429,13 +649,21 @@ function mergeCompanionSettings(configDir) {
     ...(settings.extraKnownMarketplaces || {}),
     ...COMPANION_MARKETPLACES,
   };
-  settings.enabledPlugins = {
-    ...(settings.enabledPlugins || {}),
-    ...COMPANION_PLUGINS,
+  // Do NOT silently enable companion plugins — only register marketplaces.
+  // User opts in via printed `claude plugin install …` commands.
+  settings.env = {
+    ...(settings.env || {}),
+    HARNESS_FRAMEWORK_ROOT: frameworkRoot,
   };
+  settings.hooks = mergeHookPhases(settings.hooks, harnessHooksBlock());
+  const harnessPerms = harnessPermissionsFromPackage();
+  if (harnessPerms) {
+    settings.permissions = mergePermissions(settings.permissions, harnessPerms);
+  }
 
-  fs.writeFileSync(settingsPath, `${JSON.stringify(settings, null, 2)}\n`, 'utf8');
-  console.log(`  ${green}✓${reset} Updated settings.json (companion marketplaces + plugins)`);
+  fs.writeFileSync(settingsPath, `${JSON.stringify(settings, null, 2)}
+`, 'utf8');
+  console.log(`  ${green}✓${reset} Updated settings.json (framework root, hooks by id, permissions; companions as next steps)`);
 }
 
 function statusLineCommandFor(configDir) {
@@ -443,8 +671,6 @@ function statusLineCommandFor(configDir) {
   if (path.resolve(configDir) === path.resolve(homeClaude)) {
     return 'python3 "$HOME/.claude/statusline.sh"';
   }
-  // Custom --config-dir: use an absolute path so the command works even when
-  // CLAUDE_CONFIG_DIR / XDG paths differ from $HOME/.claude.
   const script = path.join(path.resolve(configDir), 'statusline.sh').replace(/"/g, '\\"');
   return `python3 "${script}"`;
 }
@@ -463,55 +689,16 @@ function isUserStatusLineCommand(cmd, configDir) {
   return cmd.includes(path.resolve(configDir));
 }
 
-function isProjectStatusLineCommand(cmd) {
-  if (!cmd || typeof cmd !== 'string') return false;
-  return cmd.includes('CLAUDE_PROJECT_DIR') && cmd.includes('statusline');
-}
-
 /**
  * Statusline is user-level only (~/.claude/statusline.sh).
- * Project .claude/ must not wire statusLine to $CLAUDE_PROJECT_DIR — that
- * confuses cloud/local clones and nested cwds. Hooks stay project-local.
  *
- * @param {string} configDir  ~/.claude (user) or ignored for project wiring
- * @param {{ projectLevel?: boolean, projectSettingsPath?: string }} [opts]
+ * @param {string} configDir  ~/.claude (user)
  */
-function installStatusline(configDir, opts = {}) {
+function installStatusline(configDir) {
   const src = path.join(PKG_ROOT, '.claude', 'statusline.sh');
   if (!fs.existsSync(src)) return;
 
   const homeClaude = path.join(os.homedir(), '.claude');
-
-  // Project install: strip project statusLine; sync script + wire to ~/.claude only.
-  if (opts.projectLevel) {
-    const projectSettings =
-      opts.projectSettingsPath || path.join(configDir, 'settings.json');
-    if (fs.existsSync(projectSettings)) {
-      try {
-        const settings = JSON.parse(fs.readFileSync(projectSettings, 'utf8'));
-        const cmd = settings.statusLine && settings.statusLine.command;
-        if (settings.statusLine && (isProjectStatusLineCommand(cmd) || cmd)) {
-          delete settings.statusLine;
-          fs.writeFileSync(
-            projectSettings,
-            `${JSON.stringify(settings, null, 2)}\n`,
-            'utf8'
-          );
-          console.log(
-            `  ${green}✓${reset} Removed project statusLine (use ~/.claude only)`
-          );
-        }
-      } catch (err) {
-        console.log(
-          `  ${yellow}!${reset} Could not strip project statusLine (${err.message})`
-        );
-      }
-    }
-    // Always refresh user-level statusline from package.
-    installStatusline(homeClaude, { projectLevel: false });
-    return;
-  }
-
   const dest = path.join(configDir, 'statusline.sh');
   fs.mkdirSync(configDir, { recursive: true });
   fs.copyFileSync(src, dest);
@@ -573,110 +760,93 @@ function printCompanionNextSteps() {
 `);
 }
 
-function finishLocalDone() {
-  console.log(`
-  ${green}Done!${reset} In this project run ${cyan}claude${reset}, then ${cyan}/bootstrap${reset} → ${cyan}/loop${reset}.
-  Verify: ${cyan}scripts/self-check.sh${reset}
-`);
+function printUninstallHint(configDir) {
+  const label = configDir.replace(os.homedir(), '~');
+  console.log(`  ${dim}Uninstall: rm -rf ${label}/claude-master-setup ${label}/agents ${label}/commands${reset}`);
+  console.log(`  ${dim}           and remove the harness blocks from ${label}/settings.json${reset}`);
+  console.log(`  ${dim}In project: delete CLAUDE.md and .master/${reset}`);
 }
 
 /**
- * Local: full project harness under ./.claude + scripts/docs at project root.
+ * Install shared framework only (--framework-only / --global alias).
+ * Does not seed any project.
  */
-function installLocal() {
+function installFrameworkOnly() {
+  const configDir = expandTilde(explicitConfigDir) || path.join(os.homedir(), '.claude');
+  const label = configDir.replace(os.homedir(), '~');
+
+  console.log(`  Installing shared framework to ${cyan}${label}${reset}\n`);
+
+  const frameworkRoot = ensureFrameworkInstalled(configDir);
+  installStatusline(configDir);
+  printCompanionNextSteps();
+
+  console.log(`  ${green}Done!${reset} Shared framework installed at ${cyan}${label}/claude-master-setup/${reset}`);
+  console.log(`  Run ${cyan}claude${reset} in any project, then ${cyan}/bootstrap${reset} (or ${cyan}/master:bootstrap${reset}
+  if installed as a plugin) to seed that project's ${cyan}.master/${reset}, then ${cyan}/loop${reset}.
+`);
+  printUninstallHint(configDir);
+  console.log();
+}
+
+/**
+ * Default install: framework + seed current project's .master/.
+ * Skip seed when run inside the harness source repo itself.
+ * This is what runs for `npx claude-master-setup` (no flags) and --local.
+ */
+function installDefault() {
   const projectRoot = path.resolve(process.cwd());
   const pkgRoot = path.resolve(PKG_ROOT);
-  const claudeDir = path.join(projectRoot, '.claude');
-  const srcClaude = path.join(pkgRoot, '.claude');
-  console.log(`  Installing to ${cyan}./.claude${reset} (this project)\n`);
+  const configDir = expandTilde(explicitConfigDir) || path.join(os.homedir(), '.claude');
+  const configLabel = configDir.replace(os.homedir(), '~');
+  const isSourceRepo = projectRoot === pkgRoot;
 
-  // Running --local inside the harness repo itself: source === dest.
-  if (projectRoot === pkgRoot) {
+  if (!isSourceRepo) {
     console.log(
-      `  ${yellow}You are inside the Claude Master Setup source repo.${reset}\n` +
-        `  ${dim}.claude/ is already the harness — not reinstalling over itself.${reset}\n` +
-        `  ${dim}Use --local from another project, or --global for ~/.claude.${reset}\n`
+      `  Installing shared framework to ${cyan}${configLabel}${reset} and seeding ${cyan}${projectRoot}${reset}\n`
     );
-    if (!fs.existsSync(claudeDir)) {
-      console.error(`  ${yellow}Missing .claude/ in the source repo — restore it from git.${reset}`);
-      process.exitCode = 1;
-      return;
-    }
-    seedProject(projectRoot);
-    finishLocalDone();
-    return;
-  }
-
-  if (!fs.existsSync(srcClaude)) {
-    console.error(`  ${yellow}Package is incomplete: missing .claude/ in ${pkgRoot}${reset}`);
-    process.exitCode = 1;
-    return;
-  }
-
-  // Copy via temp so backupIfExists never deletes our package source.
-  // Statusline is user-level only — do not preserve project statusLine wiring.
-  const tmpClaude = fs.mkdtempSync(path.join(os.tmpdir(), 'cms-claude-'));
-  try {
-    copyRecursive(srcClaude, tmpClaude);
-
-    const claudeBackup = backupIfExists(claudeDir);
-    if (claudeBackup) {
-      console.log(`  ${dim}↳ backed up existing .claude → ${path.basename(claudeBackup)}${reset}`);
-    }
-
-    copyRecursive(tmpClaude, claudeDir);
-    console.log(`  ${green}✓${reset} Installed .claude/ (agents, commands, hooks, skills, settings)`);
-  } finally {
-    fs.rmSync(tmpClaude, { recursive: true, force: true });
-  }
-
-  for (const item of [
-    'scripts',
-    'docs',
-    'CLAUDE.md',
-    'MASTER-PROMPT.md',
-    '.env.example',
-    '.github/workflows',
-  ]) {
-    const src = path.join(PKG_ROOT, item);
-    if (!fs.existsSync(src)) continue;
-    const dest = path.join(projectRoot, item);
-    if (fs.existsSync(dest) && fs.statSync(dest).isDirectory()) {
-      if (item === 'scripts' || item === 'docs' || item === '.github/workflows') {
-        copyRecursive(src, dest);
-        console.log(`  ${green}✓${reset} Updated ${item}/`);
-        continue;
-      }
-    }
-    if (fs.existsSync(dest) && !fs.statSync(dest).isDirectory()) {
-      console.log(`  ${dim}skip (already exists): ${item}${reset}`);
-      continue;
-    }
-    copyRecursive(src, dest);
-    console.log(`  ${green}✓${reset} Installed ${item}`);
-  }
-
-  const giDest = path.join(projectRoot, '.gitignore');
-  if (!fs.existsSync(giDest)) {
-    const giSrc = path.join(PKG_ROOT, 'templates', 'gitignore');
-    if (fs.existsSync(giSrc)) {
-      fs.copyFileSync(giSrc, giDest);
-      console.log(`  ${green}✓${reset} Installed .gitignore`);
-    }
   } else {
-    console.log(`  ${dim}skip (already exists): .gitignore${reset}`);
+    console.log(`  Installing shared framework to ${cyan}${configLabel}${reset}\n`);
+    console.log(
+      `  ${yellow}Note:${reset} Running inside the Claude Master Setup source repo — skipping project seed.\n` +
+        `  ${dim}This repo is the framework source, not a consumer project. Use from another project to seed .master/.${reset}\n`
+    );
   }
 
-  seedProject(projectRoot);
+  const frameworkRoot = ensureFrameworkInstalled(configDir);
+  installStatusline(configDir);
 
-  // Strip any project statusLine; install/fix statusline only under ~/.claude.
-  installStatusline(claudeDir, { projectLevel: true });
+  let touched = [];
+  if (!isSourceRepo) {
+    touched = seedMasterFolder(projectRoot, frameworkRoot);
+  }
 
-  const userClaude = path.join(os.homedir(), '.claude');
-  fs.mkdirSync(userClaude, { recursive: true });
-  mergeCompanionSettings(userClaude);
   printCompanionNextSteps();
-  finishLocalDone();
+
+  // Success summary
+  console.log(`  ${green}✓ Installation complete${reset}\n`);
+  console.log(`  ${yellow}What was installed:${reset}`);
+  console.log(`    ${cyan}Shared framework${reset}  → ${configLabel}/claude-master-setup/ (agents, commands, skills, scripts, hooks)`);
+  if (!isSourceRepo && touched.length > 0) {
+    console.log(`    ${cyan}Project files${reset}     → ${projectRoot}/`);
+    for (const f of touched) {
+      console.log(`      ${green}+${reset} ${f}`);
+    }
+  }
+  console.log();
+  if (!isSourceRepo) {
+    console.log(`  ${yellow}Next steps:${reset}`);
+    console.log(`    ${cyan}claude${reset}           # open Claude Code`);
+    console.log(`    ${cyan}/bootstrap${reset}       # or /master:bootstrap — PRD+PTR → docs + roadmap`);
+    console.log(`    ${cyan}/loop${reset}            # or /master:loop — plan → build → validate → commit`);
+    console.log(`    ${cyan}/status${reset}          # or /master:status — where are we`);
+    console.log(`    ${cyan}/handoff${reset}         # or /master:handoff — before ending a session`);
+  } else {
+    console.log(`  Run ${cyan}claude${reset} in any project, then ${cyan}/bootstrap${reset} (or ${cyan}/master:bootstrap${reset}) to scaffold and foundation that project's ${cyan}.master/${reset}.`);
+  }
+  console.log();
+  printUninstallHint(configDir);
+  console.log();
 }
 
 /** Legacy: scaffold harness into an explicit directory (old npx behavior). */
@@ -688,29 +858,10 @@ function installScaffold(target) {
   const prev = process.cwd();
   process.chdir(dest);
   try {
-    installLocal();
+    installDefault();
   } finally {
     process.chdir(prev);
   }
-}
-
-function promptLocation() {
-  const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
-  const configDir = expandTilde(explicitConfigDir) || path.join(os.homedir(), '.claude');
-  const globalLabel = configDir.replace(os.homedir(), '~');
-
-  console.log(`  ${yellow}Where would you like to install?${reset}
-
-  ${cyan}1${reset}) Global ${dim}(${globalLabel})${reset} - available in all projects
-  ${cyan}2${reset}) Local  ${dim}(./.claude)${reset} - this project only
-`);
-
-  rl.question(`  Choice ${dim}[1]${reset}: `, (answer) => {
-    rl.close();
-    const choice = (answer || '1').trim() || '1';
-    if (choice === '2') installLocal();
-    else installGlobal();
-  });
 }
 
 function main() {
@@ -725,12 +876,12 @@ function main() {
     return;
   }
 
-  if (hasGlobal && hasLocal) {
-    console.error(`  ${yellow}Cannot specify both --global and --local${reset}`);
+  if ((hasGlobal || hasFrameworkOnly) && hasLocal) {
+    console.error(`  ${yellow}Cannot combine --framework-only/--global with --local${reset}`);
     process.exit(1);
   }
   if (explicitConfigDir && hasLocal) {
-    console.error(`  ${yellow}Cannot use --config-dir with --local${reset}`);
+    console.error(`  ${yellow}Cannot use --config-dir with --local (--local always uses the default config dir + this project)${reset}`);
     process.exit(1);
   }
 
@@ -748,12 +899,12 @@ function main() {
   // Harness is useless without Claude Code — stop unless --force.
   requireClaudeCodeOrExit();
 
-  if (hasGlobal) {
-    installGlobal();
-  } else if (hasLocal) {
-    installLocal();
+  if (hasGlobal || hasFrameworkOnly) {
+    // Framework only — do not seed a project
+    installFrameworkOnly();
   } else {
-    promptLocation();
+    // Default and --local: framework + seed current project
+    installDefault();
   }
 }
 

@@ -18,7 +18,7 @@ for a in orchestrator planner architect implementer implementer-opus validator r
 done
 
 # Required commands
-for c in loop plan validate review mcp-add bootstrap handoff status ship evaluate; do
+for c in loop plan validate review mcp-add bootstrap handoff status pause decide evaluate; do
   [ -f ".claude/commands/$c.md" ] && ok "command: /$c" || bad "command missing: /$c"
 done
 
@@ -33,9 +33,37 @@ for s in validate.sh detect-stack.sh install.sh self-check.sh mcp-catalog.json l
 done
 
 # Capability orchestration docs + template + companion skill + AI OS
-for d in docs/CAPABILITY_ORCHESTRATION.md docs/templates/AGENT_TASK.md .claude/skills/capability-orchestrator/SKILL.md docs/AI_OS.md docs/BROWNFIELD.md docs/BUILD_EFFORT.md .github/workflows/harness-ci.yml; do
+for d in docs/CAPABILITY_ORCHESTRATION.md docs/templates/AGENT_TASK.md .claude/skills/capability-orchestrator/SKILL.md docs/AI_OS.md docs/BROWNFIELD.md docs/BUILD_EFFORT.md; do
   [ -f "$d" ] && ok "capability: $d" || bad "capability missing: $d"
 done
+
+# Plugin packaging (.claude-plugin/) is OPTIONAL here: it only lives in this
+# harness's own source repo, never copied by installLocal() into a consumer
+# project (a --local install has no use for plugin/marketplace manifests).
+# Skip silently if absent; validate fully (JSON + version-sync) if present.
+if [ -f ".claude-plugin/plugin.json" ] || [ -f ".claude-plugin/marketplace.json" ]; then
+  if command -v python3 >/dev/null 2>&1; then
+    if python3 - <<'PY'
+import json
+from pathlib import Path
+plugin = json.loads(Path(".claude-plugin/plugin.json").read_text(encoding="utf-8"))
+market = json.loads(Path(".claude-plugin/marketplace.json").read_text(encoding="utf-8"))
+pkg = json.loads(Path("package.json").read_text(encoding="utf-8"))
+assert plugin.get("name") == "master", f"plugin.json name must be 'master', got {plugin.get('name')!r}"
+assert plugin.get("version") == pkg.get("version"), f"plugin.json version {plugin.get('version')!r} != package.json {pkg.get('version')!r}"
+entries = market.get("plugins") or []
+assert entries and entries[0].get("name") == "master", "marketplace.json must list a 'master' plugin"
+assert entries[0].get("version") == pkg.get("version"), f"marketplace.json plugin version {entries[0].get('version')!r} != package.json {pkg.get('version')!r}"
+PY
+    then
+      ok "plugin packaging: .claude-plugin/plugin.json + marketplace.json valid and version-synced"
+    else
+      bad "plugin packaging: .claude-plugin manifests present but invalid or version-drifted from package.json"
+    fi
+  else
+    ok "plugin packaging files present (no python3 to validate JSON/version sync)"
+  fi
+fi
 
 # list-local-skills.sh emits valid JSON
 if bash scripts/list-local-skills.sh >$TMP_ROOT/skills.json 2>/dev/null; then
@@ -161,10 +189,12 @@ for j in .claude/settings.json scripts/mcp-catalog.json; do
     python3 -c "import json,sys; json.load(open('$j'))" 2>/dev/null && ok "valid JSON: $j" || bad "invalid JSON: $j"
   fi
 done
-# .mcp.json is optional but must be valid if present
-if [ -f .mcp.json ] && command -v python3 >/dev/null 2>&1; then
-  python3 -c "import json; json.load(open('.mcp.json'))" 2>/dev/null && ok "valid JSON: .mcp.json" || bad "invalid JSON: .mcp.json"
-fi
+# .mcp.json and .claude-plugin/*.json are optional but must be valid if present
+for j in .mcp.json .claude-plugin/plugin.json .claude-plugin/marketplace.json; do
+  if [ -f "$j" ] && command -v python3 >/dev/null 2>&1; then
+    python3 -c "import json; json.load(open('$j'))" 2>/dev/null && ok "valid JSON: $j" || bad "invalid JSON: $j"
+  fi
+done
 
 # Core docs
 for d in CLAUDE.md docs/LOOP.md docs/AGENTS.md docs/MCP.md docs/SETUP.md; do

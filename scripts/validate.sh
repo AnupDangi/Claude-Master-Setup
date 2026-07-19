@@ -7,7 +7,7 @@
 # HARNESS_* env vars below. Missing steps are skipped, not failed —
 # but a step that exists and fails makes the whole gate RED.
 set -uo pipefail
-cd "$(dirname "$0")/.." || exit 3
+cd "${CLAUDE_PROJECT_DIR:-$PWD}" || exit 3
 
 # shellcheck source=detect-stack.sh
 . "$(dirname "$0")/detect-stack.sh"

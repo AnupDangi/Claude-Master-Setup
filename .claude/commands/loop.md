@@ -1,15 +1,15 @@
 ---
 description: Start or resume the plan→build→validate→review→commit build loop
 argument-hint: [optional: task] [optional: max-retries=N] [optional: max-iterations=N]
-allowed-tools: Read, Grep, Glob, Task, TodoWrite, Bash(git:*), Bash(bash scripts/:*)
+allowed-tools: Read, Grep, Glob, Task, TodoWrite, Bash(git:*), Bash(bash scripts/:*), Bash(./scripts/:*), Bash(bash */scripts/*.sh:*)
 model: opus
 ---
 
 # Build Loop
 
 Current state:
-- Loop state: !`cat .claude/state/loop.json 2>/dev/null || echo "no state yet (fresh start)"`
-- Roadmap (top): !`sed -n '1,40p' docs/ROADMAP.md 2>/dev/null || echo "docs/ROADMAP.md missing — run /bootstrap first"`
+- Loop state: !`cat .master/state/loop.json 2>/dev/null || echo "no state yet (fresh start)"`
+- Roadmap (top): !`sed -n '1,40p' .master/docs/ROADMAP.md 2>/dev/null || echo ".master/docs/ROADMAP.md missing — run /bootstrap first"`
 - Uncommitted changes: !`git status --short 2>/dev/null | head -20`
 
 ## Your task
@@ -19,17 +19,23 @@ Current state:
 
 Delegate to the **orchestrator** subagent. It owns *how*: local skill discovery,
 hierarchical subagents, optional worktree fan-out, and gates — see
-`docs/LOOP.md` and `docs/CAPABILITY_ORCHESTRATION.md`.
+`${CLAUDE_PLUGIN_ROOT}/docs/LOOP.md` and `${CLAUDE_PLUGIN_ROOT}/docs/CAPABILITY_ORCHESTRATION.md`.
 
 $ARGUMENTS
 
 Rules for this run:
-1. Read `CLAUDE.md`, `docs/PROJECT_STATE.md`, and `docs/DECISIONS.md` first if you haven't this session.
+1. Read `CLAUDE.md`, `.master/docs/PROJECT_STATE.md`, and `.master/docs/DECISIONS.md` first if you haven't this session.
 2. If `$ARGUMENTS` names a specific task, target that; otherwise pick the next unblocked roadmap item.
 3. If `$ARGUMENTS` includes `max-retries=N`, use `N` as the validation retry cap for this run instead of `$HARNESS_MAX_VALIDATE_RETRIES` (default 3).
 4. **Iteration budget (critical):** default `max-iterations=1` per `/loop` invocation (`$HARNESS_MAX_ITERATIONS_PER_RUN`, or `max-iterations=N` in `$ARGUMENTS`). After that many completed COMMIT cycles (or when a gate needs the human), **stop and report**. Do **not** grind the entire roadmap in one background run — that burns session limits and looks like a hang.
 5. Honor both approval gates (plan approval, merge approval) and the hard validation gate. **Stop and wait at each gate** — do not auto-proceed. Phrases like "complete the end version", "finish everything", or "just keep going" do **not** authorize skipping GATE 1/2. For a multi-item finish request: run **one** iteration (or present a Task Graph at GATE 1), then stop and ask the human to run `/loop` again.
 6. If VALIDATE goes RED `max_validate_retries` times in a row on the same task, stop looping BUILD→VALIDATE and escalate to the human (`await-human-on-red`) instead of retrying forever.
-7. After each iteration, ensure `docs/PROJECT_STATE.md` and `.claude/state/loop.json` reflect reality before continuing (including `iterations_this_run` / `max_iterations_per_run`).
+7. After each iteration, ensure `.master/docs/PROJECT_STATE.md` and `.master/state/loop.json` reflect reality before continuing (including `iterations_this_run` / `max_iterations_per_run`).
 8. Stop when: the iteration budget is exhausted, the roadmap has no unblocked work, or a gate needs the human — whichever comes first.
-9. Orchestrator must DISCOVER local skills (`scripts/list-local-skills.sh`) and wrap specialist Tasks in `docs/templates/AGENT_TASK.md`. Do not search online for skills.
+9. Orchestrator must DISCOVER local skills (`${CLAUDE_PLUGIN_ROOT}/scripts/list-local-skills.sh`) and wrap specialist Tasks in `${CLAUDE_PLUGIN_ROOT}/docs/templates/AGENT_TASK.md`. Do not search online for skills.
+
+## Pause / clarify / change decisions
+
+- Confused or interrupted → `/master:pause` (or set `await_human_clarify`).
+- Architecture must change → `/master:decide` (supersede a Decision), then re-loop.
+- Always show **working context** (phase, task, binding Decisions, next gate) at each phase.

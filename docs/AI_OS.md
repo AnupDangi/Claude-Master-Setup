@@ -91,7 +91,7 @@ When `PRD.md`/`PTR.md` are missing but a codebase exists (`package.json`,
 1. Run `bash scripts/detect-stack.sh`
 2. Infer conventions from existing tree (read, don't invent)
 3. Generate or draft `PRD.md`/`PTR.md` from observed reality + human confirmation
-4. Architect ADRs for *current* architecture (document, don't rewrite)
+4. Architect Decisions for *current* architecture (document, don't rewrite)
 5. Coarse `docs/ROADMAP.md` for adoption (tests/docs/gates first)
 6. Still **no feature code** in bootstrap
 

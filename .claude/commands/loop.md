@@ -33,3 +33,9 @@ Rules for this run:
 7. After each iteration, ensure `.master/docs/PROJECT_STATE.md` and `.master/state/loop.json` reflect reality before continuing (including `iterations_this_run` / `max_iterations_per_run`).
 8. Stop when: the iteration budget is exhausted, the roadmap has no unblocked work, or a gate needs the human — whichever comes first.
 9. Orchestrator must DISCOVER local skills (`${CLAUDE_PLUGIN_ROOT}/scripts/list-local-skills.sh`) and wrap specialist Tasks in `${CLAUDE_PLUGIN_ROOT}/docs/templates/AGENT_TASK.md`. Do not search online for skills.
+
+## Pause / clarify / change decisions
+
+- Confused or interrupted → `/master:pause` (or set `await_human_clarify`).
+- Architecture must change → `/master:decide` (supersede a Decision), then re-loop.
+- Always show **working context** (phase, task, binding Decisions, next gate) at each phase.

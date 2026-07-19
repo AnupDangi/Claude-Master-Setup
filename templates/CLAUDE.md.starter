@@ -76,7 +76,7 @@ Defined once in the shared framework install. Full reference in `${CLAUDE_PLUGIN
 |---|---|---|
 | `orchestrator` | Runs the loop, delegates, enforces gates | No |
 | `planner` | Roadmap item → step plan + DoD | No |
-| `architect` | Challenges design, writes ADRs | Docs only |
+| `architect` | Challenges design, writes Decisions | Docs only |
 | `implementer` | Writes code **and** tests for one task (Sonnet, default) | Yes |
 | `implementer-opus` | Same job, Opus tier — used instead of `implementer` when `task_complexity` is `large` | Yes |
 | `validator` | Runs the gate, reports GREEN/RED | No |
@@ -88,15 +88,13 @@ Defined once in the shared framework install. Full reference in `${CLAUDE_PLUGIN
 
 ## Slash commands
 
-`/bootstrap` `/loop` `/plan` `/validate` `/review` `/mcp-add` `/handoff`
-`/status` `/ship` `/evaluate` `/init` — documented in
-`${CLAUDE_PLUGIN_ROOT}/docs/SETUP.md`. If this harness was installed as the `master`
-Claude Code plugin, these same commands are namespaced
-automatically as `/master:loop`, `/master:bootstrap`, etc. — see
-"Plugin install" in `${CLAUDE_PLUGIN_ROOT}/docs/SETUP.md` and ADR-005. Brownfield bootstrap:
-`${CLAUDE_PLUGIN_ROOT}/docs/BROWNFIELD.md`. AI OS control plane (events, leases, budget, scorecard):
-`${CLAUDE_PLUGIN_ROOT}/docs/AI_OS.md`. Build-effort dial (fast vs rigorous from PRD/PTR):
-`${CLAUDE_PLUGIN_ROOT}/docs/BUILD_EFFORT.md`.
+**Core:** `/bootstrap` `/loop` `/status` `/pause` `/decide` `/handoff`  
+**Power:** `/plan` `/validate` `/review` `/mcp-add` `/evaluate`
+
+Plugin install namespaces these as `/master:bootstrap`, `/master:loop`, etc.
+Docs: `${CLAUDE_PLUGIN_ROOT}/docs/SETUP.md`. Brownfield:
+`${CLAUDE_PLUGIN_ROOT}/docs/BROWNFIELD.md`. Decisions live in `.master/docs/DECISIONS.md`
+— supersede via `/decide`, never rewrite history silently.
 
 ## MCP tools
 
@@ -152,7 +150,7 @@ scheduler-driven) design in [`${CLAUDE_PLUGIN_ROOT}/docs/MODEL_ROUTING.md`](${CL
 **Never:**
 - Duplicate business logic, or bypass an existing security boundary.
 - Advance the loop past a RED validation gate, or weaken a check to make it pass.
-- Redesign approved architecture without an ADR and approval.
+- Redesign approved architecture without a Decision and approval.
 - Introduce breaking changes silently, or add dependencies without justification.
 - Assume ambiguous requirements — ask.
 - Leave debug prints / `console.log` in committed code.
@@ -171,10 +169,9 @@ scheduler-driven) design in [`${CLAUDE_PLUGIN_ROOT}/docs/MODEL_ROUTING.md`](${CL
 
 1. Start from the repository, not memory of past chats.
 2. Prefer delegating to the specialist subagent for the phase you're in.
-3. Track multi-step work with TodoWrite so it survives compaction.
-4. When you learn something durable (a pattern, a gotcha), promote it into `.master/docs/`
-   or `CLAUDE.md` — don't leave it only in auto-memory.
-5. Stop at gates. Ask when unsure. Small steps, always validated.
+3. Show working context (phase, task, binding Decisions, next gate) each phase.
+4. On ambiguity → `/pause` — do not invent architecture; supersede via `/decide`.
+5. Promote durable learnings into `.master/docs/` or `CLAUDE.md`.
 
 <!-- BOOTSTRAP FILL-IN (architect completes these after /bootstrap) -->
 ## Project mission

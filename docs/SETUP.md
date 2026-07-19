@@ -56,7 +56,7 @@ bash "$HOME/.claude/claude-master-setup/scripts/self-check.sh"
 | `.master/state/` | Loop state, leases, event log | gitignored |
 | `.env.example` | Env var stubs | ✓ commit |
 
-The framework never lands inside your project (ADR-007).
+The framework never lands inside your project (Decision 007).
 
 ## Plugin install (namespaced `/master:*` commands)
 
@@ -67,28 +67,28 @@ claude plugin marketplace add AnupDangi/Claude-Master-Setup
 claude plugin install master@claude-master-setup
 ```
 
-Every command becomes `/master:loop`, `/master:bootstrap`, `/master:init`, etc.
+Every command becomes `/master:loop`, `/master:bootstrap`, `/master:pause`, etc.
 The 11 subagents, `capability-orchestrator` skill, and 5 safety hooks install automatically — nothing to copy.
 
-**Run once per project:**
+**First command in a project:**
 
 ```
-/master:init        # seeds .master/ + CLAUDE.md
+/master:bootstrap   # scaffolds .master/ + CLAUDE.md if needed, then foundation
+/master:loop        # build loop
 ```
 
-Then the same loop flow applies: `/master:bootstrap` → `/master:loop`.
-
-> **Mutually exclusive with npm install:** don't run both on one machine — hooks fire twice (ADR-007). Pick one path per machine.
+> **Mutually exclusive with npm install:** don't run both on one machine — hooks fire twice (Decision 007). Pick one path per machine.
 
 **Local testing note:** `claude plugin marketplace add <local-path>` copies your literal working tree. A real install via `claude plugin marketplace add AnupDangi/Claude-Master-Setup` clones from GitHub — prefer the GitHub form beyond local smoke-testing.
 
 ## Five-minute tour
 
 ```
-/init          # (or /master:init) — seed this project's .master/ + CLAUDE.md (once per project)
-/bootstrap     # PRD.md + PTR.md → architecture, docs, roadmap (no feature code yet)
+/bootstrap     # scaffolds .master if needed + foundation from PRD/PTR (no feature code)
 /loop          # plan → approve → build → validate → review → approve → commit
-/status        # where are we? (loop phase + project state)
+/status        # phase, task, what the agent is doing
+/pause         # stop mid-work when confused or interrupted
+/decide        # supersede an architecture Decision (do not rewrite history)
 /handoff       # write HANDOFF.md + sync state before ending a session
 ```
 
@@ -169,17 +169,17 @@ Bare names when installed via npm; prefixed with `/master:` when using the plugi
 
 | Command | What it does |
 |---|---|
-| `/init` | Seed `.master/` + `CLAUDE.md` (once per project, plugin path) |
-| `/bootstrap` | PRD + PTR → engineering foundation (no code) |
+| `/bootstrap` | Scaffold `.master` if needed + foundation from PRD/PTR (no code) |
 | `/loop` | Run/resume the build loop |
-| `/plan [task]` | Plan a task without building it |
-| `/validate` | Run the validation gate (GREEN/RED) |
-| `/review [paths]` | Review the current diff (quality + security) |
-| `/mcp-add <tool>` | Find an MCP server and add it (with consent) |
+| `/status` | Phase, task, pause/clarify state |
+| `/pause` | Stop mid-work; persist why |
+| `/decide` | Supersede an architecture Decision |
 | `/handoff` | Write HANDOFF.md + sync state before ending session |
-| `/status` | Print loop phase and project state |
-| `/ship` | Final pre-merge GO/NO-GO checklist |
-| `/evaluate` | Objective-metrics scorecard (tests, iterations, doc completeness) |
+| `/plan [task]` | Plan only (power) |
+| `/validate` | Validation gate alone (power) |
+| `/review [paths]` | Review alone (power) |
+| `/mcp-add <tool>` | Add MCP with consent (power) |
+| `/evaluate` | Optional scorecard (advanced) |
 
 ## Scripts
 
@@ -242,7 +242,7 @@ rm -rf CLAUDE.md .master/
 
 - **`validate.sh`/`self-check.sh` not found?** They live in the shared framework (`~/.claude/claude-master-setup/scripts/` or `${CLAUDE_PLUGIN_ROOT}/scripts/` for the plugin path), not your project — agent/command prompts reference them via `$HARNESS_FRAMEWORK_ROOT`/`${CLAUDE_PLUGIN_ROOT}`, not a bare `scripts/` path.
 
-- **`.master/` missing after install?** Run `npx claude-master-setup` from inside your project (npm path) or `/master:init` (plugin path).
+- **`.master/` missing after install?** Run `npx claude-master-setup` from inside your project (npm path) or `/master:bootstrap` (plugin path — scaffolds automatically).
 
 - **Wrong project name in statusline?** Confirm `statusLine` points at `$HOME/.claude/statusline.sh` (not the project tree) and restart Claude Code.
 
@@ -250,7 +250,7 @@ rm -rf CLAUDE.md .master/
 
 - **An agent isn't triggering?** Its description may overlap another's. Make the descriptions distinct, and restart the session to reload edited agent files.
 
-- **Both npm-installed AND plugin-installed on one machine?** Hooks fire twice — pick one install path per machine (ADR-007).
+- **Both npm-installed AND plugin-installed on one machine?** Hooks fire twice — pick one install path per machine (Decision 007).
 
 - **MCP server won't connect?** Validate `.mcp.json` (`python3 -m json.tool .mcp.json`), confirm the env vars are set, and restart Claude Code.
 
@@ -283,4 +283,4 @@ For independent features, use git worktrees — each shares `CLAUDE.md` and `.ma
 In a well-scoped, trusted project, let the orchestrator auto-approve GATE 1 for low-risk tasks. The validation gate stays mandatory; GATE 2 stays manual for anything touching security or data.
 
 **Stage 5 — Bundle & share.**
-Extend or fork this harness and package your fork as a Claude Code plugin (ADR-005) so other repos install it in one step.
+Extend or fork this harness and package your fork as a Claude Code plugin (Decision 005) so other repos install it in one step.

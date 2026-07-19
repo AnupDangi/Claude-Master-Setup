@@ -6,7 +6,7 @@
  * Framework files (agents, commands, skills, scripts, docs, hooks) live once,
  * shared, at the resolved config dir — never duplicated per project.
  * A project only ever gets `.master/` (state + its own docs) + `CLAUDE.md`.
- * See docs/DECISIONS.md ADR-007.
+ * See docs/DECISIONS.md Decision 007.
  *
  * Usage:
  *   npx claude-master-setup                   # install framework + seed current project
@@ -73,7 +73,7 @@ function parseConfigDirArg() {
   }
   const eq = args.find((a) => a.startsWith('--config-dir=') || a.startsWith('-c='));
   if (eq) return eq.split('=')[1];
-  // Honor CLAUDE_CONFIG_DIR environment variable (ADR-007)
+  // Honor CLAUDE_CONFIG_DIR environment variable (Decision 007)
   if (process.env.CLAUDE_CONFIG_DIR) return process.env.CLAUDE_CONFIG_DIR;
   return null;
 }
@@ -217,7 +217,7 @@ function printHelp() {
   ${yellow}Five-minute tour (plugin path):${reset}
     ${cyan}claude plugin marketplace add AnupDangi/Claude-Master-Setup${reset}
     ${cyan}claude plugin install master@claude-master-setup${reset}
-    Then: ${cyan}/master:init${reset} → ${cyan}/master:bootstrap${reset} → ${cyan}/master:loop${reset} → ${cyan}/master:status${reset} → ${cyan}/master:handoff${reset}
+    Then: ${cyan}/master:bootstrap${reset} → ${cyan}/master:loop${reset} → ${cyan}/master:status${reset} → ${cyan}/master:pause${reset} / ${cyan}/master:decide${reset} → ${cyan}/master:handoff${reset}
 
   ${yellow}Uninstall:${reset}
     Remove ${cyan}~/.claude/claude-master-setup/${reset}, ${cyan}~/.claude/agents/</cyan>, ${cyan}~/.claude/commands/${reset}
@@ -318,7 +318,7 @@ function copyDirContentsIfAbsent(srcDir, destDir) {
 
 /**
  * Create fresh loop state (same shape everywhere: bin/cli.js, scripts/install.sh,
- * .claude/commands/init.md — keep all three in sync when the schema changes).
+ * bootstrap scaffold, and scripts/install.sh — keep in sync when the schema changes).
  */
 function loopStateJson() {
   return (
@@ -342,6 +342,8 @@ function loopStateJson() {
         build_effort_tier: null,
         build_effort_score: null,
         docs_profile: null,
+        pause_reason: null,
+        await_clarify_questions: null,
       },
       null,
       2
@@ -429,7 +431,7 @@ function seedMasterFolder(projectRoot, frameworkRoot) {
  * plus the reference bundle — docs/scripts/hooks/templates) at `configDir`.
  * Both default and --framework-only call this; default additionally seeds a project's
  * own `.master/`. This is the ONE place framework files live per install —
- * never duplicated per project (ADR-007).
+ * never duplicated per project (Decision 007).
  *
  * Returns frameworkRoot (the absolute path to the installed framework bundle).
  */
@@ -627,7 +629,7 @@ function mergePermissions(existing, harness) {
  * Note: if the `master` Claude Code plugin is ALSO installed on this machine,
  * hooks fire twice (Claude Code doesn't dedupe hooks from two sources) — the
  * npm path and the plugin path are meant to be mutually exclusive per machine
- * (see docs/DECISIONS.md ADR-007).
+ * (see docs/DECISIONS.md Decision 007).
  */
 function mergeFrameworkSettings(configDir, frameworkRoot) {
   const settingsPath = path.join(configDir, 'settings.json');
@@ -780,7 +782,7 @@ function installFrameworkOnly() {
   printCompanionNextSteps();
 
   console.log(`  ${green}Done!${reset} Shared framework installed at ${cyan}${label}/claude-master-setup/${reset}`);
-  console.log(`  Run ${cyan}claude${reset} in any project, then ${cyan}/init${reset} (or ${cyan}/master:init${reset}
+  console.log(`  Run ${cyan}claude${reset} in any project, then ${cyan}/bootstrap${reset} (or ${cyan}/master:bootstrap${reset}
   if installed as a plugin) to seed that project's ${cyan}.master/${reset}, then ${cyan}/loop${reset}.
 `);
   printUninstallHint(configDir);
@@ -840,7 +842,7 @@ function installDefault() {
     console.log(`    ${cyan}/status${reset}          # or /master:status — where are we`);
     console.log(`    ${cyan}/handoff${reset}         # or /master:handoff — before ending a session`);
   } else {
-    console.log(`  Run ${cyan}claude${reset} in any project, then ${cyan}/init${reset} to seed that project's ${cyan}.master/${reset}.`);
+    console.log(`  Run ${cyan}claude${reset} in any project, then ${cyan}/bootstrap${reset} (or ${cyan}/master:bootstrap${reset}) to scaffold and foundation that project's ${cyan}.master/${reset}.`);
   }
   console.log();
   printUninstallHint(configDir);

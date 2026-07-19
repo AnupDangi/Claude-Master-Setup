@@ -120,7 +120,7 @@ iteration" rule in `CLAUDE.md` applies to building the engine itself.
 ## Capability-driven orchestration (built — Milestone 4)
 
 Separate from the Scheduler target above, the harness now has a **capability
-layer** on top of the existing loop (ADR-003). Full spec:
+layer** on top of the existing loop (Decision 003). Full spec:
 [`CAPABILITY_ORCHESTRATION.md`](CAPABILITY_ORCHESTRATION.md).
 
 What it adds without changing the phase machine:

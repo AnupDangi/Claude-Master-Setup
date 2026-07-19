@@ -5,7 +5,7 @@ description: "Discover local Claude Code skills, assign hierarchical subagents (
 
 # Capability Orchestrator
 
-Apply `${CLAUDE_PLUGIN_ROOT}/docs/CAPABILITY_ORCHESTRATION.md` (ADR-003).
+Apply `${CLAUDE_PLUGIN_ROOT}/docs/CAPABILITY_ORCHESTRATION.md` (Decision 003).
 Commands stay **intent-only**; this skill describes **how** to execute.
 
 ## Quick protocol

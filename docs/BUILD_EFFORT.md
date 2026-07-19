@@ -15,7 +15,7 @@ typical ecommerce, thin API wrapper). Over-scaffolding markdown for those burns
 session budget without improving outcomes.
 
 Other requests are genuinely hard (game-engine clone, train + productionize an
-LLM, multi-tenant platform). Those need the **full harness** — phases, ADRs,
+LLM, multi-tenant platform). Those need the **full harness** — phases, Decisions,
 coarse careful roadmaps — so we do not ship risk under time pressure.
 
 ## Estimator
@@ -46,7 +46,7 @@ score ∈ [0, 100]
 |---|---|---|---|
 | `< 35` | **fast** | `thin` | Outcome-first; less markdown scaffolding |
 | `35–64` | **standard** | `normal` | Default harness |
-| `≥ 65` | **rigorous** | `full` | Full harness; more ADRs; careful phases |
+| `≥ 65` | **rigorous** | `full` | Full harness; more Decisions; careful phases |
 
 ### Example intents
 
@@ -78,7 +78,7 @@ score ∈ [0, 100]
 - Normal docs + 3–6 roadmap items; full AGENT_TASK plans.
 
 ### rigorous
-- Full docs, early architect, ADRs for major decisions, multi-phase roadmap with explicit risks.
+- Full docs, early architect, Decisions for major decisions, multi-phase roadmap with explicit risks.
 - Prefer correctness over speed; expect Task Graphs.
 
 ## Invariants (all tiers — non-negotiable)

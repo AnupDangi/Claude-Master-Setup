@@ -15,7 +15,7 @@ from a tagged/default branch) runs `bin/cli.js`. Both `--global` and `--local`
 call the same idempotent `ensureFrameworkInstalled(configDir)`: copies
 agents/commands/skills into `configDir` (applying `${CLAUDE_PLUGIN_ROOT}` →
 resolved-absolute-path text substitution to every `.md`/`.json` file, mirroring
-FORGE Framework's copy-time path-rewrite mechanism — see ADR-007), and
+FORGE Framework's copy-time path-rewrite mechanism — see Decision 007), and
 populates `configDir/claude-master-setup/` with the active shared framework
 (docs, scripts, hooks, templates). `--local` additionally calls
 `seedMasterFolder()`: creates the current project's `.master/state/` +
@@ -127,7 +127,7 @@ Two ways any of the 11 agents runs:
 |---|---|---|
 | `orchestrator` | `/loop` | Runs the full SELECT→...→COMMIT cycle |
 | `planner` | `/plan <task>` | A plan only — nothing built |
-| `architect` | Auto-pulled in by `orchestrator` for `large`/architecturally significant tasks; or ask explicitly ("have the architect weigh in on X vs Y") | Design challenge + ADR |
+| `architect` | Auto-pulled in by `orchestrator` for `large`/architecturally significant tasks; or ask explicitly ("have the architect weigh in on X vs Y") | Design challenge + Decision |
 | `implementer` | Never directly — only runs inside `/loop`'s BUILD, against an approved plan | Code + tests for the current task |
 | `implementer-opus` | Never directly, same reason — the orchestrator picks it automatically when `task_complexity` is `large`. To get it for a specific task, ask the orchestrator to reclassify that task's complexity, not to switch agents | Same job, Opus tier |
 | `validator` | `/validate` | GREEN/RED right now, outside the loop |
@@ -145,7 +145,7 @@ time so the classification reflects it.
 ## Part 3 — Building with a swarm of agents
 
 Full capability/parallelism protocol:
-[`CAPABILITY_ORCHESTRATION.md`](CAPABILITY_ORCHESTRATION.md) (ADR-003).
+[`CAPABILITY_ORCHESTRATION.md`](CAPABILITY_ORCHESTRATION.md) (Decision 003).
 
 "Swarm" means three different things here — only some are safe.
 

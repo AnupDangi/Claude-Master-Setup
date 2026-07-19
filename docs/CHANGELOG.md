@@ -6,7 +6,19 @@
 ## [Unreleased]
 
 ### Changed
-- **Shared-framework distribution model (ADR-007):** every install path
+- Synced root `CLAUDE.md` + `templates/CLAUDE.md.starter` to Decision 007 + lean command set; scrubbed dead `/init`/`/ship` refs from README, SETUP, CLI, MASTER-PROMPT, ROADMAP.
+- Dropped **ADR** jargon: architecture choices are plain **Decision NNN** entries
+  in `DECISIONS.md` (same meaning as former ADR-001…007 labels).
+- Lean commands: `/master:bootstrap` auto-scaffolds `.master/`; added
+  `/master:pause` and `/master:decide`; **removed** `/ship` and `/init` (no stubs).
+- Agents must show working context each phase and **STOP** on ambiguity
+  (`await_human_clarify`) instead of inventing architecture.
+
+- `MASTER-PROMPT.md` **v4**: Decision 007 bootstrap playbook — writes `.master/docs/` +
+  `CLAUDE.md` only; forbids project-local `.claude` harness scaffold; points at
+  plugin/shared `${CLAUDE_PLUGIN_ROOT}`; `/master:bootstrap` call site updated.
+
+- **Shared-framework distribution model (Decision 007):** every install path
   (`--global`, `--local`, and the `master` plugin) now leaves a project with
   **only** `.master/` (state + its own docs) + `CLAUDE.md` — no `scripts/`,
   `docs/`, or `.claude/` copied per project. The framework itself
@@ -25,7 +37,7 @@
     check this repo's own files, never a consumer project).
   - `.claude-plugin/plugin.json` gained a `hooks` block; `bin/cli.js` gained
     the npm-path equivalent (`$HARNESS_FRAMEWORK_ROOT`-based) — completing
-    ADR-005's deferred "plugin hooks" option now that state lives in
+    Decision 005's deferred "plugin hooks" option now that state lives in
     `.master/state/` instead of per-project `.claude/state/`.
   - `/init` (`/master:init` on the plugin) redesigned: seeds only `.master/` +
     `CLAUDE.md`, no longer copies scripts/docs/hooks.
@@ -40,7 +52,7 @@
   gracefully when absent, validates fully when present.
 
 ### Added
-- **Plugin packaging (ADR-005):** `.claude-plugin/plugin.json` (name `master`)
+- **Plugin packaging (Decision 005):** `.claude-plugin/plugin.json` (name `master`)
   + `.claude-plugin/marketplace.json` (id `claude-master-setup`) ship this
   harness as an installable Claude Code plugin:
   `claude plugin marketplace add AnupDangi/Claude-Master-Setup` then
@@ -56,7 +68,7 @@
   `package.json` — **only when present**; a `--local` file-copy install never
   has `.claude-plugin/`, so the check skips silently there instead of failing.
 
-- **Complexity-aware ceremony dial (ADR-006):** token-efficiency pass inspired
+- **Complexity-aware ceremony dial (Decision 006):** token-efficiency pass inspired
   by a comparison against FORGE Framework, without changing the harness's
   architecture — every gate and the full swarm stay available for real work.
   - `planner` dispatch is now skipped for genuinely `trivial` tasks (a hard
@@ -96,7 +108,7 @@
 ## [0.4.0] — 2026-07-19
 
 ### Added
-- **Build-effort value function (ADR-004):** `scripts/estimate-build-effort.sh` +
+- **Build-effort value function (Decision 004):** `scripts/estimate-build-effort.sh` +
   `docs/BUILD_EFFORT.md` — classifies projects `fast|standard|rigorous` from
   PRD/PTR/intent so generic apps get thin docs / outcome-first building, while
   complex multi-phase work keeps full harness rigor. **VALIDATE + REVIEW +
@@ -113,7 +125,7 @@
 - **`--config-dir` statusline:** custom config dirs now wire `statusLine.command`
   to that directory's `statusline.sh` (no longer hardcodes `$HOME/.claude`).
 - Docs/CI publish hygiene: companion install wording, OPERATIONS/ROADMAP npm
-  pack facts, CI push on `v2-os`, loop diagrams include SECURITY, ADR-004 /
+  pack facts, CI push on `v2-os`, loop diagrams include SECURITY, Decision 004 /
   AI_OS build-effort section dedupe.
 - **Statusline is user-level only:** default install still runs
   `python3 "$HOME/.claude/statusline.sh"`. Project settings no longer wire
@@ -143,7 +155,7 @@
 
 ## [0.3.0] — 2026-07-19
 ### Added
-- **Capability-driven orchestration (ADR-003 / Milestone 4):** local skill
+- **Capability-driven orchestration (Decision 003 / Milestone 4):** local skill
   discovery, hierarchical subagent caps, worktree fan-out, mandatory Task
   template, companion skill.
 - `docs/CAPABILITY_ORCHESTRATION.md`, `docs/templates/AGENT_TASK.md`
@@ -256,7 +268,7 @@
   based on `loop.json.task_complexity` (`large` → opus), never both on the
   same task. Landed at the user's explicit direction rather than gated on
   usage evidence, since that evidence-gathering mechanism (the persistent
-  event log) doesn't exist yet — see `docs/DECISIONS.md` ADR-002. Agent count
+  event log) doesn't exist yet — see `docs/DECISIONS.md` Decision 002. Agent count
   is now 11; propagated across README.md, CLAUDE.md, docs/AGENTS.md,
   docs/SETUP.md, `scripts/self-check.sh`.
 - Worked-example walkthrough in `docs/SETUP.md`: a concrete PRD → `/bootstrap`
@@ -285,10 +297,10 @@
   Scheduler role.
 
 ### Decided
-- ADR-001 (`docs/DECISIONS.md`): roll out the new vision docs-first, land the
+- Decision 001 (`docs/DECISIONS.md`): roll out the new vision docs-first, land the
   retry cap as the one real engine slice this iteration, and defer Scheduler,
   Evaluation runner, Benchmarks, and Marketplace packaging to the roadmap.
-- ADR-002 (`docs/DECISIONS.md`): build dynamic model routing now, on the
+- Decision 002 (`docs/DECISIONS.md`): build dynamic model routing now, on the
   user's explicit direction rather than internally-gathered usage evidence —
   a valid basis for the decision distinct from building ahead of evidence
   with no such input.

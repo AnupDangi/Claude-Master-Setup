@@ -1,13 +1,13 @@
-# Architectural Decisions (ADRs)
+# Architecture decisions
 
 > Append-only. One entry per significant decision. The architect writes these; never
-> silently reverse one — supersede it with a new ADR that references the old.
+> silently reverse one — supersede it with a new Decision that references the old.
 
-## ADR template
+## Decision template
 ```
-## ADR-NNN: <short title>
+## Decision NNN: <short title>
 - Date: YYYY-MM-DD
-- Status: proposed | accepted | superseded by ADR-XXX
+- Status: proposed | accepted | superseded by Decision XXX
 - Context: what forced a decision (constraints, scale, requirements)
 - Options considered: A / B / C — with the key trade-off of each
 - Decision: what we chose
@@ -16,7 +16,7 @@
 
 ---
 
-## ADR-000: Adopt the self-contained loop harness
+## Decision 000: Adopt the self-contained loop harness
 - Date: _(set on bootstrap)_
 - Status: accepted
 - Context: the project needs a repeatable, validated build process that any session
@@ -28,7 +28,7 @@
 - Consequences: fully portable and reviewable; the repo owns its own quality gates;
   in exchange we maintain the harness files ourselves.
 
-## ADR-001: Reposition as an autonomous software engineering harness; roll out docs-first
+## Decision 001: Reposition as an autonomous software engineering harness; roll out docs-first
 - Date: 2026-07-17
 - Status: accepted
 - Context: the project was positioned as "a Claude Code setup" (a personal config
@@ -63,17 +63,17 @@
   fully specified in a local, unimplemented plan before this decision.
 - Consequences: `README.md` and the new `docs/*.md` files can now honestly describe
   both what ships today and where the project is headed, which is a precondition
-  for the Marketplace stage the vision proposes without re-litigating ADR-000 (the
+  for the Marketplace stage the vision proposes without re-litigating Decision 000 (the
   self-contained-by-default decision) — Marketplace stays an optional, deferred
   growth-path stage, not a redesign of the default install. The Scheduler,
   Evaluation runner, Benchmarks, and Templates library remain unbuilt; they are
   tracked in `docs/ROADMAP.md` and must each land as their own validated
   iteration, per this harness's own rules.
 
-## ADR-002: Build dynamic model routing on explicit user direction, not internally-gathered evidence
+## Decision 002: Build dynamic model routing on explicit user direction, not internally-gathered evidence
 - Date: 2026-07-18
 - Status: accepted
-- Context: `docs/MODEL_ROUTING.md` and ADR-001's Milestone 1 item deferred dynamic
+- Context: `docs/MODEL_ROUTING.md` and Decision 001's Milestone 1 item deferred dynamic
   model routing until there was "real evidence static routing is a problem" —
   reasoning that applied to autonomous, unprompted operation, where building ahead
   of evidence risks shipping unproven speculative code. The user then explicitly
@@ -105,7 +105,7 @@
   agent showing the same "most-invoked + complexity-sensitive" shape, absent a
   further explicit direction like this one.
 
-## ADR-003: Capability-driven orchestration via local skills, hierarchical subagents, and worktree fan-out
+## Decision 003: Capability-driven orchestration via local skills, hierarchical subagents, and worktree fan-out
 - Date: 2026-07-19
 - Status: accepted
 - Context: The harness's loop, gates, and specialists were solid, but execution
@@ -135,7 +135,7 @@
   conflict — parent implementer resolves or escalates to human. Scheduler-level
   multi-roadmap ranking remains out of scope (still `LOOP_ENGINE.md` target).
 
-## ADR-004: Build-effort value function (fast vs rigorous harness dial)
+## Decision 004: Build-effort value function (fast vs rigorous harness dial)
 - Date: 2026-07-19
 - Status: accepted
 - Context: Generic, previously-solved software (CLI, todo, typical ecommerce, API
@@ -154,7 +154,7 @@
   work. Heuristic keywords can mis-tier — override and architect challenge fix
   that. Agents must not interpret `fast` as skipping review/security.
 
-## ADR-005: Package as a Claude Code plugin (`master`) for namespaced `/master:*` commands
+## Decision 005: Package as a Claude Code plugin (`master`) for namespaced `/master:*` commands
 - Date: 2026-07-19
 - Status: accepted
 - Context: users wanted `forge-framework`-style namespaced commands
@@ -169,8 +169,8 @@
   `CLAUDE_CONFIG_DIR` sandbox — `claude plugin validate .` passed and the
   cached install correctly contained `.claude/commands` and `.claude/agents`).
   Milestone 3 of `docs/ROADMAP.md` had already anticipated this as deferred,
-  optional packaging work; this ADR pulls that one slice forward on explicit
-  user direction, same pattern as ADR-002.
+  optional packaging work; this Decision pulls that one slice forward on explicit
+  user direction, same pattern as Decision 002.
 - Options considered:
   (A) Package as a plugin (`.claude-plugin/plugin.json` name `master` +
       `.claude-plugin/marketplace.json` id `claude-master-setup`), pointing at
@@ -188,7 +188,7 @@
 - Decision: (A), with a **new `/master:init` command** as the bridge (B) would
   have needed: a plugin-only install gives you `/master:*` commands and
   subagents immediately, but the gated loop (`scripts/validate.sh`, hooks,
-  `docs/` memory) is intentionally project-local (ADR-000's self-contained
+  `docs/` memory) is intentionally project-local (Decision 000's self-contained
   identity), so `/master:init` copies those from the plugin's own bundle
   (`${CLAUDE_PLUGIN_ROOT}`) into the current project on first use — skipping
   any file that already exists — then seeds `.claude/state/loop.json` and runs
@@ -209,8 +209,11 @@
   human action, same as the npm publish step. Extending hooks to the plugin
   layer (option B) stays Backlog if real usage shows the two-step
   install-then-init flow is too much friction.
+- Later update (2026-07-19): `/master:init` was **removed**. Scaffolding moved
+  into `/master:bootstrap` under Decision 007's shared-framework model; there
+  is no separate init or ship command.
 
-## ADR-006: Complexity-aware ceremony dial (skip `planner`, combine `reviewer`+`security`, trim doc churn) for `trivial`/`small` tasks
+## Decision 006: Complexity-aware ceremony dial (skip `planner`, combine `reviewer`+`security`, trim doc churn) for `trivial`/`small` tasks
 - Date: 2026-07-19
 - Status: accepted
 - Context: a comparison against FORGE Framework (a competing Claude Code
@@ -262,7 +265,7 @@
 - Consequences: `loop.json` gains `plan_source` (`inline`/`planner`) and
   `review_dispatch` (`combined`/`separate`) fields, seeded `null` in all three
   places that create fresh state (`bin/cli.js`, `scripts/install.sh`,
-  `.claude/commands/init.md`). `docs/SESSION.md` no longer updates on every
+  `/bootstrap` scaffold). `docs/SESSION.md` no longer updates on every
   COMMIT — only at `/handoff` — which is independently correct regardless of
   tier, not just a `fast`-tier optimization. Bootstrap on `fast` tier now
   creates fewer files, not just thinner ones, for surfaces a project doesn't
@@ -273,12 +276,12 @@
   checklist (or reverting to always dispatching `planner`) is a small,
   contained change, not a redesign.
 
-## ADR-007: Shared-framework distribution model (`.master/`-only project footprint)
+## Decision 007: Shared-framework distribution model (`.master/`-only project footprint)
 - Date: 2026-07-19
-- Status: accepted — supersedes ADR-000's "fully self-contained, no external
+- Status: accepted — supersedes Decision 000's "fully self-contained, no external
   dependency" framing for what an *installed project* looks like
 - Context: every install path (`--global`, `--local`, and the `master` plugin
-  from ADR-005) was duplicating the full framework — `scripts/`, `docs/`,
+  from Decision 005) was duplicating the full framework — `scripts/`, `docs/`,
   `.claude/hooks/`, `CLAUDE.md`, `MASTER-PROMPT.md` — into every consumer
   project. Direct inspection of `SanthoshVishnuRajamanickam/forge-framework`
   (cloned and read in full, not inferred from docs) showed the working
@@ -294,7 +297,7 @@
   real bug this design also fixes in passing: `.github/workflows` (this
   repo's own CI) was leaking into every `--local` install.
 - Options considered:
-  (A) Leave the full per-project copy as-is — matches ADR-000's original
+  (A) Leave the full per-project copy as-is — matches Decision 000's original
       wording literally, but every project keeps duplicating the entire
       framework, contradicts the user's explicit "I don't want its source
       code inside my project" requirement, and doesn't fix the confirmed
@@ -312,7 +315,7 @@
       FORGE's mechanism exactly, confirmed against its real source).
   (C) A per-project private framework cache (e.g. `./.master/framework/`)
       instead of one shared machine-wide location — rejected: recreates the
-      exact duplication problem this ADR exists to remove, just moved one
+      exact duplication problem this Decision exists to remove, just moved one
       level down.
 - Decision: (B). Concretely:
   - **11 scripts** switched their project-root resolution from
@@ -333,7 +336,7 @@
     gained a `hooks` block (`${CLAUDE_PLUGIN_ROOT}`-based) and
     `bin/cli.js`'s `mergeFrameworkSettings` gained an equivalent
     `$HARNESS_FRAMEWORK_ROOT`-based block for the npm paths — completing
-    what ADR-005 explicitly deferred ("option B"), since both reasons for
+    what Decision 005 explicitly deferred ("option B"), since both reasons for
     deferring it (double-firing risk with a `--local` scaffold that also
     copied hooks; hooks needing per-project `.claude/state/`) no longer
     apply once state lives in `.master/state/` and `--local` stops copying
@@ -345,7 +348,7 @@
     `scripts/install.sh` is repositioned as a harness-*development* path
     (forking/extending the harness itself), not a recommended way to start a
     new product — cloning the whole framework repo into your own project is
-    exactly the duplication this ADR removes.
+    exactly the duplication this Decision removes.
   - New assets required and created: `templates/master-docs/*.md` (10
     starter project-doc stubs — 4 reused verbatim from this repo's own
     already-blank templates; 6 newly written) and
@@ -370,3 +373,7 @@
   invocations; broadening them needs its own explicit, scoped decision
   (flagged to the human, not silently widened) rather than folding it into
   this already-large change.
+
+- Later update (2026-07-19): lean command surface — `/bootstrap` scaffolds
+  `.master/`; `/pause` and `/decide` added; `/init` and `/ship` deleted from
+  `.claude/commands/`.

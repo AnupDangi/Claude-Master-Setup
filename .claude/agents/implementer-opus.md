@@ -52,5 +52,5 @@ When the `validator` returns a red gate, you receive the failure report. Fix the
 - **Never bypass security or validation** to save time.
 - **Never introduce a breaking change silently** — flag it.
 - **No `console.log`/debug prints** left in committed code.
-- If the plan turns out to be wrong or infeasible as you build, stop and report back rather than improvising a different design.
+- If the plan turns out to be wrong or infeasible as you build, **STOP**: recommend `phase: await_human_clarify` or `/master:pause`, list what blocked you, and do not invent a different architecture. Use `/master:decide` only when the human asks to change a Decision.
 - Do not expand fan-out beyond the GATE 1–approved map.

@@ -22,13 +22,13 @@ This repo's "product" is the harness itself, so — until someone bootstraps a
 real project on top of it — this roadmap tracks the harness's own evolution
 from a fixed plan→build→validate→review→commit loop toward the Scheduler-driven
 Loop Engine described in [`LOOP_ENGINE.md`](LOOP_ENGINE.md). See
-[`DECISIONS.md`](DECISIONS.md) ADR-001 for why this is being staged instead of
+[`DECISIONS.md`](DECISIONS.md) Decision 001 for why this is being staged instead of
 built in one pass.
 
 ## Milestone 0 — Foundation (done)
 - [x] Self-contained loop harness: 11 agents, 10 commands, validation gate, MCP
       scout + catalog, fail-safe hooks (see `docs/VALIDATION.md`)
-- [x] Validation retry cap + `await-human-on-red` escalation (ADR-001)
+- [x] Validation retry cap + `await-human-on-red` escalation (Decision 001)
 - [x] Vision/engine design docs: `VISION.md`, `LOOP_ENGINE.md`, `STATE_ENGINE.md`,
       `MODEL_ROUTING.md`, `EVALUATION.md`
 - [x] Task graph: `planner` emits an ordered sub-task graph for roadmap items too
@@ -81,14 +81,14 @@ built in one pass.
 ## Milestone 3 — Proof and packaging (partially done)
 - [x] Plugin/marketplace packaging (`.claude-plugin/marketplace.json` +
       `plugin.json`) as an **optional** install path alongside clone-and-run —
-      pulled forward on explicit user direction (ADR-005). Ships as the
+      pulled forward on explicit user direction (Decision 005). Ships as the
       `master` plugin in the `claude-master-setup` marketplace, giving
-      namespaced `/master:*` commands. Does not replace or weaken ADR-000's
-      self-contained default; `/master:init` bridges plugin-only installs into
-      the project-local gated loop. Validated end-to-end (`claude plugin
+      namespaced `/master:*` commands. Does not replace or weaken Decision 000's
+      self-contained default; `/master:bootstrap` scaffolds `.master/` for
+      plugin-only installs (init/ship commands removed). Validated end-to-end (`claude plugin
       validate .`, install into an isolated sandbox config dir) but not yet
       published/announced as a public marketplace source.
-- [x] Shared-framework distribution model (ADR-007): every install path
+- [x] Shared-framework distribution model (Decision 007): every install path
       (`--global`, `--local`, `master` plugin) now leaves a project with only
       `.master/` (state + its own docs) + `CLAUDE.md` — the framework itself
       (agents/commands/skills/scripts/docs/hooks) lives once, shared, never
@@ -104,8 +104,8 @@ built in one pass.
       `/evaluate` scores — only once Milestone 2 is trusted on real projects
 - [ ] Stack-specific template library (`templates/`) for common project types
 
-## Milestone 4 — Capability-driven orchestration (ADR-003)
-- [x] Design lock: ADR-003 + `docs/CAPABILITY_ORCHESTRATION.md` (hierarchy caps,
+## Milestone 4 — Capability-driven orchestration (Decision 003)
+- [x] Design lock: Decision 003 + `docs/CAPABILITY_ORCHESTRATION.md` (hierarchy caps,
       fan-out schema, task template, local-skills-only rule)
 - [x] Local skill discovery: `scripts/list-local-skills.sh` + `loop.json`
       skills/fanout fields + orchestrator DISCOVER step; commands stay intent-only
@@ -124,7 +124,7 @@ built in one pass.
 - [x] Cost/budget stop (`budget-check.sh` + env caps)
 - [x] Multi-session leases (`lease.sh`)
 - [x] Brownfield `/bootstrap` (`docs/BROWNFIELD.md` + command branch)
-- [x] Build-effort value function (`estimate-build-effort.sh`, ADR-004)
+- [x] Build-effort value function (`estimate-build-effort.sh`, Decision 004)
 
 ## Backlog (unordered, not yet scheduled)
 - Language/stack-specific reviewer agents (python-reviewer, react-reviewer) as

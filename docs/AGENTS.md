@@ -13,7 +13,7 @@ session (restart to pick up changes to a file that existed at session start).
 
 | Agent | Model | Tools (scope) | Fires at |
 |---|---|---|---|
-| **orchestrator** | opus | Read, Grep, Glob, Task, TodoWrite, git, scripts | `/loop` — the whole cycle (DISCOVER + caps ≤3) |
+| **orchestrator** | opus | Read, Grep, Glob, Task, TodoWrite, git, scripts | `/loop` — whole cycle; respects `/pause` / clarify stops |
 | **planner** | opus | Read, Grep, Glob, Task (read-only; ≤3 nested) | PLAN phase (skipped for `trivial` — orchestrator plans inline instead), `/plan` |
 | **architect** | opus | Read, Grep, Glob, WebSearch, Write(docs) | Significant design decisions, `/bootstrap` |
 | **implementer** | sonnet | Read/Write/Edit + Task + worktree scripts | BUILD phase, default (≤5 worktree children) |
@@ -39,7 +39,7 @@ session (restart to pick up changes to a file that existed at session start).
   judgment-heavy work (architecture, security, planning, orchestration) on Opus.
 - **Description = trigger.** Each `description` is written as a use-condition
   ("MUST BE USED for…", "Use PROACTIVELY when…") so Claude delegates reliably.
-- **Capability orchestration (ADR-003).** Orchestrator discovers local skills and
+- **Capability orchestration (Decision 003).** Orchestrator discovers local skills and
   wraps every Task in `docs/templates/AGENT_TASK.md`. Hierarchical caps:
   orch ≤3, planner/evaluator ≤3 nested, implementer ≤5 worktree writers. See
   [`CAPABILITY_ORCHESTRATION.md`](CAPABILITY_ORCHESTRATION.md).

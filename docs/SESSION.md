@@ -4,7 +4,7 @@
 > top. Keep entries terse — detail lives in CHANGELOG and PROJECT_STATE.
 
 ## 2026-07-19
-- Did: ADR-004 build-effort dial; user-level statusline; Milestone 5 AI OS;
+- Did: Decision 004 build-effort dial; user-level statusline; Milestone 5 AI OS;
   hardened control plane; MASTER-PROMPT v3; stale-doc audit; npm v0.4 tarball,
   clean-install, local-scaffold, and publish-dry-run tests
 - State: `v2-os` publish-ready; REVIEW+SECURITY mandatory all tiers

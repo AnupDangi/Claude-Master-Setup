@@ -100,3 +100,10 @@ reuse stale assumptions). If what you'd now plan meaningfully deviates from
 that sub-task's originally outlined scope, say so explicitly instead of
 silently re-scoping — that deviation needs its own approval, even though the
 rest of the graph doesn't.
+
+## Stop when confused
+
+If the task is ambiguous or contradicts `.master/docs/DECISIONS.md`, do **not**
+guess. Return a blocked plan: list numbered clarifying questions and recommend
+`phase: await_human_clarify` / `/master:pause`. Never propose a design that
+silently overrides an accepted Decision — recommend `/master:decide` instead.

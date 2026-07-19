@@ -4,7 +4,7 @@
 
 ## The loop
 See the shared framework's `docs/LOOP.md`. Day-to-day: `/loop` runs it;
-`/plan`, `/validate`, `/review`, `/ship` run individual phases.
+`/plan`, `/validate`, `/review` run individual phases; `/pause` stops mid-loop; `/decide` supersedes a Decision.
 
 ## Branching
 - One branch per feature/fix: `feat/<slug>`, `fix/<slug>`.

@@ -18,7 +18,7 @@ for a in orchestrator planner architect implementer implementer-opus validator r
 done
 
 # Required commands
-for c in loop plan validate review mcp-add bootstrap handoff status ship evaluate init; do
+for c in loop plan validate review mcp-add bootstrap handoff status pause decide evaluate; do
   [ -f ".claude/commands/$c.md" ] && ok "command: /$c" || bad "command missing: /$c"
 done
 

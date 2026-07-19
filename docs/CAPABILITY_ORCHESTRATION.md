@@ -9,7 +9,7 @@
 
 | Piece | Status |
 |---|---|
-| Design + ADR-003 (this doc, caps, fan-out schema, task template) | Built |
+| Design + Decision 003 (this doc, caps, fan-out schema, task template) | Built |
 | `scripts/list-local-skills.sh` + `select-skills.sh` | Built |
 | `scripts/worktree-fanout.sh` (path/branch/merge guards) | Built |
 | Orchestrator DISCOVER + hierarchical caps in agent prompts | Built |
@@ -203,7 +203,7 @@ Backlog until a loop-history log exists.
 
 ## Related
 
-- [`DECISIONS.md`](DECISIONS.md) ADR-003
+- [`DECISIONS.md`](DECISIONS.md) Decision 003
 - [`OPERATIONS.md`](OPERATIONS.md) — swarm / worktree safety
 - [`DEVELOPMENT_WORKFLOW.md`](DEVELOPMENT_WORKFLOW.md) — multi-feature worktrees
 - `.claude/skills/capability-orchestrator/` — companion skill

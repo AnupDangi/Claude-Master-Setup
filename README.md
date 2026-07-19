@@ -23,14 +23,15 @@ claude   # start Claude Code in this repo
 Then run:
 
 ```text
-/master:init        # creates .master/ + CLAUDE.md (once)
-/master:bootstrap   # reads PRD/PTR → fills .master/docs + roadmap (no feature code)
+/master:bootstrap   # scaffolds .master if needed + foundation from PRD/PTR (no feature code)
 /master:loop        # one shippable unit: plan → build → validate → review → commit
-/master:status      # where the loop is
+/master:status      # phase, task, what the agent is doing
+/master:pause       # stop mid-work when confused or interrupted
+/master:decide      # supersede an architecture Decision (do not rewrite history)
 /master:handoff     # end of session
 ```
 
-### What your app looks like after `/master:init`
+### What your app looks like after `/master:bootstrap`
 
 ```text
 my-app/
@@ -52,9 +53,9 @@ mkdir -p ~/tmp/demo-harness && cd ~/tmp/demo-harness
 git init
 # Write a short PRD.md and PTR.md describing a tiny Node CLI
 claude
-# → /master:init
-# → /master:bootstrap   (approve the foundation)
+# → /master:bootstrap   (scaffolds + foundation; approve)
 # → /master:loop        (approve plan, then merge)
+# → /master:pause       if stuck; /master:decide if architecture must change
 ```
 
 ## Alternate: npm installer
@@ -85,7 +86,7 @@ claude
 | `.master/state/` | Your repo (gitignored) | Loop machine state |
 | `CLAUDE.md` | Your repo | Stable rules the loop always reads first |
 
-`templates/master-docs/` in **this** GitHub repo are blank stubs copied into `.master/docs/` on init — not a second docs system for your app.
+`templates/master-docs/` in **this** GitHub repo are blank stubs copied into `.master/docs/` when `/master:bootstrap` scaffolds — not a second docs system for your app.
 
 ## Local skills
 
@@ -99,18 +100,30 @@ Top ≤3 relevant skills are injected into Tasks. No web search for skills mid-l
 
 ## Commands
 
+**Core**
+
 | Plugin | npm | Purpose |
 |---|---|---|
-| `/master:init` | `/init` | Seed `.master/` + `CLAUDE.md` |
-| `/master:bootstrap` | `/bootstrap` | Foundation from PRD/PTR (no feature code) |
-| `/master:loop` | `/loop` | One iteration of the build loop |
+| `/master:bootstrap` | `/bootstrap` | Scaffold `.master` if needed + foundation (no feature code) |
+| `/master:loop` | `/loop` | One build-loop iteration |
+| `/master:status` | `/status` | Phase, task, pause/clarify state |
+| `/master:pause` | `/pause` | Stop mid-work; persist why |
+| `/master:decide` | `/decide` | Supersede an architecture Decision |
+| `/master:handoff` | `/handoff` | End-of-session handoff |
+
+**Power tools**
+
+| Plugin | npm | Purpose |
+|---|---|---|
 | `/master:plan` | `/plan` | Plan only |
-| `/master:validate` | `/validate` | Validation gate |
-| `/master:review` | `/review` | Quality + security review |
-| `/master:status` | `/status` | Phase + project state |
-| `/master:handoff` | `/handoff` | Session handoff |
-| `/master:evaluate` | `/evaluate` | Objective scorecard |
+| `/master:validate` | `/validate` | Validation gate alone |
+| `/master:review` | `/review` | Quality + security alone |
 | `/master:mcp-add` | `/mcp-add` | Add MCP server (with consent) |
+| `/master:evaluate` | `/evaluate` | Optional objective scorecard |
+
+**Architecture decisions** live in `.master/docs/DECISIONS.md` as numbered
+**Decision 001, Decision 002, …** — never silently reverse one; use `/master:decide`
+to supersede.
 
 ## Why it exists
 
@@ -130,7 +143,7 @@ Stop anytime; resume with `/master:status` then `/master:loop` — **disk** reme
 
 ## Troubleshooting
 
-- **Missing `.master/`** → run `/master:init` first (before bootstrap).
+- **Missing `.master/`** → run `/master:bootstrap` (scaffolds automatically).
 - **`validate.sh` not found** → lives in the plugin/framework root, not your app.
 - **Permission prompts on scripts** → allow shared `*/scripts/*.sh` once.
 - **Resume after crash** → `/master:status` then `/master:loop`.

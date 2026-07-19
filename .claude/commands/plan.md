@@ -1,7 +1,7 @@
 ---
 description: Plan the next task without building it (planner only)
 argument-hint: [roadmap item or feature to plan]
-allowed-tools: Read, Grep, Glob, Task
+allowed-tools: Read, Grep, Glob, Task, Bash(sed:*)
 model: opus
 ---
 

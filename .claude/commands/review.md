@@ -7,7 +7,7 @@ model: sonnet
 
 # Review
 
-Diff under review: !`git diff --stat 2>/dev/null; git diff --cached --stat 2>/dev/null`
+Diff under review: !`{ git diff --stat 2>/dev/null; git diff --cached --stat 2>/dev/null; } || echo "(no git diff)"`
 
 1. Delegate to the **reviewer** subagent for a quality pass (severity-ranked, grouped by file).
 2. If the change touches auth, input handling, secrets, payments, file uploads, or data access, ALSO delegate to the **security** subagent.

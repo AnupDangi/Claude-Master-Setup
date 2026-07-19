@@ -1,7 +1,7 @@
 ---
 description: Start or resume the plan→build→validate→review→commit build loop
 argument-hint: [optional: task] [optional: max-retries=N] [optional: max-iterations=N]
-allowed-tools: Read, Grep, Glob, Task, TodoWrite, Bash(git:*), Bash(bash scripts/:*), Bash(./scripts/:*), Bash(bash */scripts/*.sh:*)
+allowed-tools: Read, Grep, Glob, Task, TodoWrite, Bash(cat:*), Bash(sed:*), Bash(git status:*), Bash(bash scripts/:*), Bash(./scripts/:*), Bash(bash */scripts/*.sh:*)
 model: opus
 ---
 
@@ -10,7 +10,7 @@ model: opus
 Current state:
 - Loop state: !`cat .master/state/loop.json 2>/dev/null || echo "no state yet (fresh start)"`
 - Roadmap (top): !`sed -n '1,40p' .master/docs/ROADMAP.md 2>/dev/null || echo ".master/docs/ROADMAP.md missing — run /bootstrap first"`
-- Uncommitted changes: !`git status --short 2>/dev/null | head -20`
+- Uncommitted changes: !`git status --short 2>/dev/null | head -20 || echo "(git status unavailable)"`
 
 ## Your task
 

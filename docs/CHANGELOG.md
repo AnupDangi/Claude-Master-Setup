@@ -5,6 +5,9 @@
 
 ## [Unreleased]
 
+### Fixed
+- Fix `/status` (`/master:status`): `git branch --show-current` had no fallback — non-git dirs exit 128 and Claude Code aborts the `!` injection. Added `|| echo` + allowlisted `sed`/`git branch`/`git status`.
+
 ### Changed
 - Synced root `CLAUDE.md` + `templates/CLAUDE.md.starter` to Decision 007 + lean command set; scrubbed dead `/init`/`/ship` refs from README, SETUP, CLI, MASTER-PROMPT, ROADMAP.
 - Dropped **ADR** jargon: architecture choices are plain **Decision NNN** entries

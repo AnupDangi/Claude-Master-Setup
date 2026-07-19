@@ -6,8 +6,8 @@ CFG="$(mktemp -d)"
 trap 'rm -rf "$TMP" "$CFG"' EXIT
 fail() { echo "FAIL: $1"; exit 1; }
 
-mkdir -p "$TMP/app/src" "$TMP/app/tests"
-cd "$TMP/app"
+mkdir -p "$TMP/sample-checkout/src" "$TMP/sample-checkout/tests"
+cd "$TMP/sample-checkout"
 git init -q
 cat > package.json <<'JSON'
 {"name":"sample-checkout","scripts":{"test":"node --test","build":"node -c src/index.js"}}
@@ -26,7 +26,7 @@ echo '${CLAUDE_PLUGIN_ROOT} legacy master command' > "$CFG/commands/plan.md"
 echo 'my custom review command' > "$CFG/commands/review.md"
 echo 'Claude Master Setup legacy agent' > "$CFG/agents/docs-writer.md"
 echo 'name: capability-orchestrator' > "$CFG/skills/capability-orchestrator/SKILL.md"
-echo '# reads .master/state' > "$CFG/statusline.sh"
+echo '# stale placeholder' > "$CFG/statusline.sh"
 printf '%s\n' '{"statusLine":{"type":"command","command":"python3 statusline.sh"}}' > "$CFG/settings.json"
 
 node "$ROOT/bin/cli.js" --force --config-dir "$CFG" >/dev/null
@@ -54,23 +54,37 @@ PACK="$CFG/claude-master-setup"
 for f in scripts/setup-loop.sh scripts/cancel-loop.sh scripts/classify-task.py scripts/write-handoff.py hooks/loop-stop-hook.sh; do
   test -f "$PACK/$f" || fail "shared runtime missing $f"
 done
-for f in COMPANIONS.md statusline.sh scripts/budget-check.sh scripts/loop-event.sh scripts/lease.sh scripts/mcp-catalog.json commands/plan.md agents/docs-writer.md agents/security.md; do
+for f in COMPANIONS.md scripts/budget-check.sh scripts/loop-event.sh scripts/lease.sh scripts/mcp-catalog.json commands/plan.md agents/docs-writer.md agents/security.md; do
   test ! -e "$PACK/$f" || fail "dead runtime shipped: $f"
 done
+
+test -f "$ROOT/.claude/statusline.sh" || fail 'package source missing .claude/statusline.sh'
+test -x "$CFG/statusline.sh" || fail 'statusline.sh not installed to config dir'
+grep -q 'CLAUDE_PROJECT_DIR' "$CFG/statusline.sh" || fail 'installed statusline missing project-root logic'
+! grep -q 'stale placeholder' "$CFG/statusline.sh" || fail 'stale statusline was not replaced'
+
+python3 - "$CFG/settings.json" "$CFG" <<'PY' || fail 'statusLine not wired'
+import json, sys
+from pathlib import Path
+s = json.load(open(sys.argv[1]))
+cmd = (s.get("statusLine") or {}).get("command") or ""
+assert "statusline.sh" in cmd and "python3" in cmd
+assert "CLAUDE_PROJECT_DIR" not in cmd
+assert Path(sys.argv[2], "statusline.sh").is_file()
+assert ("HARNESS_" + "MAX_ITERATIONS_PER_RUN") not in s.get("env", {})
+PY
+
+printf '%s' '{"model":{"display_name":"Test"},"workspace":{"current_dir":"'"$TMP"'/sample-checkout"},"context_window":{"used_percentage":12}}' \
+  | CLAUDE_PROJECT_DIR="$TMP/sample-checkout" python3 "$CFG/statusline.sh" \
+  | grep -q '📁 sample-checkout' \
+  || fail 'statusline did not render project name'
+
 test ! -e "$CFG/commands/plan.md" || fail 'old command survived upgrade'
 grep -q 'my custom review command' "$CFG/commands/review.md" || fail 'user command was overwritten'
 test ! -e "$CFG/agents/docs-writer.md" || fail 'old agent survived upgrade'
 test ! -e "$CFG/skills/capability-orchestrator" || fail 'old skill survived upgrade'
-test ! -e "$CFG/statusline.sh" || fail 'old statusline survived upgrade'
-python3 - "$CFG/settings.json" <<'PY' || fail 'clean settings upgrade'
-import json,sys
-s=json.load(open(sys.argv[1]))
-assert 'statusLine' not in s
-assert 'extraKnownMarketplaces' not in s
-assert ('HARNESS_' + 'MAX_ITERATIONS_PER_RUN') not in s.get('env', {})
-PY
 
-export CLAUDE_PROJECT_DIR="$TMP/app" HOME="$TMP/home"
+export CLAUDE_PROJECT_DIR="$TMP/sample-checkout" HOME="$TMP/home"
 mkdir -p "$HOME"
 bash "$PACK/scripts/setup-loop.sh" 'fix tax rounding' >/dev/null
 python3 - <<'PY' || fail 'installed loop defaults'

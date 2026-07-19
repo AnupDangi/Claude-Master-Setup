@@ -233,7 +233,7 @@ function printHelp() {
     3. ${cyan}~/.claude${reset}              default
 
   ${yellow}What gets installed:${reset}
-    ${dim}Shared framework${reset}   agents/  commands/  claude-master-setup/ (scripts, hooks, docs, templates)
+    ${dim}Shared framework${reset}   agents/  commands/  statusline.sh  claude-master-setup/ (scripts, hooks, docs, templates)
     ${dim}Per-project${reset}        .master/ (state + starter docs, gitignored state)  CLAUDE.md
 
   ${yellow}Five-minute tour (plugin path):${reset}
@@ -718,15 +718,14 @@ function mergeFrameworkSettings(configDir, frameworkRoot) {
     }
   }
 
-  const legacyStatusline = path.join(configDir, 'statusline.sh');
-  if (fs.existsSync(legacyStatusline)) {
-    const source = fs.readFileSync(legacyStatusline, 'utf8');
-    const command = settings.statusLine && settings.statusLine.command;
-    if (source.includes('.master/state') && String(command || '').includes('statusline.sh')) {
-      delete settings.statusLine;
-      fs.rmSync(legacyStatusline, { force: true });
-    }
-  }
+  // Register optional companion marketplaces (user installs plugins explicitly).
+  settings.extraKnownMarketplaces = {
+    ...(settings.extraKnownMarketplaces || {}),
+    thedotmack: { source: { source: 'github', repo: 'thedotmack/claude-mem' } },
+    'antigravity-awesome-skills': {
+      source: { source: 'github', repo: 'sickn33/antigravity-awesome-skills' },
+    },
+  };
 
   settings.env = {
     ...(settings.env || {}),
@@ -737,6 +736,102 @@ function mergeFrameworkSettings(configDir, frameworkRoot) {
   fs.writeFileSync(settingsPath, `${JSON.stringify(settings, null, 2)}
 `, 'utf8');
   console.log(`  ${green}✓${reset} Updated settings.json (framework root, hooks)`);
+}
+
+
+function statusLineCommandFor(configDir) {
+  const homeClaude = path.join(os.homedir(), '.claude');
+  if (path.resolve(configDir) === path.resolve(homeClaude)) {
+    return 'python3 "$HOME/.claude/statusline.sh"';
+  }
+  const script = path.join(path.resolve(configDir), 'statusline.sh').replace(/"/g, '\\"');
+  return `python3 "${script}"`;
+}
+
+function isUserStatusLineCommand(cmd, configDir) {
+  if (!cmd || typeof cmd !== 'string') return false;
+  if (!cmd.includes('python3') || !cmd.includes('statusline.sh')) return false;
+  if (cmd.includes('CLAUDE_PROJECT_DIR')) return false;
+  const homeClaude = path.join(os.homedir(), '.claude');
+  if (path.resolve(configDir) === path.resolve(homeClaude)) {
+    return (
+      cmd.includes('$HOME/.claude/statusline.sh') ||
+      cmd.includes('${HOME}/.claude/statusline.sh')
+    );
+  }
+  return cmd.includes(path.resolve(configDir));
+}
+
+/** Install user-level statusline (~/.claude/statusline.sh) and wire settings.json. */
+function installStatusline(configDir) {
+  const src = path.join(PKG_ROOT, '.claude', 'statusline.sh');
+  if (!fs.existsSync(src)) {
+    console.log(`  ${yellow}!${reset} statusline.sh missing from package — skip`);
+    return;
+  }
+
+  const homeClaude = path.join(os.homedir(), '.claude');
+  const dest = path.join(configDir, 'statusline.sh');
+  fs.mkdirSync(configDir, { recursive: true });
+  fs.copyFileSync(src, dest);
+  try {
+    fs.chmodSync(dest, 0o755);
+  } catch {
+    /* best-effort */
+  }
+  const destLabel =
+    path.resolve(configDir) === path.resolve(homeClaude) ? '~/.claude/statusline.sh' : dest;
+  console.log(`  ${green}✓${reset} Installed ${destLabel}`);
+
+  const settingsPath = path.join(configDir, 'settings.json');
+  let settings = {};
+  if (fs.existsSync(settingsPath)) {
+    try {
+      settings = JSON.parse(fs.readFileSync(settingsPath, 'utf8'));
+    } catch (err) {
+      console.log(
+        `  ${yellow}!${reset} Could not parse ${settingsPath} — skipping statusLine merge (${err.message})`
+      );
+      return;
+    }
+  }
+
+  const desired = statusLineCommandFor(configDir);
+  const existing = settings.statusLine && settings.statusLine.command;
+  if (isUserStatusLineCommand(existing, configDir) && existing === desired) {
+    console.log(`  ${dim}keep: settings.json statusLine → ${desired}${reset}`);
+    return;
+  }
+
+  settings.statusLine = {
+    type: 'command',
+    command: desired,
+  };
+  fs.writeFileSync(settingsPath, `${JSON.stringify(settings, null, 2)}\n`, 'utf8');
+  const label = path.resolve(configDir) === path.resolve(homeClaude) ? '~/.claude' : configDir;
+  if (existing) {
+    console.log(`  ${green}✓${reset} Fixed statusLine → ${cyan}${desired}${reset}`);
+  } else {
+    console.log(`  ${green}✓${reset} Enabled statusLine in ${label}/settings.json`);
+  }
+}
+
+function printCompanionNextSteps() {
+  console.log(`
+  ${yellow}Skill / plugin ecosystem${reset} ${dim}(optional — install what you need)${reset}:
+
+    ${cyan}claude plugin marketplace add thedotmack/claude-mem${reset}
+    ${cyan}claude plugin install claude-mem@thedotmack --scope user${reset}
+
+    ${cyan}claude plugin install superpowers@claude-plugins-official --scope user${reset}
+    ${cyan}claude plugin install code-review@claude-plugins-official --scope user${reset}
+
+    ${cyan}claude plugin marketplace add sickn33/antigravity-awesome-skills${reset}
+    ${cyan}claude plugin install antigravity-awesome-skills@antigravity-awesome-skills --scope user${reset}
+
+  ${dim}Also usable:${reset} Claude Master skills, Matt Pocock / community skills under ~/.claude/skills
+  ${dim}Discovery:${reset} /loop auto-selects ≤3 local skills per task (project > user > plugin).
+`);
 }
 
 function printUninstallHint(configDir) {
@@ -757,6 +852,8 @@ function installFrameworkOnly() {
   console.log(`  Installing shared framework to ${cyan}${label}${reset}\n`);
 
   const frameworkRoot = ensureFrameworkInstalled(configDir);
+  installStatusline(configDir);
+  printCompanionNextSteps();
 
   console.log(`  ${green}Done!${reset} Shared framework installed at ${cyan}${label}/claude-master-setup/${reset}`);
   console.log(`  Run ${cyan}claude${reset} in any project, then ${cyan}/bootstrap${reset} (or ${cyan}/master:bootstrap${reset}
@@ -791,17 +888,19 @@ function installDefault() {
   }
 
   const frameworkRoot = ensureFrameworkInstalled(configDir);
+  installStatusline(configDir);
 
   let touched = [];
   if (!isSourceRepo) {
     touched = seedMasterFolder(projectRoot, frameworkRoot);
   }
 
+  printCompanionNextSteps();
 
   // Success summary
   console.log(`  ${green}✓ Installation complete${reset}\n`);
   console.log(`  ${yellow}What was installed:${reset}`);
-  console.log(`    ${cyan}Shared framework${reset}  → ${configLabel}/claude-master-setup/ (agents, commands, scripts, hooks)`);
+  console.log(`    ${cyan}Shared framework${reset}  → ${configLabel}/claude-master-setup/ (agents, commands, statusline, scripts, hooks)`);
   if (!isSourceRepo && touched.length > 0) {
     console.log(`    ${cyan}Project files${reset}     → ${projectRoot}/`);
     for (const f of touched) {
@@ -812,8 +911,8 @@ function installDefault() {
   if (!isSourceRepo) {
     console.log(`  ${yellow}Next steps:${reset}`);
     console.log(`    ${cyan}claude${reset}           # open Claude Code`);
-    console.log(`    ${cyan}/bootstrap${reset}       # or /master:bootstrap — PRD+PTR → docs + roadmap`);
-    console.log(`    ${cyan}/loop${reset}            # or /master:loop — plan → build → validate → commit`);
+    console.log(`    ${cyan}/bootstrap${reset}       # or /master:bootstrap — understand repo → minimal .master/`);
+    console.log(`    ${cyan}/loop${reset}            # or /master:loop — adaptive build until done or max-iterations`);
     console.log(`    ${cyan}/status${reset}          # or /master:status — where are we`);
     console.log(`    ${cyan}/handoff${reset}         # or /master:handoff — before ending a session`);
   } else {

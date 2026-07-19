@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.6.2 — README architecture + statusline restore
+
+- Restored user-level `~/.claude/statusline.sh` install and settings wiring via `npx`/`bin/cli.js`.
+- Expanded README architecture: full loop, skill ecosystem, shared vs project state.
+- Smoke tests verify statusline is installed and renders the project name.
+
 ## 0.6.1 — CI for adaptive loop
 
 - Rewrote GitHub Actions for the 0.6 surface (removed deleted AI-OS script steps).

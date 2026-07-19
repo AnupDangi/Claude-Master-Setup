@@ -21,6 +21,8 @@ done
 for s in setup-loop.sh cancel-loop.sh detect-stack.sh list-local-skills.sh select-skills.sh validate.sh worktree-fanout.sh classify-task.py write-handoff.py; do
   [ -f "scripts/$s" ] && ok "runtime $s" || bad "missing runtime $s"
 done
+
+[ -f ".claude/statusline.sh" ] && ok "statusline.sh present" || bad "statusline.sh missing"
 for d in README.md CLAUDE.md docs/SETUP.md docs/LOOP.md docs/SECURITY.md docs/CHANGELOG.md; do
   [ -f "$d" ] && ok "$d" || bad "missing $d"
 done

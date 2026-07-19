@@ -20,7 +20,8 @@ claude
 Run `/bootstrap`, then `/loop "task"`.
 
 The npm path installs one shared runtime under the selected Claude config directory
-and seeds the current project. Existing project files are not overwritten.
+(including `statusline.sh` and `settings.json` statusLine wiring) and seeds the current
+project. Existing project files are not overwritten.
 
 ## Consumer files
 

@@ -1,39 +1,123 @@
 # Claude Master Setup
 
-A small Claude Code extension for shipping code through adaptive, validated loops.
-It reads the project first, keeps machine state in JSON, and uses extra agents only
-when the task benefits from them.
+Production-ready, token-efficient Claude Code loops.
 
-## Install
-
-Plugin:
+The extension understands **your repository first**, discovers the best local
+skills automatically, routes work to the right agent(s), validates every
+increment, and continues until completion or `--max-iterations`.
 
 ```bash
+npx claude-master-setup@latest
+# or
 claude plugin marketplace add AnupDangi/Claude-Master-Setup
 claude plugin install master@claude-master-setup
 ```
 
-Or install the shared runtime and seed the current project:
+Then: `/bootstrap` → `/loop "ship the next outcome"`.
 
-```bash
-npx claude-master-setup@latest
+---
+
+## Architecture
+
+```text
+┌──────────────────────────────────────────────────────────────────────┐
+│ Shared framework  (~/.claude)                                        │
+│  agents · commands · statusline.sh · hooks · scripts · templates     │
+│  optional plugins/skills (claude-mem, Antigravity, official, …)      │
+└───────────────────────────────┬──────────────────────────────────────┘
+                                │ discovers / installs once
+┌───────────────────────────────▼──────────────────────────────────────┐
+│ Per project                                                          │
+│  CLAUDE.md              project mission, stack, conventions          │
+│  .master/project.json   maturity, validate_cmd, stack facts          │
+│  .master/state/         loop.json · handoff.json · memory-pending    │
+│  .master/docs/          optional short roadmap / generated docs      │
+└──────────────────────────────────────────────────────────────────────┘
 ```
 
-Then open Claude Code in the project and run `/master:bootstrap` once (or
-`/bootstrap` with the npm install).
+Framework knowledge stays in `~/.claude`. Project memory stays in the repo.
+The loop reads JSON state — not a documentation dump — every iteration.
+
+---
+
+## Build loop
+
+Continues until the completion signal is true **and** validation is GREEN, or
+until `max-iterations` (default **2**).
+
+```mermaid
+flowchart LR
+  B[Bootstrap] --> S[Auto Skill Discovery]
+  S --> P[Plan]
+  P --> A[Parallel Subagents]
+  A --> Build[Build]
+  Build --> V[Validate]
+  V -->|RED| Build
+  V -->|GREEN| R[Review]
+  R --> D[Docs]
+  D --> H[Handoff]
+  H --> N{Done or max?}
+  N -->|continue| S
+  N -->|stop| X[Resumable state]
+```
+
+| Phase | What happens |
+|---|---|
+| **Bootstrap** | Read README / manifests / source / tests. Write minimal `CLAUDE.md` + `.master/`. |
+| **Auto Skill Discovery** | Rank local skills (project → user → plugin). Inject ≤3 relevant paths. |
+| **Plan** | Direct for simple work; planner/task graph only when complexity needs it. |
+| **Parallel Subagents** | Independent slices run in isolated worktrees (≤3 writers, file ownership). |
+| **Build** | Implementers write code + tests for owned slices only. |
+| **Validate** | `validate.sh` / project `validate_cmd`. Exit 0 = GREEN; anything else = RED. |
+| **Review** | Combined quality + security pass for important / sensitive changes. |
+| **Docs** | Only when evidence needs it — no empty doc suites. |
+| **Handoff** | `.master/state/handoff.json` for the next session / agent. |
+| **Next iteration** | Stop hook re-feeds a compact continuation until done or max. |
+
+Adaptive orchestration: **simple → direct (zero subagents)** · **medium → one
+implementer** · **complex → planner + parallel worktrees**.
+
+---
+
+## Skill & plugin ecosystem
+
+`/loop` auto-discovers whatever is already installed locally. Install only what
+you need:
+
+| Source | Role |
+|---|---|
+| **Claude Master Skills** | Loop runtime skills shipped / selected with this package |
+| **claude-mem** | Durable observations after push or meaningful complex solutions |
+| **Antigravity Skills** | Large curated skill library (`sickn33/antigravity-awesome-skills`) |
+| **Official Claude Plugins** | e.g. `superpowers`, `code-review` from `claude-plugins-official` |
+| **Matt Pocock Skills** | TypeScript / production patterns under `~/.claude/skills` |
+| **User / Community Skills** | Anything in project `.claude/skills` or `~/.claude/skills` |
+
+```bash
+claude plugin marketplace add thedotmack/claude-mem
+claude plugin install claude-mem@thedotmack --scope user
+
+claude plugin install superpowers@claude-plugins-official --scope user
+claude plugin install code-review@claude-plugins-official --scope user
+
+claude plugin marketplace add sickn33/antigravity-awesome-skills
+claude plugin install antigravity-awesome-skills@antigravity-awesome-skills --scope user
+```
+
+---
 
 ## Commands
 
-- `/bootstrap` — inspect the repository and create minimal project context
-- `/loop "task"` — implement and validate; default maximum is 2 iterations
-- `/cancel` — stop the active loop
-- `/status` — show compact JSON-backed status
-- `/pause` — preserve a blocker for another session
-- `/handoff` — refresh and summarize cross-session state
+| Command | Purpose |
+|---|---|
+| `/bootstrap` | One-time: understand the repo, minimal project memory |
+| `/loop "task"` | Adaptive loop until done or `--max-iterations` (default 2) |
+| `/cancel` | Stop the active loop |
+| `/status` | Compact JSON-backed status |
+| `/pause` | Persist a blocker for another session |
+| `/handoff` | Refresh structured handoff (+ optional claude-mem bridge) |
 
-Plugin commands are namespaced as `/master:*`.
-
-## Loop examples
+Plugin namespace: `/master:*`.
 
 ```text
 /master:loop "fix checkout tax rounding"
@@ -41,28 +125,57 @@ Plugin commands are namespaced as `/master:*`.
 /master:loop "finish migration" --completion-promise "migration is verified"
 ```
 
-Routing is adaptive:
+---
 
-- simple work runs directly with no subagent;
-- medium work delegates one bounded implementation slice;
-- complex work gets a dependency graph and at most three independent worktree
-  writers with explicit file ownership.
+## Install / update
 
-Completion requires the signal to be true and validation to be GREEN. Reaching the
-iteration limit stops safely with resumable state; it does not pretend the task is done.
+**npm (recommended for shared runtime + statusline):**
 
-## Project footprint
+```bash
+cd your-project
+npx claude-master-setup@latest
+```
 
-The installer creates only project-specific `CLAUDE.md`, `.master/project.json`,
-`.master/state/loop.json`, and a short optional roadmap. Runtime handoff files stay
-under `.master/state/`. It does not create `.env`, `.github`, agent, command, or
-framework documentation folders in the project.
+Installs to `~/.claude/`:
 
-## Update
+- `agents/`, `commands/`
+- `statusline.sh` + `settings.json` `statusLine` wiring
+- `claude-master-setup/` (scripts, hooks, templates, docs)
 
-npm users rerun `npx claude-master-setup@latest`. Plugin users update the
-`claude-master-setup` marketplace and the `master` plugin; plugins are not assumed
-to auto-update immediately.
+Seeds the project with `CLAUDE.md`, `.master/project.json`, idle `loop.json`,
+optional roadmap. Never copies `.env` or `.github` into the project.
 
-See [setup](docs/SETUP.md), [loop behavior](docs/LOOP.md), and
-[security](docs/SECURITY.md).
+**Plugin:**
+
+```bash
+claude plugin marketplace add AnupDangi/Claude-Master-Setup
+claude plugin install master@claude-master-setup
+# later:
+claude plugin marketplace update claude-master-setup
+claude plugin update master@claude-master-setup
+```
+
+Prefer **one** path (npm **or** plugin) so hooks do not double-fire.
+
+Verify statusline after install:
+
+```bash
+test -x "$HOME/.claude/statusline.sh" && echo "statusline OK"
+python3 - <<'PY'
+import json, os
+from pathlib import Path
+settings = json.loads(Path.home().joinpath(".claude/settings.json").read_text())
+print(settings.get("statusLine"))
+PY
+```
+
+---
+
+## Why this shape
+
+- **Parallel by default when safe** — file-disjoint worktrees, not serial agent chains.
+- **Token-efficient** — JSON state + ≤3 skills; no harness manuals in `CLAUDE.md`.
+- **Production-ready** — binary validation gate, protected paths, resumable handoffs.
+- **Extensible** — drop skills into `~/.claude/skills` or project `.claude/skills`; the loop picks them up.
+
+See [setup](docs/SETUP.md), [loop](docs/LOOP.md), and [security](docs/SECURITY.md).

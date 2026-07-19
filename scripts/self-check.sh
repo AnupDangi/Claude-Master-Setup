@@ -88,14 +88,41 @@ cd "$SELF_ROOT" || exit 1
 bash scripts/worktree-fanout.sh --help 2>&1 | grep -q 'create|status|merge|cleanup' && ok "fanout help" || bad "fanout help"
 if printf '%s\n' '{"slices":[{"id":"../x","branch":"fanout/a","files":["a.ts"]}]}' > "$TMP_ROOT/bad.json" && ! bash scripts/worktree-fanout.sh status "$TMP_ROOT/bad.json" >/dev/null 2>&1; then ok "fanout rejects unsafe id"; else bad "fanout unsafe id"; fi
 
-if command -v rg >/dev/null 2>&1; then
-  for pattern in 'HARNESS_MAX_' 'loop.local.md' '/go'; do
-    if rg -n "$pattern" --glob '!docs/CHANGELOG.md' --glob '!scripts/self-check.sh' . >/dev/null 2>&1; then bad "stale reference: $pattern"; else ok "no stale $pattern"; fi
-  done
-else
-  bad "ripgrep required for stale-reference checks"
-fi
-
+python3 - <<'PY' >/dev/null 2>&1 && ok "no stale HARNESS_MAX_/loop.local.md/go refs" || bad "stale HARNESS_MAX_/loop.local.md/go refs"
+import re
+from pathlib import Path
+patterns = [
+    re.compile(r"HARNESS_MAX_"),
+    re.compile(r"loop\.local\.md"),
+    re.compile(r"(^|[^A-Za-z0-9_/])/go\b"),
+]
+skip_names = {"CHANGELOG.md", "self-check.sh", "test-ship-install.sh"}
+skip_dirs = {".git", "node_modules", "test-harness"}
+allowed_suffixes = {".md", ".js", ".json", ".sh", ".py", ".yml", ".yaml"}
+hits = []
+for path in Path(".").rglob("*"):
+    if not path.is_file():
+        continue
+    if any(part in skip_dirs for part in path.parts):
+        continue
+    if any(part == "worktrees" and "claude" in str(path) for part in path.parts):
+        # ignore nested worktree copies if present
+        if ".claude" in path.parts and "worktrees" in path.parts:
+            continue
+    if path.name in skip_names:
+        continue
+    if path.suffix.lower() not in allowed_suffixes:
+        continue
+    try:
+        text = path.read_text(encoding="utf-8", errors="ignore")
+    except OSError:
+        continue
+    for pat in patterns:
+        if pat.search(text):
+            hits.append(f"{path}:{pat.pattern}")
+            break
+raise SystemExit(1 if hits else 0)
+PY
 if [ "${MASTER_SELF_CHECK_SKIP_VALIDATE:-0}" = 1 ]; then
   ok "full validation skipped inside npm test"
 else

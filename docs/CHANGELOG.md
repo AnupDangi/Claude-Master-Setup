@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.6.1 — CI for adaptive loop
+
+- Rewrote GitHub Actions for the 0.6 surface (removed deleted AI-OS script steps).
+- Made self-check stale-reference scanning portable (no ripgrep dependency on CI).
+
 ## 0.6.0 — Adaptive loop cleanup
 
 - Replaced Markdown loop state with structured JSON and a default two-iteration cap.

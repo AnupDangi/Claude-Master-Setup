@@ -1,20 +1,24 @@
-name: Harness CI
+name: Master CI
 
 on:
   push:
-    branches: [main, master, v2-os]
+    branches: [main, master]
   pull_request:
   workflow_dispatch:
 
 jobs:
   self-check:
-    name: Self-check + guards
+    name: Adaptive loop checks
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
       - name: Make scripts executable
-        run: chmod +x scripts/*.sh .claude/hooks/*.sh
+        run: chmod +x scripts/*.sh scripts/*.py .claude/hooks/*.sh || true
 
       - name: Self-check
         run: bash scripts/self-check.sh
@@ -24,27 +28,28 @@ jobs:
           npm test
           npm pack --dry-run
 
-      - name: Loop event log smoke
+      - name: Loop setup / cancel / classify smoke
         run: |
-          bash scripts/loop-event.sh select '{"task":"ci-smoke"}'
-          bash scripts/loop-event.sh summary | tee /tmp/summary.json
-          python3 -c "import json; d=json.load(open('/tmp/summary.json')); assert d['total']>=1"
-
-      - name: Budget check smoke
-        run: bash scripts/budget-check.sh
-
-      - name: Build-effort estimator smoke
-        run: |
-          bash scripts/estimate-build-effort.sh /dev/null /dev/null "simple todo cli" | tee /tmp/effort-fast.json
-          python3 -c "import json; d=json.load(open('/tmp/effort-fast.json')); assert d['tier'] in ('fast','standard')"
-          bash scripts/estimate-build-effort.sh /dev/null /dev/null "gta vice city game clone train llm productionize" | tee /tmp/effort-hard.json
-          python3 -c "import json; d=json.load(open('/tmp/effort-hard.json')); assert d['tier']=='rigorous'"
-
-      - name: Lease acquire/release smoke
-        run: |
-          bash scripts/lease.sh acquire "ci smoke task" ci-runner
-          bash scripts/lease.sh status "ci smoke task"
-          bash scripts/lease.sh release "ci smoke task" ci-runner
+          export CLAUDE_PROJECT_DIR="$(mktemp -d)"
+          mkdir -p "$CLAUDE_PROJECT_DIR"
+          bash scripts/setup-loop.sh "fix typo" | tee /tmp/setup.out
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          state = json.loads(Path(os.environ["CLAUDE_PROJECT_DIR"], ".master/state/loop.json").read_text())
+          assert state["max_iterations"] == 2
+          assert state["execution_mode"] == "direct"
+          assert state["active"] is True
+          PY
+          bash scripts/cancel-loop.sh
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          state = json.loads(Path(os.environ["CLAUDE_PROJECT_DIR"], ".master/state/loop.json").read_text())
+          assert state["status"] == "cancelled"
+          assert state["active"] is False
+          PY
+          python3 scripts/classify-task.py "implement authentication feature" | python3 -c 'import json,sys; assert json.load(sys.stdin)["execution_mode"]=="delegated"'
 
       - name: Worktree fan-out rejects bad manifest
         run: |
@@ -55,14 +60,14 @@ jobs:
           fi
 
       - name: Select-skills JSON
-        run: bash scripts/select-skills.sh "capability orchestration" 2 | python3 -c "import json,sys; json.load(sys.stdin)"
+        run: bash scripts/select-skills.sh "validation tests" 2 | python3 -c "import json,sys; data=json.load(sys.stdin); assert isinstance(data, list) and len(data)<=2"
 
       - name: Protect-paths blocks .env
         run: |
           echo '{"file_path":"/tmp/proj/.env"}' | HARNESS_ALLOW_PROTECTED_EDITS=0 bash .claude/hooks/protect-paths.sh && exit 1 || true
           echo '{"file_path":"/tmp/proj/.env"}' | HARNESS_ALLOW_PROTECTED_EDITS=1 bash .claude/hooks/protect-paths.sh
 
-      - name: Validate.sh reports a gate (expected RED on harness template)
+      - name: Validate.sh reports a gate
         run: |
           set +e
           bash scripts/validate.sh | tee /tmp/validate.log

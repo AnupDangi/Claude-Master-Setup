@@ -14,6 +14,8 @@ The loop's state lives entirely in one file, `.claude/state/loop.json`
   "validate_attempts": 0,
   "max_validate_retries": 3,
   "task_complexity": null,
+  "plan_source": null,
+  "review_dispatch": null,
   "task_graph": null,
   "skills_index": null,
   "skills_assigned": [],
@@ -42,6 +44,16 @@ with one escape hatch — `await-human-on-red` — reached from `validate` when
 `trivial | small | medium | large` classification the orchestrator sets once at
 the start of PLAN — see `docs/LOOP_ENGINE.md` for why this is a classification,
 not the token/cost estimate the target design calls for.
+
+`plan_source` ∈ `null | inline | planner` — `inline` only when `task_complexity`
+was `trivial` and the orchestrator self-planned instead of dispatching
+`planner` (see `docs/LOOP.md` §PLAN's trivial-eligibility checklist); `planner`
+otherwise. Set at PLAN, cleared at next SELECT.
+
+`review_dispatch` ∈ `null | combined | separate` — `combined` when REVIEW ran
+as one `security` Task applying `reviewer.md`'s checklist too (`trivial`/
+`small`); `separate` for the normal two-Task `reviewer` + `security` dispatch
+(`medium`/`large`). Set at REVIEW, cleared at next SELECT.
 
 `task_graph` (usually `null`) holds the case where `planner` split one roadmap
 item into an ordered set of sub-tasks — `{ root, subtasks: [{ id, title,

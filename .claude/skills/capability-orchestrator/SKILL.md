@@ -13,12 +13,15 @@ Commands stay **intent-only**; this skill describes **how** to execute.
 1. **DISCOVER** — `bash scripts/list-local-skills.sh` (project / user / plugin only).
 2. **Select ≤3 skills** per Task; inject paths into `docs/templates/AGENT_TASK.md`.
 3. **PLAN** — planner may spawn ≤3 read-only research Tasks; emit optional `fanout`.
+   Skipped for `trivial` tasks — orchestrator plans inline instead (docs/LOOP.md §PLAN).
 4. **GATE 1** — human approves plan + fan-out map.
 5. **BUILD** — single writer, or parent implementer + ≤5 worktree children via
    `scripts/worktree-fanout.sh` when slices are file-disjoint.
 6. **VALIDATE** once on the merged tree (hard gate).
-7. **REVIEW** — reviewer + security always run in parallel (security may use a
-   light pass for pure-docs changes).
+7. **REVIEW** — reviewer + security always run, always in full; dispatch is
+   two parallel Tasks for medium/large, or one combined `security` dispatch
+   (applying reviewer.md's checklist too) for trivial/small (security may use
+   a light pass for pure-docs changes either way).
 8. **GATE 2 → COMMIT → docs**.
 
 ## Caps

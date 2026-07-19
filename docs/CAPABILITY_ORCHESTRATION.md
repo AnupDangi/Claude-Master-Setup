@@ -23,7 +23,8 @@
 Command (intent only)
   → Understand intent
   → Discover local skills (filesystem index)
-  → PLAN (planner may spawn ≤3 research subagents)
+  → PLAN (planner may spawn ≤3 research subagents; skipped in favor of an
+    orchestrator inline plan when task_complexity is trivial — docs/LOOP.md §PLAN)
   → GATE 1 (approve plan + optional worktree fan-out map)
   → BUILD
        implementer parent divides into ≤5 file-disjoint slices
@@ -32,7 +33,9 @@ Command (intent only)
        → each child uses assigned local skills
        → parent merges into integration branch
   → VALIDATE (once on merged tree — hard gate)
-  → REVIEW (reviewer + security in parallel under orch cap)
+  → REVIEW (reviewer + security in parallel for medium/large; one combined
+    security dispatch applying reviewer.md's checklist too for trivial/small
+    — docs/LOOP.md §REVIEW)
   → GATE 2
   → COMMIT + docs-writer
   → update state / LOOP

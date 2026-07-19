@@ -150,6 +150,10 @@ the exact phase contract and `docs/AGENTS.md` for what each subagent does.
 
 ## Command reference
 
+Installed via `--global`/`--local`, these are bare (`/loop`); installed as the
+`master` plugin (see [Plugin install](#plugin-install-namespaced-master-commands)
+above), they're namespaced (`/master:loop`).
+
 | Command | What it does |
 |---|---|
 | `/bootstrap` | PRD + PTR → engineering foundation (no code) |
@@ -162,6 +166,7 @@ the exact phase contract and `docs/AGENTS.md` for what each subagent does.
 | `/status` | Print the loop phase and project state |
 | `/ship` | Final pre-merge GO/NO-GO checklist |
 | `/evaluate` | Objective-metrics scorecard (tests, iterations, doc completeness) |
+| `/init` | Plugin-only: scaffold `scripts/`/`docs/`/hooks into this project once |
 
 ## Scripts
 
@@ -181,6 +186,51 @@ steps are skipped; a step that exists and fails makes the gate RED. To customize
 edit the `step` lines in `scripts/validate.sh` — e.g. point `test` at your exact
 command, or add an integration-test stage. For a docs-only repo, set
 `HARNESS_ALLOW_NO_STACK=1`.
+
+## Plugin install (namespaced `/master:*` commands)
+
+Claude Code only namespaces commands/skills that ship **inside an installed
+plugin** — a `.claude/commands/<subdir>/` doesn't create a namespace (that's
+documented but non-functional upstream). This repo ships `.claude-plugin/plugin.json`
+(name `master`) + `.claude-plugin/marketplace.json` (marketplace id
+`claude-master-setup`) so it can be installed as a real plugin:
+
+```bash
+claude plugin marketplace add AnupDangi/Claude-Master-Setup
+claude plugin install master@claude-master-setup
+```
+
+Every command in `.claude/commands/` becomes `/master:loop`, `/master:bootstrap`,
+`/master:plan`, `/master:validate`, `/master:review`, `/master:mcp-add`,
+`/master:handoff`, `/master:status`, `/master:ship`, `/master:evaluate`,
+`/master:init` — Claude Code prefixes plugin-shipped commands with the plugin's
+`name` automatically. The 11 subagents and the `capability-orchestrator` skill
+install the same way, no renaming needed.
+
+**What the plugin install does *not* give you automatically:** the actual
+gated loop needs project-local files — `scripts/validate.sh` (the hard gate),
+`docs/` (project memory), and `.claude/hooks/*.sh` + `.claude/settings.json`
+(the safety guards: `pre-bash-guard`, `protect-paths`, etc.). Those are
+intentionally per-project, not global (ADR-000's self-contained identity), and
+v1 of the plugin does not ship them as plugin-level hooks. Run **`/master:init`**
+once per project after installing the plugin: it copies `scripts/`, `docs/`,
+`.claude/hooks/`, `CLAUDE.md`, `MASTER-PROMPT.md`, and `.env.example` from the
+plugin's own bundle (`${CLAUDE_PLUGIN_ROOT}`) into the current project —
+skipping anything that already exists — then seeds `.claude/state/loop.json`
+and runs `scripts/self-check.sh`. After that, `/master:bootstrap` →
+`/master:loop` work exactly like the file-copy install. See ADR-005 in
+[`DECISIONS.md`](DECISIONS.md) for the full design and its stated limitations.
+
+This is **additive**, not a replacement: `npx claude-master-setup --global`/
+`--local` still install the same files with bare command names (`/loop`,
+`/bootstrap`, …) and remain the default, no-marketplace-required path.
+
+**Testing note:** `claude plugin marketplace add <local-path>` uses a
+`directory` source that copies your literal working tree, including untracked
+and gitignored files (`.env`, `.claude/state/`). A real install via
+`claude plugin marketplace add AnupDangi/Claude-Master-Setup` clones from
+GitHub instead, so only committed, non-gitignored files are ever included —
+prefer the GitHub form for anything beyond local smoke-testing.
 
 ## Installation scope: project, user, or session
 

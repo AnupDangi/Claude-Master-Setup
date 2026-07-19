@@ -78,14 +78,20 @@ built in one pass.
       (`last_scorecard.json`; tests/docs/manual-intervention bias). Full
       value/risk Scheduler ranking remains backlog.
 
-## Milestone 3 — Proof and packaging (deferred)
+## Milestone 3 — Proof and packaging (partially done)
+- [x] Plugin/marketplace packaging (`.claude-plugin/marketplace.json` +
+      `plugin.json`) as an **optional** install path alongside clone-and-run —
+      pulled forward on explicit user direction (ADR-005). Ships as the
+      `master` plugin in the `claude-master-setup` marketplace, giving
+      namespaced `/master:*` commands. Does not replace or weaken ADR-000's
+      self-contained default; `/master:init` bridges plugin-only installs into
+      the project-local gated loop. Validated end-to-end (`claude plugin
+      validate .`, install into an isolated sandbox config dir) but not yet
+      published/announced as a public marketplace source.
 - [ ] Benchmark suite: run the harness end-to-end against reference projects
       (e.g. a small Linear-style tracker, a CRM) and record comparable
       `/evaluate` scores — only once Milestone 2 is trusted on real projects
 - [ ] Stack-specific template library (`templates/`) for common project types
-- [ ] Plugin/marketplace packaging (`.claude-plugin/marketplace.json` +
-      `plugin.json`) as an **optional** install path alongside clone-and-run —
-      does not replace or weaken ADR-000's self-contained default
 
 ## Milestone 4 — Capability-driven orchestration (ADR-003)
 - [x] Design lock: ADR-003 + `docs/CAPABILITY_ORCHESTRATION.md` (hierarchy caps,

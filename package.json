@@ -11,6 +11,7 @@
     "prepack": "bash scripts/self-check.sh && node --check bin/cli.js"
   },
   "files": [
+    ".claude-plugin",
     ".claude/agents",
     ".claude/commands",
     ".claude/context",

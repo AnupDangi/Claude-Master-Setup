@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-marketplace.json",
+  "name": "claude-master-setup",
+  "owner": { "name": "Anup Dangi" },
+  "description": "Marketplace for the Claude Master Setup harness — namespaced /master:* commands, 11 subagents, and the plan/build/validate/review/commit loop.",
+  "plugins": [
+    {
+      "name": "master",
+      "source": "./",
+      "description": "Autonomous engineering harness: plan, build, validate, review, and commit in a repeatable loop with 11 specialist subagents and hard quality gates.",
+      "version": "0.4.0",
+      "category": "development"
+    }
+  ]
+}

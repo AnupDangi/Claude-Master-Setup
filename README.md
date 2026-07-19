@@ -157,6 +157,30 @@ plugin install, then `/learn-codebase` once per repo (claude-mem) before `/loop`
 
 Scanner notes: [`docs/NPM_SECURITY.md`](docs/NPM_SECURITY.md).
 
+### Plugin install (namespaced `/master:*` commands)
+
+Prefer commands namespaced under one prefix instead of bare `/loop`, `/bootstrap`,
+etc.? Install this repo as a Claude Code **plugin** instead:
+
+```bash
+claude plugin marketplace add AnupDangi/Claude-Master-Setup
+claude plugin install master@claude-master-setup
+```
+
+Every command becomes `/master:loop`, `/master:bootstrap`, `/master:plan`, …
+automatically — Claude Code namespaces plugin-shipped commands by the plugin's
+name. The 11 subagents and `capability-orchestrator` skill install the same way.
+Then run **`/master:init`** once per project: it copies `scripts/`, `docs/`, and
+the safety hooks from the plugin's own bundle into the current project (the
+gated loop — `validate.sh`, hooks — is intentionally project-local, not global),
+then `/master:bootstrap` → `/master:loop` as usual. See
+[`docs/SETUP.md`](docs/SETUP.md#plugin-install) and ADR-005 in
+[`docs/DECISIONS.md`](docs/DECISIONS.md) for the full design and trade-offs.
+
+This is **additive** — the `npx --global`/`--local` file-copy installs below
+still give you bare `/loop` etc. and remain the default, self-contained,
+no-marketplace-required path (ADR-000).
+
 Other install paths (same harness files):
 
 ```bash
@@ -212,12 +236,17 @@ Complexity dial: [`docs/BUILD_EFFORT.md`](docs/BUILD_EFFORT.md)
 - **`/evaluate`** — objective scorecard (tests, loop-event iterations, docs
   completeness, manual interventions from event log) → SELECT bias.
   [`docs/EVALUATION.md`](docs/EVALUATION.md)
+- **Plugin packaging** — `.claude-plugin/plugin.json` + `marketplace.json` ship
+  this harness as the `master` Claude Code plugin, giving namespaced
+  `/master:*` commands as an additive install path alongside `--global`/
+  `--local` (ADR-005). `/master:init` bridges plugin-only installs into the
+  project-local gated loop.
 
 **Still backlog** ([`docs/ROADMAP.md`](docs/ROADMAP.md)):
 
 - Full Scheduler (value/risk ranking across many items)
 - Subjective evaluation metrics
-- Benchmark suite / plugin marketplace packaging (Milestone 3)
+- Benchmark suite / stack-specific template library (Milestone 3)
 
 ## The build loop
 

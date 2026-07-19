@@ -29,3 +29,9 @@ Group findings by file. Within each file, order by severity: **Critical → High
 - Suggest fixes; don't just point. But do not apply them — you are read-only.
 - Critical and High findings are gate-relevant: the orchestrator will loop them back to the implementer. Be precise so that fix is fast.
 - Don't re-review unchanged code unless the diff breaks an assumption it relied on.
+- **Combined dispatch.** For a `trivial`/`small` REVIEW, the orchestrator may
+  dispatch `security` alone and have it apply this checklist as a second
+  section instead of dispatching you separately (see `docs/LOOP.md` §REVIEW).
+  This file stays the single source of truth for that checklist either way —
+  it is never paraphrased elsewhere. For `medium`/`large` tasks you still run
+  as your own dispatch, unchanged.

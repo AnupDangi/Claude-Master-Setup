@@ -304,6 +304,8 @@ function seedProject(projectRoot) {
           max_validate_retries: 3,
           task_graph: null,
           task_complexity: null,
+          plan_source: null,
+          review_dispatch: null,
           skills_index: null,
           skills_assigned: [],
           skills_skipped: [],
@@ -636,13 +638,15 @@ function installLocal() {
     'CLAUDE.md',
     'MASTER-PROMPT.md',
     '.env.example',
-    '.github/workflows',
   ]) {
+    // Note: .github/workflows is deliberately NOT copied here — harness-ci.yml
+    // is meta-CI for maintaining claude-master-setup itself, never appropriate
+    // to inject into a consumer's project.
     const src = path.join(PKG_ROOT, item);
     if (!fs.existsSync(src)) continue;
     const dest = path.join(projectRoot, item);
     if (fs.existsSync(dest) && fs.statSync(dest).isDirectory()) {
-      if (item === 'scripts' || item === 'docs' || item === '.github/workflows') {
+      if (item === 'scripts' || item === 'docs') {
         copyRecursive(src, dest);
         console.log(`  ${green}✓${reset} Updated ${item}/`);
         continue;

@@ -5,6 +5,60 @@
 
 ## [Unreleased]
 
+### Added
+- **Plugin packaging (ADR-005):** `.claude-plugin/plugin.json` (name `master`)
+  + `.claude-plugin/marketplace.json` (id `claude-master-setup`) ship this
+  harness as an installable Claude Code plugin:
+  `claude plugin marketplace add AnupDangi/Claude-Master-Setup` then
+  `claude plugin install master@claude-master-setup` gives namespaced
+  `/master:loop`, `/master:bootstrap`, etc. and all 11 subagents, additive
+  alongside the existing `--global`/`--local` file-copy installers.
+- New `/master:init` command (`.claude/commands/init.md`): one-time,
+  additive scaffold of `scripts/`, `docs/`, hooks, and state from the
+  plugin's own bundle into a project that only has the plugin installed —
+  bridges plugin-only installs into the project-local gated loop.
+- `scripts/self-check.sh` now validates `.claude-plugin/plugin.json` and
+  `marketplace.json` exist, parse, and stay version-synced with
+  `package.json` — **only when present**; a `--local` file-copy install never
+  has `.claude-plugin/`, so the check skips silently there instead of failing.
+
+- **Complexity-aware ceremony dial (ADR-006):** token-efficiency pass inspired
+  by a comparison against FORGE Framework, without changing the harness's
+  architecture — every gate and the full swarm stay available for real work.
+  - `planner` dispatch is now skipped for genuinely `trivial` tasks (a hard
+    5-condition eligibility checklist in `docs/LOOP.md` §PLAN); the
+    orchestrator plans inline instead, producing the identical Output
+    Contract, and still stops at GATE 1 — an escape hatch resets to a real
+    `planner` + fresh GATE 1 if BUILD reveals it wasn't actually trivial.
+  - `reviewer`+`security` REVIEW combines into **one** Task for
+    `trivial`/`small` diffs, running as the `security` persona (opus) which
+    also applies `reviewer.md`'s checklist as a second **Quality Findings**
+    section — preserves the higher-stakes model tier for security while
+    halving dispatch count. `medium`/`large` keep both dispatches separate,
+    unchanged.
+  - `docs/SESSION.md` moves from "every COMMIT" to "`/handoff`-only" —
+    independently correct regardless of tier, since it's a session log, not a
+    commit log.
+  - `fast`-tier bootstrap now **skips creating** surface docs
+    (`API.md`/`DATABASE.md`/`DEPLOYMENT.md`/`OBSERVABILITY.md`) entirely when
+    the PRD/PTR describe no such surface, instead of creating them thin.
+  - `loop.json` gains `plan_source` and `review_dispatch` fields (seeded
+    `null` in `bin/cli.js`, `scripts/install.sh`, and `.claude/commands/init.md`).
+  - None of the five hard invariants (VALIDATE, REVIEW, SECURITY, GATE 1,
+    GATE 2) change — only dispatch shape and doc-file count become
+    complexity-aware.
+
+### Fixed
+- **`.github/workflows` no longer leaks into consumer projects.**
+  `npx claude-master-setup --local` was unconditionally copying this repo's
+  own `harness-ci.yml` (meta-CI for maintaining the harness itself) into
+  every installed project's `.github/workflows/` — never appropriate there.
+  `bin/cli.js`'s `installLocal()` no longer copies it; `scripts/install.sh`
+  (git-clone path) never had this bug. `scripts/self-check.sh` no longer
+  requires `.github/workflows/harness-ci.yml` as a generic "capability" (it's
+  specific to this repo's own CI, not something every installed project
+  needs) — confirmed via a fresh scratch-dir smoke test.
+
 ## [0.4.0] — 2026-07-19
 
 ### Added

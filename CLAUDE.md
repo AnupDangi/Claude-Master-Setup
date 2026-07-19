@@ -88,10 +88,14 @@ Defined in `.claude/agents/`. Full reference in `docs/AGENTS.md`.
 ## Slash commands
 
 `/bootstrap` `/loop` `/plan` `/validate` `/review` `/mcp-add` `/handoff`
-`/status` `/ship` `/evaluate` — defined in `.claude/commands/`, documented in
-`docs/SETUP.md`. Brownfield bootstrap: `docs/BROWNFIELD.md`. AI OS control
-plane (events, leases, budget, scorecard): `docs/AI_OS.md`. Build-effort dial
-(fast vs rigorous from PRD/PTR): `docs/BUILD_EFFORT.md`.
+`/status` `/ship` `/evaluate` `/init` — defined in `.claude/commands/`,
+documented in `docs/SETUP.md`. If this harness was installed as the `master`
+Claude Code plugin (`.claude-plugin/`), these same commands are namespaced
+automatically as `/master:loop`, `/master:bootstrap`, etc. — see
+"Plugin install" in `docs/SETUP.md` and ADR-005. Brownfield bootstrap:
+`docs/BROWNFIELD.md`. AI OS control plane (events, leases, budget, scorecard):
+`docs/AI_OS.md`. Build-effort dial (fast vs rigorous from PRD/PTR):
+`docs/BUILD_EFFORT.md`.
 
 ## MCP tools
 

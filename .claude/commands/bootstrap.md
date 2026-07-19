@@ -19,7 +19,7 @@ arg 3). Read `docs/BUILD_EFFORT.md`. Persist tier into `.claude/state/`.
 
 | Tier | Bootstrap docs | After bootstrap |
 |---|---|---|
-| **fast** | Thin — CLAUDE.md + short outcome ROADMAP (2–4) + thin ARCHITECTURE | Focus on user outcomes; less markdown scaffolding |
+| **fast** | Thin — CLAUDE.md + short outcome ROADMAP (2–4) + thin ARCHITECTURE; **skip creating** any surface doc (`API.md`/`DATABASE.md`/`DEPLOYMENT.md`/`OBSERVABILITY.md`) whose surface the PRD/PTR don't actually describe — don't create a thin stub just to fill the tree | Focus on user outcomes; less markdown scaffolding |
 | **standard** | Normal docs set; ROADMAP 3–6 | Normal loop |
 | **rigorous** | Full docs + ADRs; careful multi-phase ROADMAP | Full harness rigor |
 
@@ -47,7 +47,12 @@ PRD/PTR are missing or thin. Follow [`docs/BROWNFIELD.md`](../../docs/BROWNFIELD
 
 Delegate to the **architect** subagent for architecture review / technology
 validation (and effort-tier confirmation), then generate CLAUDE.md sections and
-docs **matching `docs_profile`**.
+docs **matching `docs_profile`**. On `docs_profile: thin`, this means *creating
+fewer files*, not just shorter ones: skip a surface doc entirely (`API.md`,
+`DATABASE.md`, `DEPLOYMENT.md`, `OBSERVABILITY.md`) when the project has no
+such surface, per `docs/BUILD_EFFORT.md`'s fast-tier bullet. Core docs
+(`ARCHITECTURE.md`, `ROADMAP.md`, `PROJECT_STATE.md`, `DECISIONS.md`,
+`CODING_STANDARDS.md`, `TESTING.md`, `SECURITY.md`) are always created.
 
 **Roadmap sizing:** Prefer few shippable **outcomes**. Fast: 2–4. Standard: 3–6.
 Rigorous: phased milestones with explicit risks. Never 15+ micro-tasks.

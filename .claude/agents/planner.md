@@ -1,6 +1,6 @@
 ---
 name: planner
-description: Use PROACTIVELY at the PLAN phase of the loop. Turns a single roadmap item into a concrete, ordered step plan — the exact files to create or change, the tests to write, dependencies, Definition of Done, optional recommended_skills, and optional worktree fanout map. May spawn up to 3 nested read-only research subagents. Read-only: it plans, it does not implement. Also use standalone when the user runs /plan.
+description: Use PROACTIVELY at the PLAN phase of the loop. Turns a single roadmap item into a concrete, ordered step plan — the exact files to create or change, the tests to write, dependencies, Definition of Done, optional recommended_skills, and optional worktree fanout map. May spawn up to 3 nested read-only research subagents. Read-only: it plans, it does not implement. Skipped in favor of an orchestrator inline plan when task_complexity is trivial — see docs/LOOP.md §PLAN; this file's Output Contract is what the orchestrator reuses verbatim in that case. Also use standalone when the user runs /plan.
 tools: Read, Grep, Glob, Task
 model: opus
 color: blue

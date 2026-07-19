@@ -55,13 +55,27 @@ Read `docs/LOOP.md` for the authoritative spec. In short, each iteration is:
 0. **BUDGET** — `bash scripts/budget-check.sh`; on exit 3 stop (`budget_stop` event).
 1. **SELECT** — Run `bash scripts/loop-event.sh select ...` when a task is chosen. First check `.claude/state/loop.json` for a `task_graph` with pending sub-tasks; if present, continue it (go straight to PLAN for the next sub-task, no fresh GATE 1). Otherwise read `docs/ROADMAP.md`, `docs/PROJECT_STATE.md`, and optionally `.claude/state/last_scorecard.json` for bias. Scan top-to-bottom: skip `[x]`/`[!]`/unsatisfied `(depends: ...)`. Prefer scorecard-biased unblocked items when applicable. Acquire lease: `bash scripts/lease.sh acquire "<task>"`.
 2. **DISCOVER** — Run `bash scripts/list-local-skills.sh`. Store result in `loop.json.skills_index`. Build a shortlist with `bash scripts/select-skills.sh "<task>"` (≤3).
-3. **PLAN** — Classify `trivial|small|medium|large` → `task_complexity`. Architect first if large. Delegate to `planner` with AGENT_TASK + skills. Emit `plan` event. May return Task Graph / fanout / recommended_skills.
+3. **PLAN** — Classify `trivial|small|medium|large` → `task_complexity` using the
+   trivial-eligibility checklist in `docs/LOOP.md` §PLAN. Architect first if
+   large. **If `trivial` and all five checklist conditions hold:** skip the
+   `planner` Task and plan inline yourself, producing the identical Output
+   Contract defined in `.claude/agents/planner.md` (`fanout` always `null`).
+   Otherwise delegate to `planner` with AGENT_TASK + skills as before. Emit
+   `plan` event; record `plan_source` (`inline` or `planner`). May return Task
+   Graph / fanout / recommended_skills (never for an inline plan).
 4. **GATE 1 — approval.** Stop and wait. On yes → `gate1_approve`; on no → `gate1_reject` and stop.
-5. **BUILD** — Budget check again. Lease heartbeat. Delegate to `implementer` or `implementer-opus` (`large`). Emit `build` event. Parent owns worktree fan-out merge if approved.
+5. **BUILD** — Budget check again. Lease heartbeat. Delegate to `implementer` or `implementer-opus` (`large`). Emit `build` event. Parent owns worktree fan-out merge if approved. **Inline-plan escape hatch:** if `implementer` reports scope beyond the five trivial conditions (more than one file, an undecided design choice, a new dependency), STOP BUILD, reset `task_complexity`/`plan_source`, discard the inline plan, and return to PLAN for a real `planner` dispatch and a fresh GATE 1.
 6. **VALIDATE** — Hard gate via `validator` / `validate.sh`. GREEN → `validate_green`, reset attempts. RED → `validate_red`, increment attempts, BUILD again until GREEN or `await_human_on_red` (+ event) at max retries.
-7. **REVIEW** — Always run `reviewer` **and** `security` (in parallel). On `fast`
-   tier, security may be a light pass for pure-docs diffs; full OWASP when
-   auth/data/network/payments/uploads. Emit `review`.
+7. **REVIEW** — Review and security both always run; only dispatch shape varies:
+   - `trivial`/`small`: **one** Task to `security`, instructed to also `Read`
+     `.claude/agents/reviewer.md` and apply its checklist/output format as a
+     second **Quality Findings** section. One Task against the ≤3 cap.
+   - `medium`/`large`: `reviewer` **and** `security` as two separate parallel
+     Tasks, unchanged.
+   On `fast` build-effort tier, security depth may still be a light pass for
+   pure-docs diffs; full OWASP when auth/data/network/payments/uploads —
+   applies identically either way. Emit `review`; record `review_dispatch`
+   (`combined` or `separate`).
 8. **GATE 2 — approval.** Stop and wait. `gate2_approve` / `gate2_reject`.
 9. **COMMIT** — Atomic commit; fan-out cleanup; docs-writer (**terse** on `fast`
    tier); emit `commit`; `lease.sh release`; increment `iterations_this_run`; clear fanout/skills as appropriate.

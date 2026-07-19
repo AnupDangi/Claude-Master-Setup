@@ -50,10 +50,11 @@ Parents soft-check sections before spawn.
 
 ```
 Orchestrator (≤3 top-level)
-  ├─ Planner → ≤3 research children (read-only)
+  ├─ Planner → ≤3 research children (read-only); skipped for trivial tasks
   ├─ Implementer parent → ≤5 worktree writer children
   ├─ Validator (usually alone)
-  ├─ Reviewer + Security (always, parallel)
+  ├─ Reviewer + Security — parallel for medium/large; one combined Security
+  │    dispatch (applies Reviewer's checklist too) for trivial/small
   └─ Docs-writer
 
 Evaluator (standalone /evaluate) → ≤3 collectors (read-only)

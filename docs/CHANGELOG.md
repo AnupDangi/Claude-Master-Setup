@@ -105,6 +105,15 @@
   specific to this repo's own CI, not something every installed project
   needs) — confirmed via a fresh scratch-dir smoke test.
 
+## [0.4.1] — 2026-07-19
+
+### Changed
+- Lean npm package: drop `.github/`, `.env.example`, root harness `CLAUDE.md`,
+  `assets/`, maintainer docs (PROJECT_STATE/ROADMAP/DECISIONS/…), and
+  contributor scripts (`install.sh`, `self-check.sh`) from the published tarball.
+- Installer no longer seeds `.env` / `.env.example` into consumer projects —
+  only `.master/` + `CLAUDE.md`; `.gitignore` still ignores `.env*` if created later.
+
 ## [0.4.0] — 2026-07-19
 
 ### Added

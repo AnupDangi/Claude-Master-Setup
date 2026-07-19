@@ -37,10 +37,11 @@ npx claude-master-setup --config-dir /path/to/config
 CLAUDE_CONFIG_DIR=/path/to/config npx claude-master-setup
 ```
 
-After install, verify the shared framework (optional):
+After install, confirm the shared framework landed:
 
 ```bash
-bash "$HOME/.claude/claude-master-setup/scripts/self-check.sh"
+ls "$HOME/.claude/claude-master-setup/scripts/validate.sh"
+ls "$HOME/.claude/agents" | head
 ```
 
 ## What lands where
@@ -54,9 +55,9 @@ bash "$HOME/.claude/claude-master-setup/scripts/self-check.sh"
 | `CLAUDE.md` | Permanent harness memory for this project | ✓ commit |
 | `.master/docs/` | Starter project docs (PROJECT_STATE, ROADMAP, …) | ✓ commit |
 | `.master/state/` | Loop state, leases, event log | gitignored |
-| `.env.example` | Env var stubs | ✓ commit |
 
-The framework never lands inside your project (Decision 007).
+The framework never lands inside your project (Decision 007). No `.github/`,
+`.env`, or harness-author files are copied into your app.
 
 ## Plugin install (namespaced `/master:*` commands)
 

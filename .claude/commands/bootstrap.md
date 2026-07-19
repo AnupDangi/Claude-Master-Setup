@@ -22,7 +22,7 @@ If `.master/docs/PROJECT_STATE.md` is **missing**, create the scaffold now (same
    `.master/docs/` (skip existing files).
 3. Create `./CLAUDE.md` from `${CLAUDE_PLUGIN_ROOT}/templates/CLAUDE.md.starter`
    only if missing.
-4. Ensure `.gitignore` has `.env`, `.env.*`, `!.env.example`, `.master/state/`.
+4. Ensure `.gitignore` has `.env`, `.env.*`, and `.master/state/` (do not create `.env` files).
 
 If already scaffolded, skip this section.
 

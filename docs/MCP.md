@@ -16,7 +16,7 @@ task needs a tool ─▶ mcp-scout checks scripts/mcp-catalog.json
                      asks you: "add <tool>? needs ${VARS}"  ◀── consent gate
                                     │ yes
                                     ▼
-              writes .mcp.json (${ENV_VAR} refs) + .env.example + docs
+              writes .mcp.json (${ENV_VAR} refs) + documents env vars in README
                                     │
                                     ▼
                  you set env vars, restart Claude Code, /mcp to verify
@@ -29,7 +29,7 @@ when a plan or dependency implies an external service.
 
 1. **Consent first.** Nothing is written to `.mcp.json` until you say yes.
 2. **No literal secrets.** Config carries only `${ENV_VAR}` references; secrets live
-   in your environment. `.env` stays gitignored; `.env.example` documents the names.
+   in your environment. `.env` stays gitignored; document variable names in the README (or `.env.example` if the project already uses one).
 3. **Least privilege.** Read-only DB users, `repo:read` PATs, `--read-only` flags —
    the scout recommends the narrowest scope that works.
 4. **Verify before proposing.** A plausible package name isn't a real server. If the
@@ -78,7 +78,7 @@ entries as you discover them so the next `/mcp-add` is instant.
 
 ## Activating a newly added server
 
-1. Set the required env vars (see `.env.example`).
+1. Set the required env vars (see the project README / MCP note from the scout).
 2. Restart Claude Code (a config change to `.mcp.json` needs a fresh session).
 3. Run `/mcp` or `claude mcp list` to confirm it connected.
 4. Approve the project-scoped server when Claude Code prompts.

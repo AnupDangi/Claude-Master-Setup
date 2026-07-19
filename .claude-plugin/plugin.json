@@ -3,7 +3,7 @@
   "name": "master",
   "displayName": "Claude Master Setup",
   "description": "Autonomous engineering harness: plan, build, validate, review, and commit in a repeatable loop with 11 specialist subagents and hard quality gates.",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "author": { "name": "Anup Dangi" },
   "homepage": "https://github.com/AnupDangi/Claude-Master-Setup",
   "repository": "https://github.com/AnupDangi/Claude-Master-Setup",

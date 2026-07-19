@@ -164,7 +164,7 @@ See [`docs/OPERATIONS.md`](docs/OPERATIONS.md).
 
 ## Publish (maintainers)
 
-Branch: **`v2-os`**. Version: **0.4.0**.
+Branch: **`v2-os`**. Version: **0.4.1**.
 
 ```bash
 bash scripts/self-check.sh

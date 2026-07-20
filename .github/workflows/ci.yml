@@ -1,4 +1,5 @@
-name: Master CI
+# Single CI for Claude Master Setup: tests + marketplace validate/tag.
+name: CI
 
 on:
   push:
@@ -6,9 +7,12 @@ on:
   pull_request:
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
-  self-check:
-    name: Adaptive loop checks
+  test:
+    name: Tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -73,7 +77,6 @@ jobs:
             | python3 -c "import json,sys; data=json.load(sys.stdin); assert isinstance(data, list) and len(data)<=2"
           bash scripts/install-skill.sh --suggest "react frontend performance" \
             | python3 -c "import json,sys; data=json.load(sys.stdin); assert isinstance(data, list)"
-          # Reject unallowlisted source without TRUST_ANY (still exit 0 unless --strict)
           bash scripts/install-skill.sh evil/repo --skill "x" > /tmp/skill-deny.log 2>&1 || true
           grep -qE "not in skills allowlist|invalid source|suggest" /tmp/skill-deny.log
 
@@ -95,3 +98,64 @@ jobs:
           bash scripts/validate.sh | tee /tmp/validate.log
           set -e
           grep -qE "GATE: (GREEN|RED)" /tmp/validate.log
+
+      - name: Marketplace manifests agree
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          mp = json.loads(Path(".claude-plugin/marketplace.json").read_text())
+          assert mp.get("name"), "marketplace name required"
+          assert mp.get("owner", {}).get("name"), "owner.name required"
+          plugins = mp.get("plugins") or []
+          assert plugins, "plugins array required"
+          p = plugins[0]
+          assert p.get("name") == "master"
+          assert p.get("source") == "./"
+          assert p.get("version"), "plugin version required for stable releases"
+          pj = json.loads(Path(".claude-plugin/plugin.json").read_text())
+          assert pj["version"] == p["version"], (pj["version"], p["version"])
+          print("marketplace OK —", p["name"], p["version"])
+          PY
+
+  # Claude Code marketplaces are git-backed: push updates the catalog.
+  # Installed plugins only auto-update when plugin.json version changes.
+  marketplace-tag:
+    name: Marketplace release tag
+    needs: test
+    if: >
+      github.event_name == 'push' &&
+      (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Read plugin version
+        id: ver
+        run: |
+          VERSION=$(python3 -c "import json; print(json.load(open('.claude-plugin/plugin.json'))['version'])")
+          MP_VERSION=$(python3 -c "import json; print(json.load(open('.claude-plugin/marketplace.json'))['plugins'][0]['version'])")
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          if [ "$VERSION" != "$MP_VERSION" ]; then
+            echo "::error::plugin.json ($VERSION) != marketplace plugins[0].version ($MP_VERSION)"
+            exit 1
+          fi
+
+      - name: Create and push master--v* tag if missing
+        env:
+          VERSION: ${{ steps.ver.outputs.version }}
+        run: |
+          TAG="master--v${VERSION}"
+          if git rev-parse "$TAG" >/dev/null 2>&1; then
+            echo "Tag $TAG already exists — skip"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "$TAG" -m "Claude Master Setup ${VERSION}"
+          git push origin "refs/tags/${TAG}"
+          echo "Pushed $TAG"

@@ -4,14 +4,35 @@
   "owner": {
     "name": "Anup Dangi"
   },
-  "description": "Marketplace for the Claude Master Setup adaptive loop plugin.",
+  "description": "Official marketplace for Claude Master Setup — fail-closed adaptive coding loops for Claude Code.",
   "plugins": [
     {
       "name": "master",
       "source": "./",
-      "description": "Project-first Claude Code extension with adaptive direct, delegated, and parallel loops.",
+      "displayName": "Claude Master Setup",
+      "description": "Fail-closed adaptive /loop for Claude Code: project-first bootstrap, JSON state, validation gates, direct/delegated/parallel agents, and resumable handoffs.",
       "version": "1.0.0",
-      "category": "development"
+      "author": {
+        "name": "Anup Dangi"
+      },
+      "homepage": "https://github.com/AnupDangi/Claude-Master-Setup",
+      "repository": "https://github.com/AnupDangi/Claude-Master-Setup",
+      "license": "MIT",
+      "category": "development",
+      "keywords": [
+        "claude-code",
+        "adaptive-loop",
+        "agents",
+        "validation",
+        "harness",
+        "subagents"
+      ],
+      "tags": [
+        "loop",
+        "bootstrap",
+        "validation",
+        "orchestration"
+      ]
     }
   ]
 }

@@ -39,7 +39,10 @@ test -f "$CFG/claude-master-setup/scripts/ensure-skills.sh" || fail 'ensure-skil
 test -f CLAUDE.md || fail 'CLAUDE.md missing'
 test -f .master/project.json || fail 'project.json missing'
 test -f .master/state/loop.json || fail 'loop.json missing'
-test -f .master/docs/ROADMAP.md || fail 'roadmap missing'
+test -d .master/docs || fail '.master/docs missing'
+# Docs are generate-on-demand: installer must NOT copy ROADMAP/DESIGN stubs
+test ! -f .master/docs/ROADMAP.md || fail 'installer must not copy ROADMAP.md (bootstrap generates)'
+test -f "$CFG/claude-master-setup/scripts/append-loop-event.py" || fail 'append-loop-event.py not shipped'
 grep -q 'sample-checkout' CLAUDE.md || fail 'project name not inferred'
 grep -q 'Calculates checkout totals' CLAUDE.md || fail 'mission not inferred'
 ! grep -qi 'AI OS\|subagent table\|harness architecture' CLAUDE.md || fail 'harness prose leaked'

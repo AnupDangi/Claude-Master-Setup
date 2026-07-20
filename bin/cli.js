@@ -74,6 +74,7 @@ const FRAMEWORK_SCRIPTS = [
   'install-default-skills.sh',
   'install-skill.sh',
   'ensure-skills.sh',
+  'append-loop-event.py',
 ];
 
 const args = process.argv.slice(2);
@@ -460,15 +461,10 @@ function seedMasterFolder(projectRoot, frameworkRoot) {
   }
   console.log(`  ${green}✓${reset} .master/state/ initialized`);
 
+  // Docs are generate-on-demand (bootstrap / SHIP), never copied from templates.
   const docsDir = path.join(projectRoot, '.master', 'docs');
   fs.mkdirSync(docsDir, { recursive: true });
-  const roadmapSrc = path.join(PKG_ROOT, 'templates', 'master-docs', 'ROADMAP.md');
-  const roadmapDest = path.join(docsDir, 'ROADMAP.md');
-  if (!fs.existsSync(roadmapDest) && fs.existsSync(roadmapSrc)) {
-    fs.copyFileSync(roadmapSrc, roadmapDest);
-    touched.push('.master/docs/ROADMAP.md');
-  }
-  console.log(`  ${green}✓${reset} .master/docs/ seeded (ROADMAP stub only)`);
+  console.log(`  ${green}✓${reset} .master/docs/ ready (empty — bootstrap writes evidence-backed docs)`);
 
   const projectJsonSrc = path.join(PKG_ROOT, 'templates', 'project.json');
   const projectJsonDest = path.join(projectRoot, '.master', 'project.json');

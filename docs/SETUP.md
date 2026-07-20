@@ -28,10 +28,13 @@ project. Existing project files are not overwritten.
 - `CLAUDE.md` — inferred project mission, stack, commands, conventions
 - `.master/project.json` — structured project facts and maturity
 - `.master/state/loop.json` — idle/active machine state
-- `.master/docs/ROADMAP.md` — one optional outcome stub
-- `.master/docs/DESIGN.md` — visual products only (bootstrap-time)
-- `.master/docs/DECISIONS.md` — architecture decision records (greenfield)
-- Progressive docs at SHIP: API.md, DATABASE.md, SECURITY.md, TESTING.md, DEPLOYMENT.md
+- `.master/docs/` — created empty on install; docs are **generated from evidence**
+  at `/bootstrap` or SHIP (never bulk-copied from `templates/master-docs/`)
+- Optional after bootstrap: `ROADMAP.md`, `DESIGN.md` (UI), `DECISIONS.md` (greenfield)
+- Progressive at SHIP: API.md, DATABASE.md, SECURITY.md, TESTING.md, DEPLOYMENT.md
+  via `sync-project-docs.sh` stubs or implementer appends
+
+`templates/master-docs/` are **section outlines** for agents to peek at — not seed files.
 
 No `.env`, `.github`, framework agents/commands, empty documentation suite, statusline,
 or maintainer files are copied into the project.

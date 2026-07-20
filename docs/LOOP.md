@@ -70,12 +70,11 @@ Slices sharing a file or interface run serially. Child agents cannot create chil
 
 ## Progressive docs (token economics)
 
-Docs are loaded lazily to avoid wasting context:
-- Bootstrap writes only CLAUDE.md, project.json, loop.json, optional ROADMAP.md.
-- DESIGN.md is written at bootstrap for visual products only.
-- API.md, DATABASE.md, SECURITY.md, TESTING.md, DEPLOYMENT.md are written at SHIP.
-- `sync-project-docs.sh` runs at SHIP for maturity=existing/production projects.
-- `docs.load_for_loop: false` (default) means docs are NOT preloaded into loop context.
+Docs are **generated from evidence**, never bulk-copied from `templates/master-docs/`:
+- Install: empty `.master/docs/` directory only
+- Bootstrap: write only ROADMAP/DESIGN/DECISIONS when evidence warrants (peek outlines for headings)
+- SHIP: API.md, DATABASE.md, SECURITY.md, TESTING.md, DEPLOYMENT.md via sync-project-docs.sh stubs or implementer appends
+- `docs.load_for_loop: false` (default) means docs are NOT preloaded into loop context
 
 ## Runtime check (runtime_check)
 

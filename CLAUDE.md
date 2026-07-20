@@ -2,35 +2,41 @@
 
 ## Mission
 
-Maintain a minimal Claude Code extension that understands each repository first,
-ships code through adaptive iteration, and requires real validation before completion.
+Ship a minimal Claude Code harness: understand each repo first, route work through
+a fail-closed adaptive loop, and require binary validation before completion.
 
 ## Stack
 
-- Node.js 18+ installer: `bin/cli.js`
-- Claude Code commands, agents, and hooks: `.claude/`
-- Portable shell/Python runtime helpers: `scripts/`
-- Project seed templates: `templates/`
+- Node 18+ installer: `bin/cli.js`
+- Commands, agents, hooks: `.claude/`
+- Runtime helpers: `scripts/`
+- Outlines only (never auto-copied into consumer projects): `templates/master-docs/`
 
 ## Verify
 
-- `npm test` — self-check, JavaScript syntax, and clean-install smoke tests
-- `bash scripts/self-check.sh` — repository wiring and loop behavior
+- `npm test` — self-check, allowlist, CLI syntax, ship-install, golden-loop
+- `bash scripts/self-check.sh` — wiring and loop gates
 - `npm pack --dry-run` — published tarball contents
 
 ## Product surface
 
 Commands: `/bootstrap`, `/loop`, `/cancel`, `/status`, `/pause`, `/handoff`.
-The loop defaults to `iteration_budget` from `.master/project.json` (else 2) and routes
-work as direct, delegated, or parallel. Project state lives in `.master/*.json`;
-framework behavior stays in this package. Session memory is JSON + handoff, not chat.
+Defaults: `iteration_budget` from `.master/project.json` (else 2). Routing:
+direct · delegated · parallel. Session memory is JSON + handoff, not chat.
+
+## Control plane (non-negotiable)
+
+- Delegated/parallel: no product Write/Edit until `assigned_agents` is set
+- Completion needs GREEN validation, `ship_completed`, and (non-direct) validator + AGENT_TASK
+- Docs are **generated from evidence** at bootstrap/SHIP — never bulk-copied from templates
+- One writer per file; parallel work uses isolated worktrees (≤3)
 
 ## Conventions
 
-- Keep consumer project output project-specific and minimal.
-- Use explicit package and installer allowlists; never ship `.env` or `.github`.
-- Keep JSON state backward-readable and update tests when its schema changes.
-- One writer per file; parallel writers use isolated git worktrees.
-- Validation exit code is binary: zero is GREEN, anything else is RED.
-- Do not add commands, docs, agents, or environment dials without a runtime need.
-- Use atomic conventional commits; never commit credentials.
+- Consumer output stays project-specific and minimal
+- Explicit package/installer allowlists; never ship `.env` or `.github`
+- Keep JSON state backward-readable; update tests when schema changes
+- Validation exit code is binary: 0 = GREEN, else RED
+- No new commands/docs/agents without a runtime need
+- Atomic conventional commits; never commit credentials
+- Maintainer edits to control-plane: `HARNESS_ALLOW_PROTECTED_EDITS=1`

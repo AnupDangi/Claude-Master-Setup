@@ -1,3 +1,4 @@
+<!-- Outline only: agents peek for headings. Never copy this file into a consumer project — generate .master/docs from evidence. -->
 # Testing
 
 <!-- Updated at SHIP when test strategy or coverage changes. -->

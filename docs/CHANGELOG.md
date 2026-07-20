@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.9.2 — Generate docs on demand + ship append-loop-event
+
+- Installer no longer copies `ROADMAP.md` into projects; `.master/docs/` starts empty.
+- Bootstrap / MASTER-PROMPT: generate evidence-backed docs; peek at `templates/master-docs`
+  for headings only — never bulk-copy templates into the project.
+- Bugfix: `append-loop-event.py` added to `FRAMEWORK_SCRIPTS` so npm installs ship events.
+- README + maintainer `CLAUDE.md` updated for fail-closed control plane and docs policy.
+
+
 ## 0.9.1 — JSONL loop events + /status honesty summary
 
 - New `scripts/append-loop-event.py`: appends structured JSONL records to

@@ -1,3 +1,4 @@
+<!-- Outline only: agents peek for headings. Never copy this file into a consumer project — generate .master/docs from evidence. -->
 # Architecture Decisions
 
 <!-- Record significant architecture decisions here using ADR format. -->

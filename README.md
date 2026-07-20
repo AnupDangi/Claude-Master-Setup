@@ -43,7 +43,7 @@ The loop reads JSON state — not a documentation dump — every iteration.
 ## Build loop
 
 Continues until the completion signal is true **and** validation is GREEN, or
-until `max-iterations` (default **2**).
+until `max-iterations` (from `.master/project.json` `iteration_budget`, else **2**).
 
 Phased pipeline: GATE→PLAN→BUILD→VALIDATE→REVIEW→SHIP→COMPLETE.
 
@@ -183,7 +183,7 @@ claude plugin marketplace update claude-master-setup
 claude plugin update master@claude-master-setup
 ```
 
-Prefer **one** path (npm **or** plugin) so hooks do not double-fire.
+Prefer **one** path (npm **or** plugin) so hooks do not double-fire. The installer warns if it detects both.
 
 Verify statusline after install:
 

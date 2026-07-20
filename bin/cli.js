@@ -870,6 +870,46 @@ function installDefaultSkills(frameworkRoot) {
   }
 }
 
+
+/**
+ * Warn when both npm shared framework and the Claude Code plugin are active
+ * (hooks can double-fire).
+ */
+function warnDualInstall(configDir) {
+  const frameworkDir = path.join(configDir, 'claude-master-setup');
+  const hasNpmFramework = fs.existsSync(frameworkDir);
+  let hasPlugin = false;
+  try {
+    const installed = path.join(os.homedir(), '.claude', 'plugins', 'installed_plugins.json');
+    if (fs.existsSync(installed)) {
+      const data = JSON.parse(fs.readFileSync(installed, 'utf8'));
+      const plugins = data.plugins || data;
+      if (plugins && typeof plugins === 'object') {
+        hasPlugin = Object.keys(plugins).some((k) => k.includes('master@claude-master-setup') || k === 'master@claude-master-setup');
+      }
+    }
+  } catch {
+    /* ignore */
+  }
+  try {
+    const settingsPath = path.join(configDir, 'settings.json');
+    if (fs.existsSync(settingsPath)) {
+      const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf8'));
+      const enabled = settings.enabledPlugins || {};
+      if (enabled['master@claude-master-setup']) hasPlugin = true;
+    }
+  } catch {
+    /* ignore */
+  }
+  if (hasNpmFramework && hasPlugin) {
+    console.log(`
+  ${yellow}! Dual install detected${reset}: npm framework at ${cyan}${frameworkDir.replace(os.homedir(), '~')}${reset}
+    AND plugin ${cyan}master@claude-master-setup${reset}. Hooks may double-fire.
+    Prefer one path: uninstall the plugin, or remove the npm framework + CLAUDE_MASTER_ROOT hooks.
+`);
+  }
+}
+
 function printCompanionNextSteps() {
   console.log(`
   ${yellow}Optional Claude plugins${reset} ${dim}(hints only — install what you need)${reset}:
@@ -908,6 +948,7 @@ function installFrameworkOnly() {
   const frameworkRoot = ensureFrameworkInstalled(configDir);
   installStatusline(configDir);
   installDefaultSkills(frameworkRoot);
+  warnDualInstall(configDir);
   printCompanionNextSteps();
 
   console.log(`  ${green}Done!${reset} Shared framework installed at ${cyan}${label}/claude-master-setup/${reset}`);
@@ -945,6 +986,7 @@ function installDefault() {
   const frameworkRoot = ensureFrameworkInstalled(configDir);
   installStatusline(configDir);
   installDefaultSkills(frameworkRoot);
+  warnDualInstall(configDir);
 
   let touched = [];
   if (!isSourceRepo) {

@@ -59,6 +59,9 @@ PY
 
 # skills allowlist + discovery
 [ -f "templates/skills-allowlist.json" ] && ok "skills allowlist present" || bad "missing skills-allowlist.json"
+[ -f "templates/skills-list-snapshot.json" ] && ok "skills list snapshot present" || bad "missing skills-list-snapshot.json"
+bash scripts/check-skills-allowlist.sh >/dev/null && ok "allowlist names ⊆ snapshot" || bad "allowlist/snapshot mismatch"
+grep -q 'warnDualInstall' bin/cli.js && ok "cli warns on dual install" || bad "cli missing dual-install warn"
 grep -q '\.agents' scripts/list-local-skills.sh && ok "list-local-skills scans .agents/skills" || bad "list-local-skills missing .agents scan"
 grep -q 'skills-allowlist' scripts/select-skills.sh && ok "select-skills uses allowlist catalog" || bad "select-skills missing catalog"
 grep -q 'installDefaultSkills' bin/cli.js && ok "cli installs default skills" || bad "cli missing installDefaultSkills"
@@ -138,6 +141,17 @@ PY
 
 # Cancel to reset for fresh complex test
 CLAUDE_PROJECT_DIR="$TMP_ROOT/project" bash "$SELF_ROOT/scripts/cancel-loop.sh" >/dev/null 2>&1 || true
+
+
+# iteration_budget from project.json when --max-iterations omitted
+BUDGET_DIR="$TMP_ROOT/budget-proj"
+mkdir -p "$BUDGET_DIR/.master/state"
+printf '%s\n' '{"schema_version":1,"name":"budget","maturity":"existing","iteration_budget":5,"stack":{},"validate_cmd":"true","allow_no_stack":true,"docs":{"manifest":[],"load_for_loop":false}}' > "$BUDGET_DIR/.master/project.json"
+CLAUDE_PROJECT_DIR="$BUDGET_DIR" MASTER_SKIP_SKILLS=1 bash "$SELF_ROOT/scripts/setup-loop.sh" "fix typo" >/dev/null
+python3 - "$BUDGET_DIR/.master/state/loop.json" <<'PYBUDGET' >/dev/null 2>&1 && ok "max_iterations from iteration_budget" || bad "iteration_budget ignored"
+import json,sys
+s=json.load(open(sys.argv[1])); assert s['max_iterations']==5, s.get('max_iterations')
+PYBUDGET
 
 # Test 3: complex routing — must start fresh (not steer) so cancel first
 bash "$SELF_ROOT/scripts/setup-loop.sh" "implement authentication feature across frontend backend api database with tests and migration for all services" --max-iterations 4 --completion-promise DONE >/dev/null

@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.7.1 — Highest-ROI hardening
+
+- Allowlist skill names validated against checked-in `skills-list-snapshot.json`.
+- `/loop` defaults `max_iterations` from `.master/project.json` `iteration_budget`.
+- Installer warns when npm framework and `master` plugin are both active.
+- Golden-loop CI smoke: setup → GREEN validate → stop-hook completion + handoff.
+
 ## 0.7.0 — Default skills via npx skills + runtime ensure
 
 - Installer auto-installs curated `vercel-labs/agent-skills` into `~/.claude/skills`

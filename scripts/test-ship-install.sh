@@ -94,8 +94,12 @@ mkdir -p "$HOME"
 bash "$PACK/scripts/setup-loop.sh" 'fix tax rounding' >/dev/null
 python3 - <<'PY' || fail 'installed loop defaults'
 import json
+from pathlib import Path
 s=json.load(open('.master/state/loop.json'))
-assert s['max_iterations']==2 and s['execution_mode']=='direct'
+proj=json.loads(Path('.master/project.json').read_text())
+budget=proj.get('iteration_budget')
+expected=budget if isinstance(budget,int) and budget>=1 else 2
+assert s['max_iterations']==expected and s['execution_mode']=='direct', (s['max_iterations'], expected, s['execution_mode'])
 PY
 bash "$PACK/scripts/cancel-loop.sh" >/dev/null
 python3 - <<'PY' || fail 'installed cancel'

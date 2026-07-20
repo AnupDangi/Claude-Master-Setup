@@ -20,7 +20,7 @@ Modes:
   - paused loop: resume with optional new prompt
 
 Defaults:
-  --max-iterations 2
+  --max-iterations from .master/project.json iteration_budget (fallback 2)
   --completion-promise unset (finish with <loop-complete/> after validation GREEN)
 HELP
 }
@@ -131,7 +131,20 @@ if existing and existing.get("status") == "paused":
     print("RESUME")
     raise SystemExit(0)
 
-max_iterations = int(max_arg) if max_arg else 2
+# Prefer explicit --max-iterations; else project.json iteration_budget; else 2
+max_iterations = None
+if max_arg:
+    max_iterations = int(max_arg)
+else:
+    proj = path.parent.parent / "project.json"  # .master/state → .master/project.json
+    try:
+        budget = json.loads(proj.read_text(encoding="utf-8")).get("iteration_budget")
+        if isinstance(budget, int) and budget >= 1:
+            max_iterations = budget
+    except (OSError, json.JSONDecodeError, TypeError):
+        pass
+if max_iterations is None:
+    max_iterations = 2
 state = {
     "schema_version": 1,
     "active": True,

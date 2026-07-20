@@ -28,6 +28,12 @@ jobs:
           npm test
           npm pack --dry-run
 
+      - name: Skills allowlist snapshot
+        run: bash scripts/check-skills-allowlist.sh
+
+      - name: Golden loop smoke
+        run: bash scripts/test-golden-loop.sh
+
       - name: Loop setup / cancel / classify smoke
         run: |
           export CLAUDE_PROJECT_DIR="$(mktemp -d)"

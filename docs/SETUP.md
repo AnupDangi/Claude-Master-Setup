@@ -51,7 +51,8 @@ otherwise an unknown stack validates RED.
 - existing: 5
 - production: 7
 
-This is advisory; `--max-iterations` overrides per loop invocation.
+`/loop` (via `setup-loop.sh`) uses this as the default `max_iterations` when
+`--max-iterations` is omitted. Explicit `--max-iterations` still wins.
 
 ## Phased pipeline
 

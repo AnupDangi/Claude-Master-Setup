@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "source": "vercel-labs/agent-skills",
+  "updated": "2026-07-20",
+  "note": "Checked-in snapshot of `npx skills add vercel-labs/agent-skills --list` skill names. Refresh when upstream renames skills.",
+  "skills": [
+    "vercel-composition-patterns",
+    "deploy-to-vercel",
+    "vercel-react-best-practices",
+    "vercel-react-native-skills",
+    "vercel-react-view-transitions",
+    "vercel-cli-with-tokens",
+    "vercel-optimize",
+    "web-design-guidelines",
+    "writing-guidelines"
+  ]
+}

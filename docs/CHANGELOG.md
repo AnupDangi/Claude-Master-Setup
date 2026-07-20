@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.6.3 — Phased loop steer + progressive docs
+
+- Enforced phased pipeline: GATE→PLAN→BUILD→VALIDATE→REVIEW→SHIP→COMPLETE.
+- Steer/resume resets validation state (and re-arms `validation-pending`).
+- Agent enforcement: validator records `validation.agent`; reviewer pass for important/security-sensitive changes.
+- Progressive docs via `sync-project-docs.sh` at SHIP (existing/production maturity).
+- Installer ships `sync-project-docs.sh` as part of framework runtime scripts.
+
 ## 0.6.2 — README architecture + statusline restore
 
 - Restored user-level `~/.claude/statusline.sh` install and settings wiring via `npx`/`bin/cli.js`.

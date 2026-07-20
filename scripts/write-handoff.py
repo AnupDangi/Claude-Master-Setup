@@ -39,18 +39,27 @@ remaining = [
     item for item in graph
     if isinstance(item, dict) and item.get("status") != "completed"
 ]
+
+# Include all new loop state fields
 handoff = {
-    "schema_version": 1,
+    "schema_version": 2,
     "task": loop.get("prompt"),
     "status": loop.get("status", "unknown"),
+    "phase": loop.get("phase"),
     "complexity": loop.get("complexity"),
     "execution_mode": loop.get("execution_mode"),
     "iteration": loop.get("iteration"),
+    "max_iterations": loop.get("max_iterations"),
     "validation": loop.get("validation"),
     "commit": head or None,
     "branch": branch or None,
     "working_tree_clean": not bool(status),
     "remaining_tasks": remaining,
+    "assigned_agents": loop.get("assigned_agents") or [],
+    "correction_log": loop.get("correction_log") or [],
+    "stall_count": loop.get("stall_count", 0),
+    "last_error": loop.get("last_error"),
+    "blocked_on": loop.get("blocked_on") or (loop.get("pause_reason") if loop.get("status") == "paused" else None),
     "blockers": [loop.get("pause_reason")] if loop.get("pause_reason") else [],
     "next_prompt": remaining[0].get("title") if remaining else None,
     "updated_at": datetime.now(timezone.utc).isoformat(),
@@ -59,18 +68,23 @@ handoff = {
     json.dumps(handoff, indent=2) + "\n", encoding="utf-8"
 )
 
-# An agent with claude-mem tools may consume this candidate. It is deliberately
-# local and non-blocking; repository state remains the source of truth.
-if loop.get("status") == "completed" and (pushed or loop.get("complexity") == "complex"):
+# Write memory candidate for any terminal status (not just completed)
+terminal_statuses = {"completed", "max_iterations", "paused", "cancelled"}
+loop_status = loop.get("status", "")
+if loop_status in terminal_statuses and (pushed or loop.get("complexity") == "complex"):
     candidate = {
-        "ready": True,
+        "ready": loop_status == "completed",
         "reason": "pushed" if pushed else "complex_solution",
-        "title": f"Completed: {loop.get('prompt') or 'loop task'}",
+        "title": f"{loop_status.capitalize()}: {loop.get('prompt') or 'loop task'}",
         "observation": {
             "task": loop.get("prompt"),
+            "status": loop_status,
+            "phase": loop.get("phase"),
             "validation": loop.get("validation"),
             "commit": head or None,
             "execution_mode": loop.get("execution_mode"),
+            "assigned_agents": loop.get("assigned_agents") or [],
+            "stall_count": loop.get("stall_count", 0),
         },
         "created_at": datetime.now(timezone.utc).isoformat(),
     }

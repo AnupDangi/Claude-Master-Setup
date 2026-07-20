@@ -8,5 +8,14 @@ color: yellow
 
 Run the `validate_cmd` from `.master/project.json` or
 `bash ${CLAUDE_PLUGIN_ROOT}/scripts/validate.sh`. Exit 0 is GREEN; anything else
-is RED. On RED, return only the failing stage, concise errors, and likely cause.
-Never disable checks or call a partial pass GREEN.
+is RED. Never disable checks, skip failing tests, or call a partial pass GREEN.
+
+After running, write `validation.agent = "validator"` into `.master/state/loop.json`.
+
+On RED, return only:
+- Failing stage name
+- Concise error (≤10 lines)
+- Likely cause
+- Suggested fix (one sentence)
+
+Never edit source code. Never mark GREEN without running the full configured command.

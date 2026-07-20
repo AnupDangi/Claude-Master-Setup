@@ -13,7 +13,7 @@ claude plugin marketplace add AnupDangi/Claude-Master-Setup
 claude plugin install master@claude-master-setup
 ```
 
-Then: `/bootstrap` → `/loop "ship the next outcome"`.
+Then: `/bootstrap` → `/loop "ship the next outcome"`. If a loop is already active, re-issuing `/loop` steers (running) or resumes (paused) the existing iteration.
 
 ---
 
@@ -45,6 +45,8 @@ The loop reads JSON state — not a documentation dump — every iteration.
 Continues until the completion signal is true **and** validation is GREEN, or
 until `max-iterations` (default **2**).
 
+Phased pipeline: GATE→PLAN→BUILD→VALIDATE→REVIEW→SHIP→COMPLETE.
+
 ```mermaid
 flowchart LR
   B[Bootstrap] --> S[Auto Skill Discovery]
@@ -68,9 +70,9 @@ flowchart LR
 | **Plan** | Direct for simple work; planner/task graph only when complexity needs it. |
 | **Parallel Subagents** | Independent slices run in isolated worktrees (≤3 writers, file ownership). |
 | **Build** | Implementers write code + tests for owned slices only. |
-| **Validate** | `validate.sh` / project `validate_cmd`. Exit 0 = GREEN; anything else = RED. |
-| **Review** | Combined quality + security pass for important / sensitive changes. |
-| **Docs** | Only when evidence needs it — no empty doc suites. |
+| **Validate** | `validate.sh` / project `validate_cmd`. Exit 0 = GREEN (validator agent sets `validation.agent`); anything else is RED. |
+| **Review** | Combined quality + security pass delegated to the `reviewer` agent for important / sensitive changes. |
+| **Docs** | Progressive evidence docs; `sync-project-docs.sh` runs at SHIP for existing/production projects. |
 | **Handoff** | `.master/state/handoff.json` for the next session / agent. |
 | **Next iteration** | Stop hook re-feeds a compact continuation until done or max. |
 
@@ -111,9 +113,9 @@ claude plugin install antigravity-awesome-skills@antigravity-awesome-skills --sc
 | Command | Purpose |
 |---|---|
 | `/bootstrap` | One-time: understand the repo, minimal project memory |
-| `/loop "task"` | Adaptive loop until done or `--max-iterations` (default 2) |
+| `/loop "task"` | Adaptive loop until done or `--max-iterations` (default 2); if loop is active, `/loop` steers (running) or resumes (paused). |
 | `/cancel` | Stop the active loop |
-| `/status` | Compact JSON-backed status |
+| `/status` | Human-readable loop status summary (+ recovery hint). |
 | `/pause` | Persist a blocker for another session |
 | `/handoff` | Refresh structured handoff (+ optional claude-mem bridge) |
 

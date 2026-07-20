@@ -1,6 +1,6 @@
 {
   "name": "claude-master-setup",
-  "version": "0.6.2",
+  "version": "0.6.3",
   "description": "Adaptive Ralph-style loops for Claude Code with project-first bootstrap, JSON state, validation, and compute-aware agents.",
   "bin": {
     "claude-master-setup": "bin/cli.js"
@@ -35,7 +35,16 @@
     "scripts/setup-loop.sh",
     "scripts/cancel-loop.sh",
     "scripts/classify-task.py",
-    "scripts/write-handoff.py"
+    "scripts/write-handoff.py",
+    "scripts/sync-project-docs.sh",
+    "templates/AGENT_TASK.md",
+    "templates/master-docs/DESIGN.md",
+    "templates/master-docs/DECISIONS.md",
+    "templates/master-docs/API.md",
+    "templates/master-docs/DATABASE.md",
+    "templates/master-docs/DEPLOYMENT.md",
+    "templates/master-docs/SECURITY.md",
+    "templates/master-docs/TESTING.md"
   ],
   "engines": {
     "node": ">=18"

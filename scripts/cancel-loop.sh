@@ -2,10 +2,21 @@
 set -euo pipefail
 ROOT="${CLAUDE_PROJECT_DIR:-$PWD}"
 STATE_FILE="$ROOT/.master/state/loop.json"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+
 if [[ ! -f "$STATE_FILE" ]]; then
   echo "No loop state found."
   exit 0
 fi
+
+# Write handoff before cancelling
+if [[ -f "$SCRIPT_DIR/write-handoff.py" ]]; then
+  python3 "$SCRIPT_DIR/write-handoff.py" "$ROOT" >/dev/null 2>&1 || true
+fi
+
+# Clear validation-pending flag
+rm -f "$ROOT/.master/state/validation-pending"
+
 python3 - "$STATE_FILE" <<'PY'
 import json, sys
 from datetime import datetime, timezone

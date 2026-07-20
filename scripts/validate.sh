@@ -51,6 +51,28 @@ case "$STACK" in
     step "typecheck" $RUN typecheck
     step "test"      $RUN test
     step "build"     $RUN build
+    # Dev smoke: if package.json has a "start" or "dev" script, curl health
+    if python3 - "$REPO_ROOT/package.json" <<'PY2' 2>/dev/null
+import json, sys
+from pathlib import Path
+try:
+    pkg = json.loads(Path(sys.argv[1]).read_text())
+    scripts = pkg.get("scripts", {})
+    raise SystemExit(0 if ("start" in scripts or "server" in scripts or "dev" in scripts) else 1)
+except (OSError, json.JSONDecodeError):
+    raise SystemExit(1)
+PY2
+    then
+      # Only run dev smoke if explicitly enabled (avoids server startup in CI)
+      if [[ "${HARNESS_DEV_SMOKE:-0}" == "1" ]]; then
+        say "Dev smoke check"
+        if PORT="${HARNESS_SMOKE_PORT:-3000}" timeout 10 curl -sf "http://localhost:${HARNESS_SMOKE_PORT:-3000}/api/health" >/dev/null 2>&1; then
+          ok "health endpoint"
+        else
+          skip "health endpoint (server not running or HARNESS_DEV_SMOKE!=1)"
+        fi
+      fi
+    fi
     ;;
   python-poetry)
     step "lint"      poetry run ruff check .
@@ -118,6 +140,7 @@ if p.is_file():
         state["validation"] = {
             "status": sys.argv[2],
             "command": "framework:validate",
+            "agent": state.get("validation", {}).get("agent"),
             "checks": sys.argv[3].strip().split(),
             "checked_at": datetime.now(timezone.utc).isoformat(),
         }

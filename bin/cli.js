@@ -69,6 +69,7 @@ const FRAMEWORK_SCRIPTS = [
   'cancel-loop.sh',
   'classify-task.py',
   'write-handoff.py',
+  'sync-project-docs.sh',
 ];
 
 const args = process.argv.slice(2);
@@ -361,10 +362,22 @@ function loopStateJson() {
         validation: {
           status: 'not_run',
           command: null,
+          agent: null,
+          checks: [],
           checked_at: null,
         },
         next_action: null,
         pause_reason: null,
+        phase: 'gate',
+        ship_completed: false,
+        correction_log: [],
+        await_clarify_questions: [],
+        architecture_pending: false,
+        stall_count: 0,
+        last_error: null,
+        blocked_on: null,
+        progress_fingerprint: null,
+        last_progress_at: null,
         started_at: null,
         updated_at: null,
       },

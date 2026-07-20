@@ -49,10 +49,20 @@ npx claude-master-setup@latest
 ```bash
 claude plugin marketplace add AnupDangi/Claude-Master-Setup
 claude plugin install master@claude-master-setup
-# pull latest marketplace listing (e.g. 1.0.0):
+# refresh catalog + plugin (also happens via Claude Code background auto-update):
 claude plugin marketplace update claude-master-setup
 claude plugin update master@claude-master-setup
 ```
+
+**How updates work after you push to GitHub**
+
+| Layer | What happens on `git push` |
+|---|---|
+| Marketplace catalog | Updated immediately on GitHub. Claude Code **background-refreshes** the clone; or run `marketplace update`. |
+| Installed plugin | Users get new code only when `.claude-plugin/plugin.json` **`version` bumps** (e.g. `1.0.0` → `1.0.1`). Same version = cache kept. |
+| Release tag | CI creates `master--v{version}` when the version fields change on `main`. |
+
+Maintainers: bump **both** `plugin.json` and `marketplace.json` `plugins[0].version` together, push to `main`, and users’ auto-update can pick it up.
 
 Use **either** npm **or** plugin — not both. Dual install double-fires hooks; the
 installer warns if it detects both.

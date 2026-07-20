@@ -4,6 +4,17 @@
 `npx claude-master-setup@latest` in each project and prefer **one** install path
 (npm **or** plugin).
 
+## Marketplace updates (git-backed)
+
+The plugin marketplace **is** this GitHub repo. Pushing to `main` publishes the
+catalog. Claude Code periodically pulls marketplace remotes in the background.
+
+Installed plugins are **version-pinned** via `.claude-plugin/plugin.json`. Pushing
+commits without bumping `version` does **not** replace a user’s cached install.
+For a release: bump `version` in `plugin.json` and `marketplace.json` (same string),
+push — CI tags `master--v{version}`. Users then receive the update on auto-update
+or `claude plugin update master@claude-master-setup`.
+
 ## Plugin
 
 ```bash

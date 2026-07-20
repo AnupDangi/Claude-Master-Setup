@@ -155,6 +155,7 @@ state = {
     "completion_promise": promise_arg or None,
     "complexity": "unclassified",
     "execution_mode": "unclassified",
+    "routing_reason": None,
     "task_graph": [],
     "selected_skills": [],
     "assigned_agents": [],
@@ -242,3 +243,29 @@ if [[ -n "$COMPLETION_PROMISE" ]]; then
 else
   printf 'Complete only with <loop-complete/> after SHIP phase and validation GREEN\n'
 fi
+
+# Append loop event (best-effort; never fail the caller)
+_event_type="loop_start"
+[[ "$MODE" = "steer" ]] && _event_type="steer"
+[[ "$MODE" = "resume" ]] && _event_type="resume"
+python3 - "$STATE_FILE" "$SCRIPT_DIR/append-loop-event.py" "$ROOT" "$_event_type" <<'PY_EV' 2>/dev/null || true
+import json, sys, subprocess
+from pathlib import Path
+sfile, script, root, etype = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4]
+try:
+    s = json.loads(Path(sfile).read_text(encoding="utf-8"))
+    cmd = [
+        "python3", script, etype,
+        "--iteration", str(s.get("iteration", 1)),
+        "--mode", str(s.get("execution_mode") or ""),
+        "--phase", str(s.get("phase") or ""),
+        "--detail", str(s.get("prompt", ""))[:200],
+        "--root", root,
+    ]
+    ag = ",".join(s.get("assigned_agents") or [])
+    if ag:
+        cmd += ["--agents", ag]
+    subprocess.run(cmd, check=False, timeout=5)
+except Exception:
+    pass
+PY_EV

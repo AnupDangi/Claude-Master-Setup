@@ -43,7 +43,11 @@ Completion requires all of:
 - `ship_completed == true`;
 - for delegated/parallel: `assigned_agents` non-empty and `validation.agent == "validator"`.
 
+During an active delegated/parallel loop with empty `assigned_agents`, PreToolUse blocks product Write/Edit until a Task is spawned and `assigned_agents` is set (prep paths `loop.json`, `AGENT_TASK.md`, DESIGN/DECISIONS remain allowed).
+
 ## Routing
+
+The initial `execution_mode` and `routing_reason` are written by `setup-loop.sh` via the signal-score classifier. The model may **downgrade** mode (parallel→delegated→direct). To upgrade, run the `planner` agent first and update `routing_reason` in `loop.json`.
 
 ### Direct
 For one clear, local change. No subagent is spawned.
@@ -72,6 +76,26 @@ Docs are loaded lazily to avoid wasting context:
 - API.md, DATABASE.md, SECURITY.md, TESTING.md, DEPLOYMENT.md are written at SHIP.
 - `sync-project-docs.sh` runs at SHIP for maturity=existing/production projects.
 - `docs.load_for_loop: false` (default) means docs are NOT preloaded into loop context.
+
+## Runtime check (runtime_check)
+
+When `.master/project.json` sets `runtime_check` to a non-null shell command string,
+`validate.sh` runs it as a final stage after all stack checks. A non-zero exit makes
+the gate RED. `null` (the default) leaves behavior unchanged from previous versions.
+
+Set a conservative command only when an obvious smoke exists (e.g. health endpoint
+curl). Leave `null` otherwise — never invent fragile checks. The harness does not
+bundle Playwright or any server runner; the consumer opts in via `runtime_check`.
+
+## Visual product gate (DESIGN.md)
+
+At the GATE phase, if the task or repository clearly involves UI/visual work and
+`.master/docs/DESIGN.md` does not exist, the loop pauses and asks the user to provide
+design intent or confirm they want to continue without it. BUILD is not entered silently
+for UI work without a DESIGN.md.
+
+Bootstrap is required to create `.master/docs/DESIGN.md` for visual products before
+finishing — this prevents the gate from firing on the very first loop.
 
 ## MCP disconnect behavior
 

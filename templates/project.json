@@ -7,6 +7,7 @@
   "entrypoints": [],
   "commands": [],
   "validate_cmd": "bash ${CLAUDE_PLUGIN_ROOT}/scripts/validate.sh",
+  "runtime_check": null,
   "source_of_truth": [
     "README.md",
     "project manifests",

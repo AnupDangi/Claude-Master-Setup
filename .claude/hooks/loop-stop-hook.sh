@@ -9,6 +9,11 @@ if [[ -f "$HOOK_DIR/../../scripts/write-handoff.py" ]]; then
 else
   HANDOFF_SCRIPT="$HOOK_DIR/../scripts/write-handoff.py"
 fi
+if [[ -f "$HOOK_DIR/../../scripts/append-loop-event.py" ]]; then
+  APPEND_EVENT_SCRIPT="$HOOK_DIR/../../scripts/append-loop-event.py"
+else
+  APPEND_EVENT_SCRIPT="$HOOK_DIR/../scripts/append-loop-event.py"
+fi
 [[ -f "$STATE_FILE" ]] || exit 0
 HOOK_INPUT=$(cat)
 
@@ -136,6 +141,25 @@ if completion_signalled:
             print("Loop paused: delegated/parallel execution but assigned_agents is empty.", file=sys.stderr)
             raise SystemExit(0)
 
+        # Gate 2.5: for delegated/parallel, AGENT_TASK.md must exist with ## Objective
+        if execution_mode not in ("direct", "unclassified"):
+            agent_task_path = state_path.parent.parent.parent / "AGENT_TASK.md"
+            try:
+                agent_task_content = agent_task_path.read_text(encoding="utf-8", errors="replace") if agent_task_path.is_file() else ""
+            except OSError:
+                agent_task_content = ""
+            if not agent_task_content or "## Objective" not in agent_task_content:
+                state.update({
+                    "active": False, "status": "paused",
+                    "pause_reason": "agent_task_missing: AGENT_TASK.md absent or lacks ## Objective",
+                    "last_error": "completion rejected: delegated/parallel mode requires AGENT_TASK.md with ## Objective",
+                    "next_action": "await_human",
+                    "updated_at": now,
+                })
+                state_path.write_text(json.dumps(state, indent=2) + "\n", encoding="utf-8")
+                print("Loop paused: AGENT_TASK.md missing or lacks ## Objective.", file=sys.stderr)
+                raise SystemExit(0)
+
         # Gate 3: ship_completed must be true
         if not state.get("ship_completed"):
             state["last_error"] = "Completion signalled but ship_completed is not set — SHIP phase was skipped"
@@ -213,6 +237,43 @@ except Exception:
     pass
 PY2
 )
+
+# Append loop event for terminal states (best-effort)
+if [[ -n "$LOOP_STATUS" && -f "$APPEND_EVENT_SCRIPT" ]]; then
+  python3 - "$STATE_FILE" "$APPEND_EVENT_SCRIPT" "$ROOT" "$LOOP_STATUS" <<'PY_EV' 2>/dev/null || true
+import json, sys, subprocess
+from pathlib import Path
+sfile, script, root, lstat = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4]
+type_map = {
+    "completed": "loop_complete",
+    "paused": "paused",
+    "max_iterations": "max_iterations",
+    "error": "loop_error",
+}
+etype = type_map.get(lstat, "loop_stop")
+try:
+    s = json.loads(Path(sfile).read_text(encoding="utf-8")) if Path(sfile).exists() else {}
+except Exception:
+    s = {}
+base_cmd = [
+    "python3", script, etype,
+    "--iteration", str(s.get("iteration", 1)),
+    "--mode", str(s.get("execution_mode") or ""),
+    "--phase", str(s.get("phase") or ""),
+    "--root", root,
+]
+ag = ",".join(s.get("assigned_agents") or [])
+if ag:
+    base_cmd += ["--agents", ag]
+val_status = (s.get("validation") or {}).get("status")
+if val_status in ("green", "red"):
+    val_etype = "validation_green" if val_status == "green" else "validation_red"
+    val_cmd = list(base_cmd)
+    val_cmd[3] = val_etype
+    subprocess.run(val_cmd, check=False, timeout=5)
+subprocess.run(base_cmd, check=False, timeout=5)
+PY_EV
+fi
 
 if [[ "$LOOP_STATUS" == "completed" || "$LOOP_STATUS" == "max_iterations" || \
       "$LOOP_STATUS" == "paused" || "$LOOP_STATUS" == "error" ]]; then

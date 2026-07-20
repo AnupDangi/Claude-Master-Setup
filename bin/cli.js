@@ -646,7 +646,7 @@ function ensureFrameworkInstalled(configDir) {
   return frameworkRoot;
 }
 
-/** The 5 hooks, wired via $CLAUDE_MASTER_ROOT (mirrors .claude-plugin/plugin.json's ${CLAUDE_PLUGIN_ROOT} form). */
+/** Harness hooks, wired via $CLAUDE_MASTER_ROOT (mirrors .claude-plugin/plugin.json's ${CLAUDE_PLUGIN_ROOT} form). */
 function harnessHooksBlock() {
   const h = (name) => `bash "$CLAUDE_MASTER_ROOT/hooks/${name}.sh"`;
   return {
@@ -671,6 +671,13 @@ function harnessHooksBlock() {
         description:
           'BLOCK .env*/lockfiles/CI/control-plane unless HARNESS_ALLOW_PROTECTED_EDITS=1',
         id: 'harness:protect-paths',
+      },
+      {
+        matcher: 'Write|Edit|MultiEdit',
+        hooks: [{ type: 'command', command: h('require-agents-before-edit') }],
+        description:
+          'In active delegated/parallel loops with empty assigned_agents, block product Write/Edit until Task spawn',
+        id: 'harness:require-agents-before-edit',
       },
     ],
     PostToolUse: [

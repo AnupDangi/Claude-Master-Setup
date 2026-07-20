@@ -44,6 +44,31 @@ Bootstrap refines this classification after reading repository content. For an i
 docs-only repository, set `allow_no_stack: true` in `.master/project.json`;
 otherwise an unknown stack validates RED.
 
+## runtime_check
+
+`project.json` supports an optional `runtime_check` field (default `null`).
+When set to a non-null shell command string, `validate.sh` runs it as the final stage
+after stack checks. A non-zero exit makes the entire gate RED.
+
+Bootstrap sets a conservative default only when an obvious smoke command exists
+(e.g. `curl -sf http://localhost:3000/health`). Leave `null` when uncertain —
+never invent a fragile check. Consumer opts in; the harness does not bundle Playwright
+or any server runner.
+
+```json
+// .master/project.json
+{
+  "runtime_check": "curl -sf http://localhost:3000/api/health"
+}
+```
+
+## Visual product gate (DESIGN.md)
+
+If bootstrap detects UI/visual evidence (React, Vue, Svelte, mobile UI, Tailwind, etc.)
+it **must** create `.master/docs/DESIGN.md`. Subsequent `/loop` runs check for it at
+GATE: if the task is UI-related and DESIGN.md is missing, the loop pauses and asks
+before entering BUILD. This prevents silent BUILD against an unspecified visual design.
+
 ## Iteration budget
 
 `project.json` includes `iteration_budget` set at bootstrap:

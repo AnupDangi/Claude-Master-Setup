@@ -126,6 +126,28 @@ PY2
     ;;
 esac
 
+# runtime_check: if .master/project.json sets runtime_check to a non-null string, run it as final stage
+RUNTIME_CHECK="$(python3 - "$REPO_ROOT/.master/project.json" <<'PY_RC'
+import json, sys
+from pathlib import Path
+try:
+    val = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8")).get("runtime_check")
+    print(val if isinstance(val, str) and val.strip() else "")
+except Exception:
+    print("")
+PY_RC
+)"
+if [ -n "$RUNTIME_CHECK" ]; then
+  say "Runtime check"
+  if bash -c "$RUNTIME_CHECK" >>/tmp/harness_validate.log 2>&1; then
+    ok "runtime_check"
+    RAN="$RAN runtime_check"
+  else
+    fail "runtime_check (command: $RUNTIME_CHECK)"
+    tail -20 /tmp/harness_validate.log | sed 's/^/    /'
+  fi
+fi
+
 echo
 record_validation() {
   local status="$1"

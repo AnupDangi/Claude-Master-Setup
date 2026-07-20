@@ -3,7 +3,7 @@
   "name": "master",
   "displayName": "Claude Master Setup",
   "description": "Adaptive Ralph-style /loop with project-first bootstrap, JSON state, validation, and compute-aware agents.",
-  "version": "0.7.2",
+  "version": "0.9.1",
   "author": {
     "name": "Anup Dangi"
   },
@@ -65,6 +65,17 @@
         ],
         "description": "BLOCK .env*/lockfiles/CI/control-plane (.claude hooks/settings/agents/commands, validate.sh) unless HARNESS_ALLOW_PROTECTED_EDITS=1",
         "id": "harness:protect-paths"
+      },
+      {
+        "matcher": "Write|Edit|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/.claude/hooks/require-agents-before-edit.sh\""
+          }
+        ],
+        "description": "In active delegated/parallel loops with empty assigned_agents, block product Write/Edit until Task spawn",
+        "id": "harness:require-agents-before-edit"
       }
     ],
     "PostToolUse": [

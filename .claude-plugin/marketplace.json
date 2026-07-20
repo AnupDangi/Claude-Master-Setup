@@ -10,7 +10,7 @@
       "name": "master",
       "source": "./",
       "description": "Project-first Claude Code extension with adaptive direct, delegated, and parallel loops.",
-      "version": "0.7.2",
+      "version": "0.9.1",
       "category": "development"
     }
   ]

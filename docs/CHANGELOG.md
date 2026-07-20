@@ -1,5 +1,75 @@
 # Changelog
 
+## 0.9.1 — JSONL loop events + /status honesty summary
+
+- New `scripts/append-loop-event.py`: appends structured JSONL records to
+  `.master/state/history/events.jsonl` (created on first use, never packaged).
+  Event shape: `ts`, `type`, `iteration`, `mode`, `phase`, `agents`, `detail`.
+- `setup-loop.sh` emits `loop_start`, `steer`, or `resume` event after each invocation.
+- `require-agents-before-edit.sh` (Phase A hook) emits `edit_blocked` with
+  `blocked_path` detail before denying product writes.
+- `loop-stop-hook.sh` emits `loop_complete`, `paused`, `max_iterations`, or
+  `loop_error` on terminal states; also emits `validation_green`/`validation_red`
+  when validation status is known at stop time.
+- `/status` command: reads last 10 lines of `events.jsonl`, shows ≤5 most recent
+  events; agents honesty check flags delegated/parallel loops with empty
+  `assigned_agents` as "gate will block product writes".
+- `events.jsonl` lives under `.master/state/` (already gitignored); event logs
+  are never packaged with the framework.
+- `self-check.sh`: verifies script exists + Python syntax; after simulated setup
+  confirms `loop_start` event written; after gate deny confirms `edit_blocked` event.
+
+## 0.9.0 — Runtime truth gate + DESIGN enforcement
+
+- `templates/project.json`: new optional `runtime_check` field (default `null`).
+  When set to a non-null shell command string, `validate.sh` runs it as the final
+  stage after all stack checks; a non-zero exit makes the entire gate RED.
+  `null` leaves behavior identical to 0.8.x.
+- `scripts/validate.sh`: reads `runtime_check` from `.master/project.json`; executes
+  it as a named final `step` when non-null; skips silently when null or absent.
+- `bootstrap.md`: added visual product gate rule — if UI/visual evidence is found,
+  DESIGN.md **must** be created before bootstrap finishes; `runtime_check` set only
+  when an obvious smoke command exists (else leave null).
+- `loop.md` GATE section: added visual product gate — if UI task and
+  `.master/docs/DESIGN.md` is missing, loop pauses and asks before entering BUILD;
+  never silently enters BUILD for visual work without a DESIGN.md.
+- `docs/SETUP.md` + `docs/LOOP.md`: documented `runtime_check` field and DESIGN gate.
+- `self-check.sh`: Phase D assertions — template has `runtime_check` key; validate.sh
+  contains the stage; `runtime_check: "false"` → RED; `runtime_check: null` → GREEN.
+
+## 0.8.2 — Specialist contract depth
+
+- Deepened agent specs to ~50–80 lines each with explicit: refuse conditions,
+  inputs, constraints, anti-stall rules, failure→pause behavior, and return schema.
+  Agents affected: implementer, implementer-opus, validator, reviewer, planner, orchestrator.
+- Stop-hook Gate 2.5: delegated/parallel completion now requires project-root
+  `AGENT_TASK.md` to exist and contain `## Objective`; missing or empty → loop paused.
+- loop.md PLAN section: non-direct mode must write `AGENT_TASK.md` with `## Objective`,
+  set `assigned_agents`, then spawn Task(s) — order is now explicit and stop-hook enforced.
+- Self-check: agent files verified for `## Role`, return schema header, and anti-stall keyword.
+
+## 0.8.1 — Signal-based classifier + routing policy
+
+- `classify-task.py` rewritten with explicit signal sets (DIRECT/DELEGATED/PARALLEL)
+  and a `routing_reason` field in every result.
+- `setup-loop.sh` persists `routing_reason` into `loop.json` on new loops.
+- `loop.md` (PLAN section): model may **downgrade** `execution_mode` only
+  (parallel→delegated→direct); upgrading requires planner and `routing_reason` update.
+- `/status` output now shows `execution_mode` and `routing_reason` from loop state.
+- `self-check.sh` extended with delegated `routing_reason` non-empty check,
+  parallel classifier case, and `routing_reason` key presence assertion.
+- `docs/LOOP.md` documents the downgrade-only rule and `routing_reason` field.
+
+
+## 0.8.0 — Hard mid-loop Write/Edit gate
+
+- PreToolUse `require-agents-before-edit`: active delegated/parallel loops with empty
+  `assigned_agents` cannot Write/Edit product files until a Task is spawned.
+- Prep allowlist: `.master/state/loop.json`, `AGENT_TASK.md`, `.master/docs/DESIGN.md`,
+  `.master/docs/DECISIONS.md`. Direct/inactive/unclassified loops are unaffected.
+- Wired after `protect-paths` in settings, plugin, and npm installer hook block.
+
+
 ## 0.7.2 — Prompt rewrite (session memory)
 
 - Rewrote commands/agents for Role + Done-when + output schemas.

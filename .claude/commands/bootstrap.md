@@ -34,6 +34,8 @@ Follow `${CLAUDE_PLUGIN_ROOT}/MASTER-PROMPT.md` (repo-first rules). Repository e
 - Never paste agents, loop internals, or harness manuals into `CLAUDE.md`
 - Do **not** create API/DATABASE/SECURITY/TESTING/DEPLOYMENT at bootstrap (SHIP phase later)
 - `iteration_budget`: new/prototype → 3; existing → 5; production → 7 (this becomes default `/loop` max unless `--max-iterations` is passed)
+- **Visual product gate:** If the project has UI/visual evidence (React, Vue, Svelte, mobile UI, design system, Tailwind, etc.) you **must** create `.master/docs/DESIGN.md` before finishing bootstrap. Do not end bootstrap without it for a visual product — its absence will block BUILD in subsequent loops.
+- **`runtime_check`:** Set in `.master/project.json` only when an obvious smoke command exists (e.g. `curl -sf http://localhost:3000/health`). Leave `null` when uncertain — never invent a fragile check.
 
 ## Skills (optional, best-effort)
 

@@ -69,7 +69,7 @@ case "$norm" in
   */claude-master-setup/hooks/*|*/claude-master-setup/scripts/*) control_plane=1 ;;
 esac
 case "$base" in
-  validate.sh|setup-loop.sh|cancel-loop.sh|worktree-fanout.sh|pre-bash-guard.sh|protect-paths.sh|self-check.sh|session-start.sh|post-edit-track.sh|loop-stop-hook.sh|stop-validate-reminder.sh)
+  validate.sh|setup-loop.sh|cancel-loop.sh|worktree-fanout.sh|pre-bash-guard.sh|protect-paths.sh|require-agents-before-edit.sh|self-check.sh|session-start.sh|post-edit-track.sh|loop-stop-hook.sh|stop-validate-reminder.sh)
     control_plane=1 ;;
 esac
 

@@ -10,6 +10,8 @@ validation.
 - Dangerous shell patterns and piped remote installers are blocked by the Bash hook.
 - Framework hooks, commands, agents, settings, and validation are protected from
   accidental edits. The maintainer override is explicit and local.
+- In active delegated/parallel loops with empty `assigned_agents`, product Write/Edit
+  is blocked until agents are assigned (control-plane prep paths remain allowed).
 - `git push`, GitHub CLI, Docker, and web fetches require user confirmation in shipped
   settings.
 - The package and project installer exclude `.env`, `.github`, local state, worktrees,

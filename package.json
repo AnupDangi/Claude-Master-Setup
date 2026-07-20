@@ -1,6 +1,6 @@
 {
   "name": "claude-master-setup",
-  "version": "0.7.2",
+  "version": "0.9.1",
   "description": "Adaptive Ralph-style loops for Claude Code with project-first bootstrap, JSON state, validation, and compute-aware agents.",
   "bin": {
     "claude-master-setup": "bin/cli.js"
@@ -51,6 +51,7 @@
     "scripts/ensure-skills.sh",
     "scripts/check-skills-allowlist.sh",
     "scripts/test-golden-loop.sh",
+    "scripts/append-loop-event.py",
     "templates/skills-list-snapshot.json"
   ],
   "engines": {

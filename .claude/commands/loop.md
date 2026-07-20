@@ -48,6 +48,8 @@ Update `loop.json` `phase` at every transition. Order is fixed:
 ### GATE
 Task must be clear enough to attempt. Pause with numbered questions only for architectural ambiguity that blocks correctness — not style or missing docs.
 
+**Visual product gate:** If the task or repository clearly involves UI/visual work (React, Vue, Svelte, mobile UI, design system, Tailwind, browser rendering, etc.) and `.master/docs/DESIGN.md` does not exist, **pause before BUILD** and ask the user to either provide design intent or explicitly confirm they want to proceed without it. Never silently enter BUILD on UI work with no DESIGN.md.
+
 ### PLAN
 Honor `execution_mode` from `loop.json` (set by setup-loop):
 
@@ -56,6 +58,13 @@ Honor `execution_mode` from `loop.json` (set by setup-loop):
 | **direct** | Work in this context. No Task spawn. |
 | **delegated** | One `implementer` (or `architect` first only if a real cross-cutting decision). Write `AGENT_TASK.md` from `${CLAUDE_PLUGIN_ROOT}/templates/AGENT_TASK.md`. Set `assigned_agents` **before** Task. |
 | **parallel** | `planner` → graph; `orchestrator` fan-out (≤3 worktrees, file-disjoint). Set `assigned_agents` before any Task. |
+
+**Routing policy:** The model may **downgrade** `execution_mode` only (parallel→delegated→direct). To **upgrade** the mode, run the `planner` agent first and update `routing_reason` in `loop.json` before proceeding.
+
+**Required order when mode ≠ direct (stop-hook enforced):**
+1. Write `AGENT_TASK.md` from `${CLAUDE_PLUGIN_ROOT}/templates/AGENT_TASK.md` — fill `## Objective` before any other action
+2. Set `assigned_agents` in `loop.json` (non-empty list of agent names)
+3. Spawn Task(s) — only after steps 1 and 2 are complete
 
 Read each path in `selected_skills` (≤3). Never dump the skill index.
 

@@ -59,8 +59,24 @@ jobs:
             exit 1
           fi
 
-      - name: Select-skills JSON
-        run: bash scripts/select-skills.sh "validation tests" 2 | python3 -c "import json,sys; data=json.load(sys.stdin); assert isinstance(data, list) and len(data)<=2"
+      - name: Select-skills + ensure-skills JSON
+        run: |
+          MASTER_SKIP_SKILLS=1 bash scripts/select-skills.sh "validation tests" 2 \
+            | python3 -c "import json,sys; data=json.load(sys.stdin); assert isinstance(data, list) and len(data)<=2"
+          MASTER_SKIP_SKILLS=1 bash scripts/ensure-skills.sh "validation tests" 2 \
+            | python3 -c "import json,sys; data=json.load(sys.stdin); assert isinstance(data, list) and len(data)<=2"
+          bash scripts/install-skill.sh --suggest "react frontend performance" \
+            | python3 -c "import json,sys; data=json.load(sys.stdin); assert isinstance(data, list)"
+          # Reject unallowlisted source without TRUST_ANY (still exit 0 unless --strict)
+          bash scripts/install-skill.sh evil/repo --skill "x" > /tmp/skill-deny.log 2>&1 || true
+          grep -qE "not in skills allowlist|invalid source|suggest" /tmp/skill-deny.log
+
+      - name: Runtime skill scripts present
+        run: |
+          test -x scripts/install-skill.sh
+          test -x scripts/ensure-skills.sh
+          test -f templates/skills-allowlist.json
+          python3 -c "import json; d=json.load(open('templates/skills-allowlist.json')); assert d.get('runtime')"
 
       - name: Protect-paths blocks .env
         run: |

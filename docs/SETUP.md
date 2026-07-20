@@ -77,13 +77,52 @@ Docs are generated progressively to avoid wasting context:
 claude-mem is optional. If unavailable, `memory-pending.json` is written but ignored.
 Repository state (loop.json, handoff.json) is always authoritative.
 
+## Default skills
+
+Every install runs `scripts/install-default-skills.sh`, which uses
+[`npx skills`](https://github.com/vercel-labs/skills) to install the curated
+allowlist from `templates/skills-allowlist.json` into `~/.claude/skills`
+(`-g -a claude-code`). Failures are non-fatal. Undocumented escape hatch:
+`MASTER_SKIP_SKILLS=1`.
+
+### Runtime install (bootstrap / loop)
+
+`setup-loop.sh` calls `ensure-skills.sh`, which:
+
+1. Lists local skills
+2. Matches the task against `runtime[]` in the allowlist
+3. Installs up to two missing allowlisted skills via `install-skill.sh`
+4. Re-runs `select-skills.sh` (≤3 injected paths)
+
+```bash
+bash scripts/install-skill.sh vercel-labs/agent-skills --skill "deploy-to-vercel"
+bash scripts/install-skill.sh --list vercel-labs/agent-skills
+bash scripts/install-skill.sh --suggest "improve react performance"
+bash scripts/ensure-skills.sh "deploy the app to vercel" 3
+```
+
+Sources **not** in the allowlist are only suggested to the user:
+
+```bash
+npx skills add owner/repo --skill "Convex Best Practices" -g -a claude-code -y --copy
+```
+
+Set `MASTER_SKILLS_TRUST_ANY=1` only if you intentionally allow any `owner/repo`.
+
+Claude plugins (claude-mem, superpowers, antigravity, …) are printed as install
+hints only — never auto-installed.
+
+`/loop` discovery order: project `.claude/skills` + `.agents/skills` →
+`~/.claude/skills` → plugin skills. Ranking uses token match + catalog aliases
+from the allowlist; at most three skills are injected.
+
 ## Update or uninstall
 
 npm: rerun `npx claude-master-setup@latest`.
 Plugin: refresh the marketplace and update/reinstall `master`.
 To uninstall npm runtime, remove the shared `claude-master-setup` directory and its
 identified hook entries from Claude settings. Remove `.master/` only if project state
-is no longer needed.
+is no longer needed. To remove default skills: `npx skills remove --global …`.
 
 ## Original issue checklist
 

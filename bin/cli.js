@@ -17,6 +17,7 @@
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
+const { spawnSync } = require('child_process');
 // Install is filesystem copy + settings merge only; companion install is printed.
 
 const PKG_ROOT = path.resolve(__dirname, '..');
@@ -70,6 +71,9 @@ const FRAMEWORK_SCRIPTS = [
   'classify-task.py',
   'write-handoff.py',
   'sync-project-docs.sh',
+  'install-default-skills.sh',
+  'install-skill.sh',
+  'ensure-skills.sh',
 ];
 
 const args = process.argv.slice(2);
@@ -829,9 +833,46 @@ function installStatusline(configDir) {
   }
 }
 
+
+/**
+ * Install curated vercel-labs skills into ~/.claude/skills (best-effort).
+ * Never fails the harness install. Claude plugins remain hints-only.
+ */
+function installDefaultSkills(frameworkRoot) {
+  if (process.env.MASTER_SKIP_SKILLS === '1') {
+    console.log(`  ${dim}skip: MASTER_SKIP_SKILLS=1 — default skills not installed${reset}`);
+    return;
+  }
+  const script = path.join(frameworkRoot, 'scripts', 'install-default-skills.sh');
+  const allowlist = path.join(frameworkRoot, 'templates', 'skills-allowlist.json');
+  const fallbackScript = path.join(PKG_ROOT, 'scripts', 'install-default-skills.sh');
+  const fallbackAllow = path.join(PKG_ROOT, 'templates', 'skills-allowlist.json');
+  const sh = fs.existsSync(script) ? script : fallbackScript;
+  const allow = fs.existsSync(allowlist) ? allowlist : fallbackAllow;
+  if (!fs.existsSync(sh) || !fs.existsSync(allow)) {
+    console.log(`  ${yellow}!${reset} default skills script/allowlist missing — skip`);
+    return;
+  }
+  console.log(`  ${dim}Installing curated skills (npx skills → ~/.claude/skills)…${reset}`);
+  const result = spawnSync('bash', [sh, allow], {
+    encoding: 'utf8',
+    timeout: 180000,
+    env: { ...process.env },
+  });
+  const out = `${result.stdout || ''}${result.stderr || ''}`.trim();
+  if (out) {
+    for (const line of out.split('\n')) {
+      console.log(line.startsWith(' ') ? line : `  ${line}`);
+    }
+  }
+  if (result.error) {
+    console.log(`  ${yellow}!${reset} skill install error: ${result.error.message} (harness install continues)`);
+  }
+}
+
 function printCompanionNextSteps() {
   console.log(`
-  ${yellow}Skill / plugin ecosystem${reset} ${dim}(optional — install what you need)${reset}:
+  ${yellow}Optional Claude plugins${reset} ${dim}(hints only — install what you need)${reset}:
 
     ${cyan}claude plugin marketplace add thedotmack/claude-mem${reset}
     ${cyan}claude plugin install claude-mem@thedotmack --scope user${reset}
@@ -842,8 +883,8 @@ function printCompanionNextSteps() {
     ${cyan}claude plugin marketplace add sickn33/antigravity-awesome-skills${reset}
     ${cyan}claude plugin install antigravity-awesome-skills@antigravity-awesome-skills --scope user${reset}
 
-  ${dim}Also usable:${reset} Claude Master skills, Matt Pocock / community skills under ~/.claude/skills
-  ${dim}Discovery:${reset} /loop auto-selects ≤3 local skills per task (project > user > plugin).
+  ${dim}Default skills:${reset} curated vercel-labs/agent-skills installed to ~/.claude/skills via npx skills
+  ${dim}Discovery:${reset} /loop auto-selects ≤3 local skills (project .claude/.agents > user > plugin).
 `);
 }
 
@@ -866,6 +907,7 @@ function installFrameworkOnly() {
 
   const frameworkRoot = ensureFrameworkInstalled(configDir);
   installStatusline(configDir);
+  installDefaultSkills(frameworkRoot);
   printCompanionNextSteps();
 
   console.log(`  ${green}Done!${reset} Shared framework installed at ${cyan}${label}/claude-master-setup/${reset}`);
@@ -902,6 +944,7 @@ function installDefault() {
 
   const frameworkRoot = ensureFrameworkInstalled(configDir);
   installStatusline(configDir);
+  installDefaultSkills(frameworkRoot);
 
   let touched = [];
   if (!isSourceRepo) {

@@ -18,7 +18,7 @@ actual_commands="$(for f in .claude/commands/*.md; do basename "$f" .md; done | 
 for a in architect implementer implementer-opus orchestrator planner reviewer validator; do
   [ -f ".claude/agents/$a.md" ] && ok "agent $a" || bad "missing agent $a"
 done
-for s in setup-loop.sh cancel-loop.sh detect-stack.sh list-local-skills.sh select-skills.sh validate.sh worktree-fanout.sh classify-task.py write-handoff.py sync-project-docs.sh; do
+for s in setup-loop.sh cancel-loop.sh detect-stack.sh list-local-skills.sh select-skills.sh validate.sh worktree-fanout.sh classify-task.py write-handoff.py sync-project-docs.sh install-default-skills.sh install-skill.sh ensure-skills.sh; do
   [ -f "scripts/$s" ] && ok "runtime $s" || bad "missing runtime $s"
 done
 
@@ -56,6 +56,41 @@ assert pkg['version']==plugin['version']==market['plugins'][0]['version']
 assert all(Path(p.removeprefix('./')).is_file() for p in plugin['agents'])
 assert 'skills' not in plugin
 PY
+
+# skills allowlist + discovery
+[ -f "templates/skills-allowlist.json" ] && ok "skills allowlist present" || bad "missing skills-allowlist.json"
+grep -q '\.agents' scripts/list-local-skills.sh && ok "list-local-skills scans .agents/skills" || bad "list-local-skills missing .agents scan"
+grep -q 'skills-allowlist' scripts/select-skills.sh && ok "select-skills uses allowlist catalog" || bad "select-skills missing catalog"
+grep -q 'installDefaultSkills' bin/cli.js && ok "cli installs default skills" || bad "cli missing installDefaultSkills"
+grep -q 'MASTER_SKIP_SKILLS' scripts/install-default-skills.sh && ok "skills install has skip escape hatch" || bad "skills install missing skip"
+grep -q 'ensure-skills' scripts/setup-loop.sh && ok "setup-loop calls ensure-skills" || bad "setup-loop missing ensure-skills"
+MASTER_SKIP_SKILLS=0 bash scripts/install-skill.sh --suggest "react frontend" | python3 -c 'import json,sys; d=json.load(sys.stdin); assert isinstance(d,list)' \
+  && ok "install-skill --suggest JSON" || bad "install-skill --suggest failed"
+MASTER_SKIP_SKILLS=1 bash scripts/ensure-skills.sh "react frontend ui" 2 | python3 -c 'import json,sys; d=json.load(sys.stdin); assert isinstance(d,list) and len(d)<=2' \
+  && ok "ensure-skills skip mode JSON" || bad "ensure-skills skip mode failed"
+MASTER_SKIP_SKILLS=0 bash scripts/install-skill.sh evil/repo --skill "x" >/tmp/master-skill-deny.log 2>&1 || true
+grep -qE 'not in skills allowlist|invalid source|suggest' /tmp/master-skill-deny.log \
+  && ok "install-skill denies unallowlisted source" || bad "install-skill allowlist gate failed"
+
+
+# Offline skill install must not fail (npx may fail; script exits 0)
+MASTER_SKIP_SKILLS=1 bash scripts/install-default-skills.sh >/dev/null 2>&1 && ok "skills install skip mode" || bad "skills install skip mode failed"
+
+# Discovery: project .agents/skills is indexed and selectable
+mkdir -p "$TMP_ROOT/skillproj/.agents/skills/demo-ui-skill" "$TMP_ROOT/skillhome"
+cat > "$TMP_ROOT/skillproj/.agents/skills/demo-ui-skill/SKILL.md" <<'SKILL'
+---
+name: demo-ui-skill
+description: Frontend UI design layout CSS for web interfaces
+---
+# Demo
+SKILL
+HOME="$TMP_ROOT/skillhome" CLAUDE_PROJECT_DIR="$TMP_ROOT/skillproj" \
+  bash scripts/list-local-skills.sh | python3 -c 'import json,sys; d=json.load(sys.stdin); assert any(s["name"]=="demo-ui-skill" and s["source"]=="project" for s in d)' \
+  && ok "discovers .agents/skills" || bad "does not discover .agents/skills"
+HOME="$TMP_ROOT/skillhome" CLAUDE_PROJECT_DIR="$TMP_ROOT/skillproj" \
+  bash scripts/select-skills.sh "improve frontend UI design layout" 3 | python3 -c 'import json,sys; d=json.load(sys.stdin); assert any(s["name"]=="demo-ui-skill" for s in d)' \
+  && ok "selects matching .agents skill" || bad "select skills missed .agents skill"
 
 HOME="$TMP_ROOT/home" CLAUDE_PROJECT_DIR="$TMP_ROOT/project" mkdir -p "$TMP_ROOT/home" "$TMP_ROOT/project"
 export HOME="$TMP_ROOT/home" CLAUDE_PROJECT_DIR="$TMP_ROOT/project"

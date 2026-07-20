@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.7.0 — Default skills via npx skills + runtime ensure
+
+- Installer auto-installs curated `vercel-labs/agent-skills` into `~/.claude/skills`
+  via `npx skills` (allowlist in `templates/skills-allowlist.json`).
+- Runtime: `install-skill.sh` + `ensure-skills.sh` install allowlisted gaps during
+  `/loop` setup (and optionally `/bootstrap`); outside-allowlist sources are
+  suggested to the user, not auto-installed.
+- Skill install is best-effort: network/CLI failures warn; harness install continues.
+- Claude plugins remain hints-only (not auto-installed).
+- Skill discovery also scans project `.agents/skills/` and uses allowlist catalog
+  keyword boosts when ranking ≤3 skills for `/loop`.
+
 ## 0.6.3 — Phased loop steer + progressive docs
 
 - Enforced phased pipeline: GATE→PLAN→BUILD→VALIDATE→REVIEW→SHIP→COMPLETE.

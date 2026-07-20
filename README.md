@@ -83,17 +83,43 @@ implementer** · **complex → planner + parallel worktrees**.
 
 ## Skill & plugin ecosystem
 
-`/loop` auto-discovers whatever is already installed locally. Install only what
-you need:
+On install, the harness **auto-installs a curated skill allowlist** into
+`~/.claude/skills` via [`npx skills`](https://github.com/vercel-labs/skills)
+(from `vercel-labs/agent-skills`: `web-design-guidelines`,
+`vercel-react-best-practices`, `vercel-composition-patterns`). Network/CLI failures warn and continue — the harness
+still installs. Edit `templates/skills-allowlist.json` to change the set.
+
+During `/loop` (and optionally `/bootstrap`), `ensure-skills.sh` installs up to
+two **allowlisted** missing skills that match the task, then re-selects ≤3 paths.
+Sources outside the allowlist are **suggested** to you (not auto-installed):
+
+```bash
+# What the loop may run for allowlisted skills
+bash ~/.claude/claude-master-setup/scripts/install-skill.sh vercel-labs/agent-skills \
+  --skill "web-design-guidelines"
+
+# Suggest matches for a task
+bash ~/.claude/claude-master-setup/scripts/install-skill.sh --suggest "deploy to vercel"
+
+# List skills in a repo
+bash ~/.claude/claude-master-setup/scripts/install-skill.sh --list vercel-labs/agent-skills
+
+# User-approved install for any other source
+npx skills add owner/repo --skill "Convex Best Practices" -g -a claude-code -y --copy
+```
+
+`/loop` discovery order: project `.claude/skills` + `.agents/skills` →
+user `~/.claude/skills` → Claude plugins.
+
+Optional Claude plugins remain **hints only** (not auto-installed):
 
 | Source | Role |
 |---|---|
-| **Claude Master Skills** | Loop runtime skills shipped / selected with this package |
+| **Default + runtime skills** | Curated `vercel-labs/agent-skills` via `npx skills` / `ensure-skills.sh` |
 | **claude-mem** | Durable observations after push or meaningful complex solutions |
 | **Antigravity Skills** | Large curated skill library (`sickn33/antigravity-awesome-skills`) |
 | **Official Claude Plugins** | e.g. `superpowers`, `code-review` from `claude-plugins-official` |
-| **Matt Pocock Skills** | TypeScript / production patterns under `~/.claude/skills` |
-| **User / Community Skills** | Anything in project `.claude/skills` or `~/.claude/skills` |
+| **User / Community Skills** | Anything in project `.claude/skills`, `.agents/skills`, or `~/.claude/skills` |
 
 ```bash
 claude plugin marketplace add thedotmack/claude-mem

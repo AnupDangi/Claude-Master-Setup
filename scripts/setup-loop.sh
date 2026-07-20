@@ -186,7 +186,9 @@ fi
 
 if [[ "$MODE" != "steer" ]]; then
   ROUTE=$(python3 "$SCRIPT_DIR/classify-task.py" "$PROMPT")
-  SKILLS=$(CLAUDE_PROJECT_DIR="$ROOT" bash "$SCRIPT_DIR/select-skills.sh" "$PROMPT" 3 2>/dev/null || echo '[]')
+  # ensure-skills: may install allowlisted missing skills, then select top-3
+  SKILLS=$(CLAUDE_PROJECT_DIR="$ROOT" bash "$SCRIPT_DIR/ensure-skills.sh" "$PROMPT" 3 2>/dev/null || \
+    CLAUDE_PROJECT_DIR="$ROOT" bash "$SCRIPT_DIR/select-skills.sh" "$PROMPT" 3 2>/dev/null || echo '[]')
   python3 - "$STATE_FILE" "$ROUTE" "$SKILLS" <<'PY'
 import json, sys
 from pathlib import Path

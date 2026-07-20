@@ -1,0 +1,93 @@
+{
+  "version": 1,
+  "description": "Default + runtime skills for Claude Code via npx skills (best-effort).",
+  "installs": [
+    {
+      "source": "vercel-labs/agent-skills",
+      "skills": [
+        "web-design-guidelines",
+        "vercel-react-best-practices",
+        "vercel-composition-patterns"
+      ]
+    }
+  ],
+  "catalog": {
+    "web-design-guidelines": [
+      "ui",
+      "design",
+      "css",
+      "frontend",
+      "accessibility",
+      "layout",
+      "web"
+    ],
+    "vercel-react-best-practices": [
+      "react",
+      "frontend",
+      "hooks",
+      "performance",
+      "next",
+      "jsx",
+      "typescript"
+    ],
+    "vercel-composition-patterns": [
+      "react",
+      "composition",
+      "patterns",
+      "components",
+      "architecture"
+    ],
+    "deploy-to-vercel": [
+      "deploy",
+      "vercel",
+      "hosting",
+      "production"
+    ],
+    "writing-guidelines": [
+      "writing",
+      "docs",
+      "copy",
+      "readme",
+      "documentation"
+    ],
+    "vercel-optimize": [
+      "optimize",
+      "performance",
+      "vercel",
+      "cdn",
+      "edge"
+    ]
+  },
+  "runtime": [
+    {
+      "source": "vercel-labs/agent-skills",
+      "skill": "web-design-guidelines",
+      "keywords": ["ui", "design", "css", "frontend", "accessibility", "layout", "web"]
+    },
+    {
+      "source": "vercel-labs/agent-skills",
+      "skill": "vercel-react-best-practices",
+      "keywords": ["react", "hooks", "next", "jsx", "tsx", "frontend"]
+    },
+    {
+      "source": "vercel-labs/agent-skills",
+      "skill": "vercel-composition-patterns",
+      "keywords": ["composition", "patterns", "components", "react"]
+    },
+    {
+      "source": "vercel-labs/agent-skills",
+      "skill": "deploy-to-vercel",
+      "keywords": ["deploy", "vercel", "hosting", "production"]
+    },
+    {
+      "source": "vercel-labs/agent-skills",
+      "skill": "writing-guidelines",
+      "keywords": ["writing", "docs", "copy", "readme", "documentation"]
+    },
+    {
+      "source": "vercel-labs/agent-skills",
+      "skill": "vercel-optimize",
+      "keywords": ["optimize", "performance", "vercel", "cdn", "edge"]
+    }
+  ]
+}

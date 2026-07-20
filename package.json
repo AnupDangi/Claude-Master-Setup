@@ -1,6 +1,6 @@
 {
   "name": "claude-master-setup",
-  "version": "0.6.3",
+  "version": "0.7.0",
   "description": "Adaptive Ralph-style loops for Claude Code with project-first bootstrap, JSON state, validation, and compute-aware agents.",
   "bin": {
     "claude-master-setup": "bin/cli.js"
@@ -44,7 +44,11 @@
     "templates/master-docs/DATABASE.md",
     "templates/master-docs/DEPLOYMENT.md",
     "templates/master-docs/SECURITY.md",
-    "templates/master-docs/TESTING.md"
+    "templates/master-docs/TESTING.md",
+    "scripts/install-default-skills.sh",
+    "templates/skills-allowlist.json",
+    "scripts/install-skill.sh",
+    "scripts/ensure-skills.sh"
   ],
   "engines": {
     "node": ">=18"

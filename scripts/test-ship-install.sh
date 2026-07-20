@@ -29,7 +29,12 @@ echo 'name: capability-orchestrator' > "$CFG/skills/capability-orchestrator/SKIL
 echo '# stale placeholder' > "$CFG/statusline.sh"
 printf '%s\n' '{"statusLine":{"type":"command","command":"python3 statusline.sh"}}' > "$CFG/settings.json"
 
-node "$ROOT/bin/cli.js" --force --config-dir "$CFG" >/dev/null
+# Skip network skill install in smoke test (installer still exercises the call path with skip)
+MASTER_SKIP_SKILLS=1 node "$ROOT/bin/cli.js" --force --config-dir "$CFG" >/dev/null
+test -f "$CFG/claude-master-setup/scripts/install-default-skills.sh" || fail 'install-default-skills.sh not shipped'
+test -f "$CFG/claude-master-setup/templates/skills-allowlist.json" || fail 'skills-allowlist.json not shipped'
+test -f "$CFG/claude-master-setup/scripts/install-skill.sh" || fail 'install-skill.sh not shipped'
+test -f "$CFG/claude-master-setup/scripts/ensure-skills.sh" || fail 'ensure-skills.sh not shipped'
 
 test -f CLAUDE.md || fail 'CLAUDE.md missing'
 test -f .master/project.json || fail 'project.json missing'

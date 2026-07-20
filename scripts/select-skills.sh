@@ -30,12 +30,32 @@ else
   bash "$SCRIPT_DIR/list-local-skills.sh" >"$TMP"
 fi
 
-python3 - "$TMP" "$QUERY" "$MAX" <<'PY'
+# Prefer package templates, then installed framework copy
+ALLOWLIST=""
+for candidate in \
+  "$SCRIPT_DIR/../templates/skills-allowlist.json" \
+  "${CLAUDE_MASTER_ROOT:-}/templates/skills-allowlist.json" \
+  "$HOME/.claude/claude-master-setup/templates/skills-allowlist.json"; do
+  if [ -n "$candidate" ] && [ -f "$candidate" ]; then
+    ALLOWLIST="$candidate"
+    break
+  fi
+done
+
+python3 - "$TMP" "$QUERY" "$MAX" "$ALLOWLIST" <<'PY'
 import json, re, sys
 from pathlib import Path
 
 index_path, query, max_s = sys.argv[1], sys.argv[2].lower(), max(0, int(sys.argv[3]))
+allow_path = sys.argv[4] if len(sys.argv) > 4 else ""
 skills = json.loads(Path(index_path).read_text(encoding="utf-8"))
+
+catalog = {}
+if allow_path:
+    try:
+        catalog = json.loads(Path(allow_path).read_text(encoding="utf-8")).get("catalog") or {}
+    except Exception:
+        catalog = {}
 
 tokens = [t for t in re.split(r"[^a-z0-9_+-]+", query) if len(t) >= 3]
 if not tokens or max_s == 0:
@@ -47,14 +67,23 @@ UI_TOKENS = {"ui", "design", "three", "react", "frontend", "3d", "css", "vue", "
 query_has_ui = bool(UI_TOKENS & set(tokens))
 
 prio = {"project": 3, "user": 2, "plugin": 1}
+catalog_keys = {k.lower(): k for k in catalog}
 scored = []
 for s in skills:
-    blob = f"{s.get('name', '')} {s.get('description', '')}".lower()
+    name = s.get("name", "")
+    blob = f"{name} {s.get('description', '')}".lower()
+    cat_key = catalog_keys.get(name.lower())
+    aliases = catalog.get(cat_key) if cat_key else None
+    if aliases:
+        blob = blob + " " + " ".join(str(a).lower() for a in aliases)
     score = sum(1 for t in tokens if t in blob)
     if score <= 0:
         continue
     source = s.get("source", "plugin")
     base_prio = prio.get(source, 0)
+    # Boost curated allowlist skills slightly when they match
+    if cat_key:
+        base_prio += 1
     # Penalize plugin skills on UI queries unless they are UI-specific
     if query_has_ui and source == "plugin":
         skill_is_ui = any(ut in blob for ut in UI_TOKENS)

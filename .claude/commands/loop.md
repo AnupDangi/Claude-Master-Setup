@@ -1,7 +1,7 @@
 ---
 description: Adaptive loop — direct for simple work, agents for complex work, phased pipeline with anti-stall
 argument-hint: "PROMPT [--max-iterations N] [--completion-promise TEXT]"
-allowed-tools: Read, Grep, Glob, Task, TodoWrite, Write, Edit, Bash(git:*), Bash(npm:*), Bash(pnpm:*), Bash(yarn:*), Bash(python:*), Bash(python3:*), Bash(pytest:*), Bash(cargo:*), Bash(go:*), Bash(make:*), Bash(bash */scripts/*.sh:*)
+allowed-tools: Read, Grep, Glob, Task, TodoWrite, Write, Edit, Bash(git:*), Bash(npm:*), Bash(npx:*), Bash(pnpm:*), Bash(yarn:*), Bash(python:*), Bash(python3:*), Bash(pytest:*), Bash(cargo:*), Bash(go:*), Bash(make:*), Bash(bash */scripts/*.sh:*)
 model: sonnet
 ---
 
@@ -28,6 +28,15 @@ Route this iteration:
 - **parallel / complex** — delegate decomposition to `planner`; create a dependency graph with file ownership. Dispatch independent slices in isolated worktrees through `orchestrator` (max 3 parallel). Serialize shared-file slices. Set `assigned_agents` in loop.json.
 
 Read each path in `selected_skills` before work. Pass at most three relevant skills to delegated tasks. Never dump the full skill index into context.
+
+**Runtime skills:** `setup-loop` already ran `ensure-skills.sh` (installs allowlisted gaps via `npx skills`). If work still needs a skill that is missing:
+
+1. Suggest matches: `bash ${CLAUDE_PLUGIN_ROOT}/scripts/install-skill.sh --suggest "$PROMPT"`
+2. Install allowlisted skills: `bash ${CLAUDE_PLUGIN_ROOT}/scripts/install-skill.sh <owner/repo> --skill "Name"`
+3. List a repo: `bash ${CLAUDE_PLUGIN_ROOT}/scripts/install-skill.sh --list <owner/repo>`
+4. For sources **outside** the allowlist, do **not** auto-install — show the user:
+   `npx skills add owner/repo --skill "Skill Name" -g -a claude-code -y --copy`
+   and continue only after they approve / install.
 
 ### BUILD
 Implement code and tests. Stay inside `owned_files` when delegating. Never spawn nested agents unless you are orchestrator dispatching implementers. Do not claim implementation is done without running at least focused tests.

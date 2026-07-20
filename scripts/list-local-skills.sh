@@ -85,8 +85,11 @@ def collect(base: Path, source: str, by_name: dict):
 
 by_name = {}
 if "project" in sources:
+    # Claude Code project skills, then vercel/multi-agent layout
     collect(repo / ".claude" / "skills", "project", by_name)
+    collect(repo / ".agents" / "skills", "project", by_name)
 if "user" in sources:
+    # Global Claude skills (includes npx skills -g -a claude-code installs)
     collect(home / ".claude" / "skills", "user", by_name)
 
 if "plugin" in sources and len(by_name) < max_skills:

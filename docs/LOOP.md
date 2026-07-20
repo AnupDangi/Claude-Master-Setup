@@ -22,7 +22,11 @@ all gates before accepting completion.
 
 1. `setup-loop.sh` parses options and writes `.master/state/loop.json`.
 2. A cheap classifier selects an initial `direct`, `delegated`, or `parallel` hint.
-3. Up to three matching local skills are stored as paths, not expanded into context.
+3. Up to three matching local skills are stored as paths, not expanded into context
+   (project `.claude/skills` + `.agents/skills` → `~/.claude/skills` → plugins;
+   curated allowlist aliases boost ranking). `ensure-skills.sh` may install up to
+   two allowlisted missing skills for the task before selection; off-allowlist
+   sources are suggested to the user only.
 4. Claude inspects relevant code, refines routing, implements, and tests.
 5. Validation writes `green` or `red` into loop JSON.
 6. The Stop hook either completes, stops safely, or re-feeds a compact continuation.

@@ -1,7 +1,7 @@
 ---
 description: Inspect this repository once and create minimal project-specific context
 argument-hint: "[optional product vision / constraints]"
-allowed-tools: Read, Grep, Glob, Write, Edit, Bash(test:*), Bash(git status:*), Bash(bash */scripts/detect-stack.sh:*)
+allowed-tools: Read, Grep, Glob, Write, Edit, Bash(test:*), Bash(git status:*), Bash(bash */scripts/detect-stack.sh:*), Bash(bash */scripts/ensure-skills.sh:*), Bash(bash */scripts/install-skill.sh:*), Bash(npx:*)
 model: sonnet
 ---
 
@@ -40,6 +40,15 @@ Set `iteration_budget` in `.master/project.json` based on project complexity:
 - new/prototype: 3 iterations
 - existing: 5 iterations
 - production: 7 iterations
+
+After writing project files, if the stack or `$ARGUMENTS` clearly need curated
+skills (UI/React/deploy/docs), run once:
+
+`bash ${CLAUDE_PLUGIN_ROOT}/scripts/ensure-skills.sh "<short stack or vision summary>" 3`
+
+Failures are non-fatal. For skills outside the allowlist, suggest the user run
+`npx skills add owner/repo --skill "Name" -g -a claude-code -y --copy` rather than
+auto-installing untrusted sources.
 
 Finish by suggesting a concrete first `/loop "..."` (default two iterations).
 If `$ARGUMENTS` described a product, the first loop task should be the smallest

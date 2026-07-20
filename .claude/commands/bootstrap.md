@@ -9,47 +9,44 @@ model: sonnet
 
 User intent (optional): $ARGUMENTS
 
-Read `${CLAUDE_PLUGIN_ROOT}/MASTER-PROMPT.md`, then inspect the repository before
-writing anything. The repository is the primary source of truth.
+## Role
 
-**Note**: The command is spelled `/bootstrap` — not `/boostrap` (common typo).
+You prepare **minimal project memory** so later `/loop` sessions can work from files, not chat. You do not implement features.
 
-If `$ARGUMENTS` is non-empty (product vision, constraints, stack preferences):
-treat it as a **supplement** for greenfield / empty repos and for roadmap outcomes.
-Never invent repo facts that contradict README, manifests, or source. Do not start
-feature implementation in bootstrap.
+## Memory you create (and nothing else)
 
-Create or refine only:
+| File | Purpose |
+|------|---------|
+| `CLAUDE.md` | Mission, stack, run/verify, conventions — ≤40 lines, **zero** harness prose |
+| `.master/project.json` | Facts, maturity, `validate_cmd`, `iteration_budget`, docs flags |
+| `.master/state/loop.json` | Idle loop state if missing |
+| `.master/docs/ROADMAP.md` | Optional ≤4 evidence-backed outcomes |
+| `.master/docs/DESIGN.md` | Only if UI/visual product (args or evidence) |
+| `.master/docs/DECISIONS.md` | Stub for greenfield architecture ADRs |
 
-- `CLAUDE.md` — this project's mission, stack, run/verify commands, conventions
-- `.master/project.json` — structured facts and maturity; include `docs.manifest` and `docs.load_for_loop` when the project has maturity `existing` or `production`
-- `.master/state/loop.json` — idle state if missing
-- optional `.master/docs/ROADMAP.md` — at most four evidence-backed outcomes
-  (ground in repo + `$ARGUMENTS` when present)
-- For visual/UI products (`$ARGUMENTS` mentions design, UI, frontend, web app):
-  create `.master/docs/DESIGN.md` stub (colors, fonts, layout intent)
-- For greenfield projects, create `.master/docs/DECISIONS.md` stub for architecture decisions
+## Read before write
 
-Never paste harness instructions, agent rosters, loop internals, or generic
-architecture into the project's `CLAUDE.md`. Do not implement feature code.
+Follow `${CLAUDE_PLUGIN_ROOT}/MASTER-PROMPT.md` (repo-first rules). Repository evidence beats `$ARGUMENTS`. Command spelling: `/bootstrap` (not `/boostrap`).
 
-Progressive docs: do NOT generate API.md, DATABASE.md, SECURITY.md, TESTING.md,
-or DEPLOYMENT.md during bootstrap. Those are added progressively at SHIP phase.
+## Rules
 
-Set `iteration_budget` in `.master/project.json` based on project complexity:
-- new/prototype: 3 iterations
-- existing: 5 iterations
-- production: 7 iterations
+- Never invent facts that contradict README/manifests/source
+- Never paste agents, loop internals, or harness manuals into `CLAUDE.md`
+- Do **not** create API/DATABASE/SECURITY/TESTING/DEPLOYMENT at bootstrap (SHIP phase later)
+- `iteration_budget`: new/prototype → 3; existing → 5; production → 7 (this becomes default `/loop` max unless `--max-iterations` is passed)
 
-After writing project files, if the stack or `$ARGUMENTS` clearly need curated
-skills (UI/React/deploy/docs), run once:
+## Skills (optional, best-effort)
 
-`bash ${CLAUDE_PLUGIN_ROOT}/scripts/ensure-skills.sh "<short stack or vision summary>" 3`
+If stack/args clearly need UI/React/deploy/docs skills:
 
-Failures are non-fatal. For skills outside the allowlist, suggest the user run
-`npx skills add owner/repo --skill "Name" -g -a claude-code -y --copy` rather than
-auto-installing untrusted sources.
+`bash ${CLAUDE_PLUGIN_ROOT}/scripts/ensure-skills.sh "<short summary>" 3`
 
-Finish by suggesting a concrete first `/loop "..."` (default two iterations).
-If `$ARGUMENTS` described a product, the first loop task should be the smallest
-shippable slice of that vision.
+Failures are non-fatal. Off-allowlist → suggest `npx skills add owner/repo --skill "Name" -g -a claude-code -y --copy`.
+
+## Done when
+
+Report what was inferred, then suggest one concrete first slice:
+
+`/loop "<smallest shippable behaviour>"`
+
+(Iterations default from `iteration_budget` in project.json.)

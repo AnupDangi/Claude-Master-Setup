@@ -1,61 +1,53 @@
 # Repo-first bootstrap
 
-`/bootstrap` prepares minimal project context. It does not implement features or
-write a documentation suite.
+Loaded by `/bootstrap`. Keep this file short — detailed command behaviour lives in
+`.claude/commands/bootstrap.md`.
 
-**Note**: The command is `/bootstrap` — not `/boostrap` (common typo).
+**Command spelling:** `/bootstrap` (not `/boostrap`).
 
-## Read before writing
+## Contract
 
-1. README and project manifests
-2. source entrypoints and directory structure
-3. tests, lint/build scripts, and CI configuration
-4. PRD/PTR only when present (they supplement, never override, repository facts)
+`/bootstrap` creates minimal project memory. It does not implement features or
+dump a documentation suite.
 
-Classify maturity from evidence: `new`, `prototype`, `existing`, or `production`.
-Do not ask questions unless an unknown would make the generated project context
-incorrect.
+## Read before writing (order)
 
-## Greenfield slicing
+1. README and manifests
+2. Source entrypoints and layout
+3. Tests, lint/build scripts, CI
+4. PRD/PTR only if present (never override repo facts)
 
-For new/empty repos with a product vision in `$ARGUMENTS`:
-- Identify the smallest shippable slice (not the full vision)
-- The first `/loop` task should deliver one concrete user-facing behaviour
-- Do not scaffold the entire architecture upfront
+Classify maturity from evidence: `new` | `prototype` | `existing` | `production`.
+Ask questions only when an unknown would make generated context **incorrect**.
+
+## Greenfield
+
+With product vision in `$ARGUMENTS`: identify the **smallest shippable slice**.
+First `/loop` delivers one concrete user-facing behaviour — not the full architecture.
 
 ## Write only
 
-- `CLAUDE.md`: project name, mission, stack, run/verify commands, conventions;
-  target 40 lines or fewer; zero harness architecture prose.
-- `.master/project.json`: structured facts, entrypoints, commands, maturity,
-  validation command, `iteration_budget`, and `docs.manifest`/`docs.load_for_loop`
-  for existing/production projects.
-- `.master/state/loop.json`: idle machine state.
-- `.master/docs/ROADMAP.md`: optional, maximum four outcome lines, only when a
-  roadmap can be grounded in README/PRD/current issues.
-- `.master/docs/DESIGN.md`: for visual products only (web app, mobile, desktop UI) —
-  colors, fonts, layout intent, component hierarchy. Trigger: `$ARGUMENTS` mentions
-  design/UI/frontend/web app/visual.
-- `.master/docs/DECISIONS.md`: stub for greenfield projects tracking architecture decisions.
+- `CLAUDE.md` — ≤40 lines; name, mission, stack, run/verify, conventions; no harness prose
+- `.master/project.json` — facts, maturity, validate_cmd, `iteration_budget`, docs flags for existing/production
+- `.master/state/loop.json` — idle state
+- `.master/docs/ROADMAP.md` — optional ≤4 grounded outcomes
+- `.master/docs/DESIGN.md` — visual products only
+- `.master/docs/DECISIONS.md` — greenfield ADR stub
 
-## Progressive docs (not at bootstrap)
+## Not at bootstrap
 
-Do NOT generate at bootstrap time:
-- API.md — add at SHIP when routes are implemented
-- DATABASE.md — add at SHIP when schema is defined
-- SECURITY.md — add at SHIP for auth/payment/sensitive features
-- TESTING.md — add at SHIP when test suite is meaningful
-- DEPLOYMENT.md — add at SHIP when deployment is configured
+API.md, DATABASE.md, SECURITY.md, TESTING.md, DEPLOYMENT.md — created progressively at SHIP.
 
-## Iteration budget
+## Iteration budget → loop default
 
-Set `iteration_budget` in project.json based on maturity:
-- `new`: 3
-- `prototype`: 3
-- `existing`: 5
-- `production`: 7
+| Maturity | `iteration_budget` |
+|----------|-------------------|
+| new / prototype | 3 |
+| existing | 5 |
+| production | 7 |
 
-This is advisory; `--max-iterations` overrides it per loop invocation.
+`setup-loop.sh` uses this as default `max_iterations` unless the user passes `--max-iterations`.
 
-Reuse existing project documentation. When done, report what was inferred and suggest:
-`/loop "first concrete task"` (default two iterations).
+## Finish
+
+Report inferences. Suggest: `/loop "first concrete task"`.

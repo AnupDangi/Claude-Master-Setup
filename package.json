@@ -1,6 +1,6 @@
 {
   "name": "claude-master-setup",
-  "version": "0.7.1",
+  "version": "0.7.2",
   "description": "Adaptive Ralph-style loops for Claude Code with project-first bootstrap, JSON state, validation, and compute-aware agents.",
   "bin": {
     "claude-master-setup": "bin/cli.js"

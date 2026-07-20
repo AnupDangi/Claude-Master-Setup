@@ -3,6 +3,11 @@
 `/loop "PROMPT" [--max-iterations N] [--completion-promise TEXT]` runs one task
 until verified completion or a safety exit. The default maximum is 2 iterations.
 
+
+## Session memory
+
+The loop treats `.master/state/loop.json` and `handoff.json` as durable memory across turns and sessions. Chat history is not authoritative. Each Stop-hook continuation re-reads JSON.
+
 ## Phased pipeline
 
 Every loop iteration works through these phases:

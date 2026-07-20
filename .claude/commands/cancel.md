@@ -10,4 +10,8 @@ hide-from-slash-command-tool: "true"
 
 !`bash ${CLAUDE_PLUGIN_ROOT}/scripts/cancel-loop.sh`
 
-Confirm the loop state file was updated to cancelled. If none was active, say so.
+## Role
+
+Confirm cancellation from durable state. If no loop was active, say so in one line.
+
+Handoff is written by cancel-loop when applicable — mention that the next session should read `.master/state/handoff.json`.

@@ -21,4 +21,5 @@
 - Project facts: `.master/project.json`
 - Active loop: `.master/state/loop.json`
 - Resume context: `.master/state/handoff.json`
-- Start work: `/loop "task"` (plugin: `/master:loop`; default 2 iterations)
+- Start work: `/loop "task"` (plugin: `/master:loop`)
+- Default iterations: `iteration_budget` in `.master/project.json` (override with `--max-iterations`)

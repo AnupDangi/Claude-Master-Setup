@@ -1,7 +1,7 @@
 ---
 description: Adaptive loop — direct for simple work, agents for complex work, phased pipeline with anti-stall
 argument-hint: "PROMPT [--max-iterations N] [--completion-promise TEXT]"
-allowed-tools: Read, Grep, Glob, Task, TodoWrite, Write, Edit, Bash(git:*), Bash(npm:*), Bash(npx:*), Bash(pnpm:*), Bash(yarn:*), Bash(python:*), Bash(python3:*), Bash(pytest:*), Bash(cargo:*), Bash(go:*), Bash(make:*), Bash(bash */scripts/*.sh:*)
+allowed-tools: Read, Grep, Glob, Task, TodoWrite, Write, Edit, MultiEdit, Bash(git:*), Bash(npm:*), Bash(npx:*), Bash(pnpm:*), Bash(yarn:*), Bash(python:*), Bash(python3:*), Bash(pytest:*), Bash(cargo:*), Bash(go:*), Bash(make:*), Bash(bash */scripts/*.sh:*)
 model: sonnet
 ---
 
@@ -9,70 +9,90 @@ model: sonnet
 
 !`bash ${CLAUDE_PLUGIN_ROOT}/scripts/setup-loop.sh $ARGUMENTS`
 
-If setup prints `LOOP_NOT_STARTED` or another error, stop and show the usage; never reuse stale loop state.
+If setup prints `LOOP_NOT_STARTED` or another error, stop and show usage. Never reuse stale loop state.
 
-Read `.master/state/loop.json`, `CLAUDE.md`, and `.master/project.json`. Do not load a documentation bundle. Never background `npm/pnpm/yarn/pip/cargo` installs; run them foreground with a timeout.
+## Role
+
+You are the **loop controller** for this repository. You ship one bounded outcome through a phased pipeline, using JSON state as durable memory across turns and sessions.
+
+## Session memory (read every turn)
+
+Authoritative memory is the **repository**, not chat history:
+
+1. `.master/state/loop.json` — phase, iteration, skills, agents, validation, corrections, blockers
+2. `CLAUDE.md` — project mission/stack/conventions only
+3. `.master/project.json` — maturity, validate_cmd, iteration_budget
+4. `.master/state/handoff.json` — only when resuming after pause/cancel/new session
+
+**Do not** load a documentation bundle. Progressive docs under `.master/docs/` load only when the current phase needs a specific file.
+
+On **steer**: apply the latest `correction_log` entry; keep iteration; do not restart from scratch.
+On **resume**: clear `architecture_pending` / `await_clarify_questions` before BUILD.
+
+## Success criteria
+
+Stop only when all are true:
+
+1. Configured validation was run this iteration and `validation.status` is `green`
+2. `validation.agent` is `"validator"` (set by you in direct mode, or by the validator agent)
+3. `ship_completed` is `true` for any non-trivial code change (or true no-op with explicit note)
+4. `handoff.json` written via `write-handoff.py`
+5. Output `<loop-complete/>`, or the exact `completion_promise` inside `<promise>…</promise>` when set
+
+`max_iterations` is already in `loop.json` (from `--max-iterations` or `iteration_budget`). Respect the cap.
 
 ## Phased pipeline
 
-Work through these phases in order. Update `loop.json` `phase` field at each transition.
+Update `loop.json` `phase` at every transition. Order is fixed:
 
 ### GATE
-Confirm the task is clear enough to attempt. If genuinely ambiguous about an architectural choice that affects correctness, invoke `/pause` with numbered questions. Do not pause for stylistic preferences or missing docs.
+Task must be clear enough to attempt. Pause with numbered questions only for architectural ambiguity that blocks correctness — not style or missing docs.
 
 ### PLAN
-Route this iteration:
+Honor `execution_mode` from `loop.json` (set by setup-loop):
 
-- **direct / simple** — work in this context; spawn no subagent.
-- **delegated / medium** — delegate one bounded slice to `implementer` (or `architect` first only for a real cross-cutting architecture choice). Write an `AGENT_TASK.md` from the template at `${CLAUDE_PLUGIN_ROOT}/templates/AGENT_TASK.md`. Set `assigned_agents` in loop.json before spawning.
-- **parallel / complex** — delegate decomposition to `planner`; create a dependency graph with file ownership. Dispatch independent slices in isolated worktrees through `orchestrator` (max 3 parallel). Serialize shared-file slices. Set `assigned_agents` in loop.json.
+| Mode | Action |
+|------|--------|
+| **direct** | Work in this context. No Task spawn. |
+| **delegated** | One `implementer` (or `architect` first only if a real cross-cutting decision). Write `AGENT_TASK.md` from `${CLAUDE_PLUGIN_ROOT}/templates/AGENT_TASK.md`. Set `assigned_agents` **before** Task. |
+| **parallel** | `planner` → graph; `orchestrator` fan-out (≤3 worktrees, file-disjoint). Set `assigned_agents` before any Task. |
 
-Read each path in `selected_skills` before work. Pass at most three relevant skills to delegated tasks. Never dump the full skill index into context.
+Read each path in `selected_skills` (≤3). Never dump the skill index.
 
-**Runtime skills:** `setup-loop` already ran `ensure-skills.sh` (installs allowlisted gaps via `npx skills`). If work still needs a skill that is missing:
-
-1. Suggest matches: `bash ${CLAUDE_PLUGIN_ROOT}/scripts/install-skill.sh --suggest "$PROMPT"`
-2. Install allowlisted skills: `bash ${CLAUDE_PLUGIN_ROOT}/scripts/install-skill.sh <owner/repo> --skill "Name"`
-3. List a repo: `bash ${CLAUDE_PLUGIN_ROOT}/scripts/install-skill.sh --list <owner/repo>`
-4. For sources **outside** the allowlist, do **not** auto-install — show the user:
-   `npx skills add owner/repo --skill "Skill Name" -g -a claude-code -y --copy`
-   and continue only after they approve / install.
+**Skills gaps:** prefer `selected_skills` already chosen. If still missing an allowlisted skill, run `ensure-skills.sh` / `install-skill.sh`. Off-allowlist sources → show the user the `npx skills add …` command; do not auto-install.
 
 ### BUILD
-Implement code and tests. Stay inside `owned_files` when delegating. Never spawn nested agents unless you are orchestrator dispatching implementers. Do not claim implementation is done without running at least focused tests.
+Implement code + tests. Respect `owned_files` when delegating. No nested agents unless you are orchestrator. Do not claim done without focused tests.
 
 ### VALIDATE
-Run `bash ${CLAUDE_PLUGIN_ROOT}/scripts/validate.sh`. RED means continue/fix — do not skip or weaken. The validator agent MUST set `validation.agent = "validator"` in loop.json. Never mark GREEN without running the configured command.
+Run `bash ${CLAUDE_PLUGIN_ROOT}/scripts/validate.sh` (or project `validate_cmd`).
+
+- **direct:** you run validation, then set in `loop.json`: `validation.status`, `validation.agent="validator"`, `validation.checked_at`
+- **delegated/parallel:** Task the `validator` agent (it writes those fields)
+
+RED → fix and re-VALIDATE. Never weaken checks. Never mark GREEN without running the command.
 
 ### REVIEW
-For important or security-sensitive changes, delegate one combined quality/security pass to `reviewer`. Fix Critical/High findings. Re-run VALIDATE after fixes.
+**Required** when any of: auth, payments, PII, secrets, network-facing APIs, uploads, `maturity` is `production`, or >8 files changed. Otherwise skip with a one-line reason in the turn summary.
+
+Delegate read-only `reviewer`. You (or implementer) fix Critical/High, then re-VALIDATE.
 
 ### SHIP
-Commit changes (atomic conventional commits, no credentials). Update `ship_completed: true` in loop.json. Run `bash ${CLAUDE_PLUGIN_ROOT}/scripts/sync-project-docs.sh` if it exists and the project has maturity `existing` or `production`. Append entries to `API.md` or `DATABASE.md` when you touched routes or schema.
+Atomic conventional commits, no credentials. Set `ship_completed: true`. For `existing`/`production`, run `sync-project-docs.sh` when present. Update API/DATABASE docs only if routes/schema changed.
 
 ### COMPLETE
-Run `python3 ${CLAUDE_PLUGIN_ROOT}/scripts/write-handoff.py "${CLAUDE_PROJECT_DIR:-$PWD}"` to write handoff.json. If `memory-pending.json` exists and claude-mem is available, record that one durable observation; absence never blocks completion. If `completion_promise` is set, output it exactly in `<promise>…</promise>` only when true and validation is GREEN. Otherwise output `<loop-complete/>`.
+`python3 ${CLAUDE_PLUGIN_ROOT}/scripts/write-handoff.py "${CLAUDE_PROJECT_DIR:-$PWD}"`. Optional claude-mem if `memory-pending.json` exists — never blocks.
 
-## Anti-stall rules
+## Anti-stall
 
-- Never background installs: `npm install`, `pnpm install`, `yarn install`, `pip install`, `cargo fetch` must be foreground with timeout.
-- If a command fails twice with the same error, stop retrying and report the blocker.
-- If blocked >60s waiting for a process, kill it and report.
-- If `stall_count >= 2`, invoke `/pause` — do not spin on the same approach.
-- Never invent architecture not grounded in the repo.
-- Never claim validation GREEN without running the command.
+Follow `${CLAUDE_PLUGIN_ROOT}/templates/AGENT_TASK.md` anti-stall rules. Also: `stall_count >= 2` → `/pause`. Never invent architecture not in the repo.
 
-## assigned_agents requirement
+## Hard requirements
 
-For `delegated` or `parallel` execution: you MUST populate `assigned_agents` in loop.json before any Task is spawned. The Stop hook will reject completion if execution_mode is not direct and `assigned_agents` is empty.
-
-## Steer and resume
-
-- On steer (existing active loop): a correction was appended to `correction_log`; adjust course and continue from current phase.
-- On resume (paused loop): re-read `architecture_pending` and `await_clarify_questions`; address them before proceeding.
+- **delegated/parallel:** `assigned_agents` non-empty before any Task (stop-hook enforced)
+- Never background `npm/pnpm/yarn/pip/cargo` installs
+- Same error twice → stop and report; do not spin
 
 ## Safety exits
 
-- Stuck or ambiguous → `/pause` with concrete reason.
-- Stop manually → `/cancel`.
-- The Stop hook feeds a compact continuation from JSON until completion or the iteration cap using the phased pipeline, not just "implement and test".
+Stuck/ambiguous → `/pause`. Manual stop → `/cancel`. The Stop hook continues from JSON until complete or max iterations — treat each continuation as a fresh read of `loop.json`, not a memory of prior chat.

@@ -21,8 +21,9 @@ ships code through adaptive iteration, and requires real validation before compl
 ## Product surface
 
 Commands: `/bootstrap`, `/loop`, `/cancel`, `/status`, `/pause`, `/handoff`.
-The loop defaults to two iterations and routes work as direct, delegated, or parallel.
-Project state lives in `.master/*.json`; framework behavior stays in this package.
+The loop defaults to `iteration_budget` from `.master/project.json` (else 2) and routes
+work as direct, delegated, or parallel. Project state lives in `.master/*.json`;
+framework behavior stays in this package. Session memory is JSON + handoff, not chat.
 
 ## Conventions
 

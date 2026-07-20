@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.7.2 — Prompt rewrite (session memory)
+
+- Rewrote commands/agents for Role + Done-when + output schemas.
+- Loop treats `loop.json` / handoff as durable session memory (not chat).
+- Fixed validator tools so it can write `validation.*` into loop.json.
+- Clarified direct-mode validation vs validator Task; reviewer is read-only.
+- Hard REVIEW triggers; iteration_budget wording aligned across prompts.
+- AGENT_TASK includes anti-stall + filled example.
+
 ## 0.7.1 — Highest-ROI hardening
 
 - Allowlist skill names validated against checked-in `skills-list-snapshot.json`.

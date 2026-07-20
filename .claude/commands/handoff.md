@@ -9,19 +9,21 @@ model: haiku
 
 !`python3 ${CLAUDE_PLUGIN_ROOT}/scripts/write-handoff.py "${CLAUDE_PROJECT_DIR:-$PWD}" 2>/dev/null || echo ".master/state/handoff.json unavailable"`
 
-Read `.master/state/handoff.json` and report:
-- Completed task and status
-- Current phase
-- Validation result
-- Commit/branch
-- Assigned agents (if any)
-- Correction log entries (if any)
-- Remaining tasks and blockers (blocked_on)
-- Last error (if any)
-- Recovery: run `/loop steer` to continue from current phase
+## Role
 
-Do not create or update Markdown session/project-state/changelog files.
+You refresh **cross-session memory**. Repository handoff beats chat and optional claude-mem.
 
-If `.master/state/memory-pending.json` exists and a claude-mem observation tool
-is available, record its single durable observation, then remove the pending file.
-If claude-mem is absent, continue normally; repository handoff is authoritative.
+## Report (from handoff.json + loop.json)
+
+- Task + status
+- Phase, iteration
+- Validation
+- Branch / last commit hint
+- Assigned agents
+- Correction log (brief)
+- Blockers / last_error
+- Recovery: `/loop` with steer text, or resume after pause
+
+No Markdown PROJECT_STATE/SESSION/CHANGELOG writes.
+
+If `memory-pending.json` exists and claude-mem is available, record that one observation and remove the pending file; otherwise continue.

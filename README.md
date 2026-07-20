@@ -49,6 +49,9 @@ npx claude-master-setup@latest
 ```bash
 claude plugin marketplace add AnupDangi/Claude-Master-Setup
 claude plugin install master@claude-master-setup
+# pull latest marketplace listing (e.g. 1.0.0):
+claude plugin marketplace update claude-master-setup
+claude plugin update master@claude-master-setup
 ```
 
 Use **either** npm **or** plugin — not both. Dual install double-fires hooks; the

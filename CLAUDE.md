@@ -2,7 +2,7 @@
 
 ## Mission
 
-Ship a minimal Claude Code harness: understand each repo first, route work through
+Ship Claude Master Setup 1.0 — a minimal Claude Code harness: understand each repo first, route work through
 a fail-closed adaptive loop, and require binary validation before completion.
 
 ## Stack

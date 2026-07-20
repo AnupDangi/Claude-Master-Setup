@@ -1,5 +1,9 @@
 # Setup
 
+**Product version:** 1.0.0 (stable). If you previously used npm `0.6.x`, re-run
+`npx claude-master-setup@latest` in each project and prefer **one** install path
+(npm **or** plugin).
+
 ## Plugin
 
 ```bash

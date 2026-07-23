@@ -1,0 +1,14 @@
+flowchart LR
+  Setup["setup-loop.sh\nclassify + skills"] --> Mode{execution_mode}
+  Mode -->|direct| BuildD["Main agent builds"]
+  Mode -->|delegated / parallel| Gate["PreToolUse Write gate"]
+  Gate -->|assigned_agents empty| Block["BLOCK product edits"]
+  Gate -->|agents set| Task["Task → implementer / orchestrator"]
+  Task --> BuildA["Build in owned files"]
+  BuildD --> Val["validate.sh"]
+  BuildA --> Val
+  Val -->|RED| Retry["Continue / fix"]
+  Val -->|GREEN| Ship["SHIP + docs"]
+  Ship --> Stop["Stop hook"]
+  Stop -->|gates pass| Done["completed + handoff"]
+  Stop -->|fail / stall| Pause["paused / max_iterations"]

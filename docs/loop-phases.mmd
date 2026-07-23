@@ -1,0 +1,4 @@
+flowchart LR
+  GATE --> PLAN --> BUILD --> VALIDATE
+  VALIDATE -->|RED| BUILD
+  VALIDATE -->|GREEN| REVIEW --> SHIP --> COMPLETE

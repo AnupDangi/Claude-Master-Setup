@@ -4,14 +4,14 @@
   "owner": {
     "name": "Anup Dangi"
   },
-  "description": "Official marketplace for Claude Master Setup — fail-closed adaptive coding loops for Claude Code.",
+  "description": "Official marketplace for Claude Master Setup \u2014 fail-closed adaptive coding loops for Claude Code.",
   "plugins": [
     {
       "name": "master",
       "source": "./",
       "displayName": "Claude Master Setup",
       "description": "Fail-closed adaptive /loop for Claude Code: project-first bootstrap, JSON state, validation gates, direct/delegated/parallel agents, and resumable handoffs.",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "author": {
         "name": "Anup Dangi"
       },

@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.0.1 — README diagrams for npm
+
+- Pre-render Mermaid as PNGs (`docs/*.mmd` → `docs/*.png`) so npm README shows diagrams
+  (npm does not execute Mermaid; GitHub does).
+- README uses absolute `raw.githubusercontent.com` image URLs linked to `.mmd` sources.
+- `npm run docs:diagrams` / `prepublishOnly` via `scripts/render-diagrams.sh`.
+
 ## 1.0.0 — Stable product release
 
 First **stable** npm cut after `0.6.3`. Unreleased internal milestones **0.7.0–0.9.2**

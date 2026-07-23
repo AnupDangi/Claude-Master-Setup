@@ -3,7 +3,7 @@
   "name": "master",
   "displayName": "Claude Master Setup",
   "description": "Fail-closed adaptive /loop for Claude Code: project-first bootstrap, JSON state, validation gates, direct/delegated/parallel agents, and resumable handoffs.",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "author": {
     "name": "Anup Dangi"
   },

@@ -87,31 +87,9 @@ Re-issuing `/loop` while active **steers** (running) or **resumes** (paused).
 
 ### System layout
 
-```mermaid
-flowchart TB
-  subgraph shared ["Shared framework — once per machine"]
-    Agents["agents/"]
-    Commands["commands/"]
-    Hooks["hooks/"]
-    Scripts["scripts/"]
-    Outlines["templates/master-docs/ outlines only"]
-    Status["statusline.sh"]
-  end
+[![Claude Master Setup architecture](https://raw.githubusercontent.com/AnupDangi/Claude-Master-Setup/main/docs/architecture.png)](https://github.com/AnupDangi/Claude-Master-Setup/blob/main/docs/architecture.mmd)
 
-  subgraph project ["Per project — lives in the repo"]
-    ClaudeMd["CLAUDE.md"]
-    ProjectJson[".master/project.json"]
-    State[".master/state/\nloop.json · handoff.json · events.jsonl"]
-    Docs[".master/docs/\ngenerated from evidence"]
-  end
-
-  Install["npx claude-master-setup"] --> shared
-  Install --> project
-  Commands --> State
-  Hooks --> State
-  Scripts --> State
-  Agents --> Docs
-```
+Editable source: [`docs/architecture.mmd`](docs/architecture.mmd). Regenerate with `npm run docs:diagrams`.
 
 | Layer | Location | Role |
 |---|---|---|
@@ -123,22 +101,7 @@ consumer `CLAUDE.md`.
 
 ### Control plane (fail-closed)
 
-```mermaid
-flowchart LR
-  Setup["setup-loop.sh\nclassify + skills"] --> Mode{execution_mode}
-  Mode -->|direct| BuildD["Main agent builds"]
-  Mode -->|delegated / parallel| Gate["PreToolUse Write gate"]
-  Gate -->|assigned_agents empty| Block["BLOCK product edits"]
-  Gate -->|agents set| Task["Task → implementer / orchestrator"]
-  Task --> BuildA["Build in owned files"]
-  BuildD --> Val["validate.sh"]
-  BuildA --> Val
-  Val -->|RED| Retry["Continue / fix"]
-  Val -->|GREEN| Ship["SHIP + docs"]
-  Ship --> Stop["Stop hook"]
-  Stop -->|gates pass| Done["completed + handoff"]
-  Stop -->|fail / stall| Pause["paused / max_iterations"]
-```
+[![Control plane](https://raw.githubusercontent.com/AnupDangi/Claude-Master-Setup/main/docs/control-plane.png)](https://github.com/AnupDangi/Claude-Master-Setup/blob/main/docs/control-plane.mmd)
 
 Hard rules:
 
@@ -149,12 +112,7 @@ Hard rules:
 
 ### Loop phases
 
-```mermaid
-flowchart LR
-  GATE --> PLAN --> BUILD --> VALIDATE
-  VALIDATE -->|RED| BUILD
-  VALIDATE -->|GREEN| REVIEW --> SHIP --> COMPLETE
-```
+[![Loop phases](https://raw.githubusercontent.com/AnupDangi/Claude-Master-Setup/main/docs/loop-phases.png)](https://github.com/AnupDangi/Claude-Master-Setup/blob/main/docs/loop-phases.mmd)
 
 | Phase | What happens |
 |---|---|
@@ -295,8 +253,11 @@ Deep dives: [setup](docs/SETUP.md) · [loop](docs/LOOP.md) · [security](docs/SE
 
 ```bash
 npm test
+npm run docs:diagrams   # regenerate README diagram PNGs from docs/*.mmd
 npm pack --dry-run
 ```
+
+Diagrams must stay as committed PNGs + absolute GitHub URLs so **npm** and GitHub both show images (npm does not render Mermaid).
 
 ---
 

@@ -1,0 +1,23 @@
+flowchart TB
+  subgraph shared ["Shared framework — once per machine"]
+    Agents["agents/"]
+    Commands["commands/"]
+    Hooks["hooks/"]
+    Scripts["scripts/"]
+    Outlines["templates/master-docs/ outlines only"]
+    Status["statusline.sh"]
+  end
+
+  subgraph project ["Per project — lives in the repo"]
+    ClaudeMd["CLAUDE.md"]
+    ProjectJson[".master/project.json"]
+    State[".master/state/\nloop.json · handoff.json · events.jsonl"]
+    Docs[".master/docs/\ngenerated from evidence"]
+  end
+
+  Install["npx claude-master-setup"] --> shared
+  Install --> project
+  Commands --> State
+  Hooks --> State
+  Scripts --> State
+  Agents --> Docs

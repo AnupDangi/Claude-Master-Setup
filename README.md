@@ -22,8 +22,8 @@ Then in Claude Code: `/bootstrap` → `/loop "smallest shippable behaviour"`.
 | Adaptive loops with hard gates | Unlimited autonomous coding |
 | Opt-in skills + optional runtime checks | A full CI/CD platform |
 
-**Upgrade note:** npm previously published `0.6.x`. This release is **`1.0.0`** — the first
-stable product cut. Unreleased internal milestones (0.7–0.9) are folded into this version.
+**Upgrade note:** Current release is **`1.0.2`**. If you are on `0.6.x` or early `1.0.x`,
+re-run `npx claude-master-setup@latest` (or update the plugin). Use **one** install path only.
 
 ---
 
@@ -59,13 +59,14 @@ claude plugin update master@claude-master-setup
 | Layer | What happens on `git push` |
 |---|---|
 | Marketplace catalog | Updated immediately on GitHub. Claude Code **background-refreshes** the clone; or run `marketplace update`. |
-| Installed plugin | Users get new code only when `.claude-plugin/plugin.json` **`version` bumps** (e.g. `1.0.0` → `1.0.1`). Same version = cache kept. |
+| Installed plugin | Users get new code only when `.claude-plugin/plugin.json` **`version` bumps** (e.g. `1.0.1` → `1.0.2`). Same version = cache kept. |
 | Release tag | CI creates `master--v{version}` when the version fields change on `main`. |
 
 Maintainers: bump **both** `plugin.json` and `marketplace.json` `plugins[0].version` together, push to `main`, and users’ auto-update can pick it up.
 
-Use **either** npm **or** plugin — not both. Dual install double-fires hooks; the
-installer warns if it detects both.
+Use **either** npm **or** plugin — not both. Dual install double-fires hooks.
+If both are present: `npx claude-master-setup --repair` (keeps npm, disables plugin),
+or uninstall one path. Check with `npx claude-master-setup --doctor`.
 
 ### 3. Bootstrap, then loop
 
@@ -213,7 +214,7 @@ Use this after install. If a row fails, fix it before expecting good loops.
 | Harness installed | `ls ~/.claude/claude-master-setup/scripts/setup-loop.sh` | Re-run `npx claude-master-setup@latest` |
 | Statusline (npm path) | `test -x ~/.claude/statusline.sh` | Re-run installer; see [setup](docs/SETUP.md) |
 | Project seeded | `test -f CLAUDE.md && test -f .master/project.json` | Run installer in the project, then `/bootstrap` |
-| Not dual-installed | Only npm **or** plugin hooks in settings | Remove one path; installer warns |
+| Not dual-installed | `npx claude-master-setup --doctor` exits 0 | `--repair`, or uninstall plugin / npm framework |
 | Validation works | `bash ~/.claude/claude-master-setup/scripts/validate.sh` | Set `validate_cmd` in `.master/project.json` |
 | UI product has DESIGN | `.master/docs/DESIGN.md` for React/Vue/etc. | `/bootstrap` or write DESIGN before BUILD |
 | Runtime truth (apps) | Optional `runtime_check` in project.json | e.g. `"curl -sf http://localhost:3000/health"` |

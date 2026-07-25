@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased — Install harden: single path + hook dedupe
+## 1.0.2 — Install harden: single path + hook dedupe
 
 - Wider hook merge: strip legacy Master hooks by `harness:` id, `$CLAUDE_MASTER_ROOT` /
   `$HARNESS_FRAMEWORK_ROOT`, and known script paths (stops 4× hook accumulation).

@@ -1,6 +1,6 @@
 {
   "name": "claude-master-setup",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Fail-closed adaptive coding loops for Claude Code \u2014 project-first bootstrap, JSON state, validation gates, and compute-aware agents.",
   "bin": {
     "claude-master-setup": "bin/cli.js"

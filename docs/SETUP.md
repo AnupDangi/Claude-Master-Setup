@@ -1,7 +1,8 @@
 # Setup
 
-**Product version:** 1.0.1 (stable). Prefer **one** install path: npm **or** plugin — never both.
+**Product version:** 1.0.2 (stable). Prefer **one** install path: npm **or** plugin — never both.
 Dual install double-fires hooks. Prefer npm; use `--repair` if both are active.
+If switching to npm after using the plugin: `claude plugin uninstall master@claude-master-setup`, then `npx claude-master-setup@latest`.
 If you previously used npm `0.6.x`, re-run `npx claude-master-setup@latest`.
 
 ## Marketplace updates (git-backed)
@@ -16,6 +17,10 @@ push — CI tags `master--v{version}`. Users then receive the update on auto-upd
 or `claude plugin update master@claude-master-setup`.
 
 ## Plugin
+
+Use the plugin **instead of** npm — not in addition to it. If `~/.claude/claude-master-setup`
+already exists from npm, either uninstall the npm framework + its settings hooks, or stay on npm
+and skip the plugin.
 
 ```bash
 claude plugin marketplace add AnupDangi/Claude-Master-Setup

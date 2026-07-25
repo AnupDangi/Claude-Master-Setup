@@ -75,6 +75,7 @@ const FRAMEWORK_SCRIPTS = [
   'install-skill.sh',
   'ensure-skills.sh',
   'append-loop-event.py',
+  'query-events.py',
 ];
 
 const args = process.argv.slice(2);
@@ -97,6 +98,7 @@ const HARNESS_HOOK_SCRIPTS = [
   'post-edit-track.sh',
   'loop-stop-hook.sh',
   'stop-validate-reminder.sh',
+  'notify-stop.sh',
 ];
 
 const EXPECTED_HARNESS_IDS = [
@@ -107,6 +109,7 @@ const EXPECTED_HARNESS_IDS = [
   'harness:post-edit-track',
   'harness:loop-stop',
   'harness:stop-validate-reminder',
+  'harness:notify-stop',
 ];
 
 const MASTER_PLUGIN_KEY = 'master@claude-master-setup';
@@ -727,6 +730,13 @@ function harnessHooksBlock() {
         hooks: [{ type: 'command', command: h('stop-validate-reminder'), async: true, timeout: 10 }],
         description: 'Remind to run the validation gate if source changed but validate did not run',
         id: 'harness:stop-validate-reminder',
+      },
+      {
+        matcher: '*',
+        hooks: [{ type: 'command', command: h('notify-stop'), async: true, timeout: 10 }],
+        description:
+          'Desktop notification when loop completes, pauses, errors, or validation is pending (MASTER_DESKTOP_NOTIFY=0 to disable)',
+        id: 'harness:notify-stop',
       },
     ],
   };

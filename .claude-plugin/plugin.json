@@ -3,7 +3,7 @@
   "name": "master",
   "displayName": "Claude Master Setup",
   "description": "Fail-closed adaptive /loop for Claude Code: project-first bootstrap, JSON state, validation gates, direct/delegated/parallel agents, and resumable handoffs.",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "author": {
     "name": "Anup Dangi"
   },
@@ -117,6 +117,19 @@
         ],
         "description": "Remind to run the validation gate if source changed but validate did not run",
         "id": "harness:stop-validate-reminder"
+      },
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/.claude/hooks/notify-stop.sh\"",
+            "async": true,
+            "timeout": 10
+          }
+        ],
+        "description": "Desktop notification when loop completes, pauses, errors, or validation is pending (MASTER_DESKTOP_NOTIFY=0 to disable)",
+        "id": "harness:notify-stop"
       }
     ]
   }

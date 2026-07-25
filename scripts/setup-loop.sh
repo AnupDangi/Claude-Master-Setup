@@ -249,7 +249,7 @@ _event_type="loop_start"
 [[ "$MODE" = "steer" ]] && _event_type="steer"
 [[ "$MODE" = "resume" ]] && _event_type="resume"
 python3 - "$STATE_FILE" "$SCRIPT_DIR/append-loop-event.py" "$ROOT" "$_event_type" <<'PY_EV' 2>/dev/null || true
-import json, sys, subprocess
+import json, sys, subprocess, os
 from pathlib import Path
 sfile, script, root, etype = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4]
 try:
@@ -265,6 +265,12 @@ try:
     ag = ",".join(s.get("assigned_agents") or [])
     if ag:
         cmd += ["--agents", ag]
+    started = str(s.get("started_at") or s.get("updated_at") or "")[:19].replace(":", "")
+    it = s.get("iteration", 1)
+    cmd += ["--attempt-id", f"{started or 'loop'}-i{it}-{etype}"]
+    wt = os.environ.get("MASTER_WORKTREE") or ""
+    if wt:
+        cmd += ["--worktree", wt]
     subprocess.run(cmd, check=False, timeout=5)
 except Exception:
     pass

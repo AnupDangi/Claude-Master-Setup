@@ -20,9 +20,12 @@ Read (do not dump raw JSON to the user):
 - `.master/state/handoff.json` (if present)
 - `.master/state/history/events.jsonl` — last 10 lines (if file exists)
 
+Prefer: `python3 ${CLAUDE_PLUGIN_ROOT}/scripts/query-events.py --last 8` when that script exists
+(falls back to reading the JSONL file).
+
 Also: `git branch --show-current` and `git status --short`.
 
-## Output (≤12 lines)
+## Output (≤14 lines)
 
 - **Phase:** …
 - **Iteration:** current/max
@@ -32,7 +35,8 @@ Also: `git branch --show-current` and `git status --short`.
 - **Agents:** count + names from `assigned_agents` (or none); if mode is delegated/parallel and `assigned_agents` is empty, say **"agents: NONE — gate will block product writes"**
 - **Stall / error / blocked:** values or none
 - **Validation:** green|red|pending
-- **Recent events (last ≤5):** from `events.jsonl` — show `type` + `ts` in ISO short form; if file absent say "no events yet"
+- **Recent events (last ≤5):** from `events.jsonl` / `query-events.py` — show `type`, short `ts`, and attempt lineage (`attempt_id` ← `parent_event`) when present; if file absent say "no events yet"
+- **Worktree:** if any recent event has `worktree`, note it
 - **Recovery:** e.g. `/loop "…"` · `/loop` steer · `/loop` after pause · `/bootstrap`
 
 If not bootstrapped, say so in one line and stop.

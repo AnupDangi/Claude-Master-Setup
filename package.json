@@ -1,6 +1,6 @@
 {
   "name": "claude-master-setup",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Fail-closed adaptive coding loops for Claude Code \u2014 project-first bootstrap, JSON state, validation gates, and compute-aware agents.",
   "bin": {
     "claude-master-setup": "bin/cli.js"
@@ -57,6 +57,7 @@
     "scripts/check-skills-allowlist.sh",
     "scripts/test-golden-loop.sh",
     "scripts/append-loop-event.py",
+    "scripts/query-events.py",
     "templates/skills-list-snapshot.json"
   ],
   "engines": {

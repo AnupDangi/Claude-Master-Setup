@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.0.3 — Desktop notify + loop statusline + event graph fields
+
+- Stop hook `notify-stop.sh`: macOS banner on loop complete / pause / max / error /
+  validation-pending (`MASTER_DESKTOP_NOTIFY=0` to disable).
+- Statusline shows loop `phase · i/max · mode · status` from `loop.json`.
+- `events.jsonl` gains `attempt_id`, `parent_event`, `worktree`; `query-events.py` reader;
+  `/status` surfaces attempt lineage.
+- SQLite session graph still deferred (JSONL remains source of truth).
+
+
 ## 1.0.2 — Install harden: single path + hook dedupe
 
 - Wider hook merge: strip legacy Master hooks by `harness:` id, `$CLAUDE_MASTER_ROOT` /

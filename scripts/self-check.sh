@@ -27,7 +27,7 @@ for a in implementer implementer-opus orchestrator planner reviewer validator; d
   grep -qE "^## Return exactly|^## Return$|^## Output" "$f" && ok "agent $a has return schema" || bad "agent $a missing return schema (## Return exactly / ## Return / ## Output)"
   grep -qi "anti.stall\|stall\|never background\|foreground" "$f" && ok "agent $a has anti-stall" || bad "agent $a missing anti-stall"
 done
-for s in setup-loop.sh cancel-loop.sh detect-stack.sh list-local-skills.sh select-skills.sh validate.sh worktree-fanout.sh classify-task.py write-handoff.py sync-project-docs.sh install-default-skills.sh install-skill.sh ensure-skills.sh append-loop-event.py; do
+for s in setup-loop.sh cancel-loop.sh detect-stack.sh list-local-skills.sh select-skills.sh validate.sh worktree-fanout.sh classify-task.py write-handoff.py sync-project-docs.sh install-default-skills.sh install-skill.sh ensure-skills.sh append-loop-event.py query-events.py; do
   [ -f "scripts/$s" ] && ok "runtime $s" || bad "missing runtime $s"
 done
 
@@ -53,7 +53,7 @@ for rule in json.loads(Path(".claude/settings.json").read_text()).get("permissio
 PY
 
 node --check bin/cli.js >/dev/null 2>&1 && ok "CLI syntax" || bad "CLI syntax"
-python3 -m py_compile scripts/classify-task.py scripts/write-handoff.py scripts/append-loop-event.py >/dev/null 2>&1 && ok "Python syntax" || bad "Python syntax"
+python3 -m py_compile scripts/classify-task.py scripts/write-handoff.py scripts/append-loop-event.py scripts/query-events.py >/dev/null 2>&1 && ok "Python syntax" || bad "Python syntax"
 
 python3 - <<'PY' >/dev/null 2>&1 && ok "manifest versions and agent paths" || bad "manifest versions and agent paths"
 import json
@@ -235,6 +235,13 @@ GATE_HOOK="$SELF_ROOT/.claude/hooks/require-agents-before-edit.sh"
 grep -q 'harness:require-agents-before-edit' .claude/settings.json && ok "settings wires require-agents-before-edit" || bad "settings missing require-agents gate"
 grep -q 'harness:require-agents-before-edit' .claude-plugin/plugin.json && ok "plugin wires require-agents-before-edit" || bad "plugin missing require-agents gate"
 grep -q "require-agents-before-edit" bin/cli.js && ok "cli wires require-agents-before-edit" || bad "cli missing require-agents gate"
+[ -f ".claude/hooks/notify-stop.sh" ] && ok "notify-stop.sh present" || bad "missing notify-stop.sh"
+grep -q 'harness:notify-stop' .claude/settings.json && ok "settings wires notify-stop" || bad "settings missing notify-stop"
+grep -q 'harness:notify-stop' .claude-plugin/plugin.json && ok "plugin wires notify-stop" || bad "plugin missing notify-stop"
+grep -q 'notify-stop' bin/cli.js && ok "cli wires notify-stop" || bad "cli missing notify-stop"
+grep -q 'loop.json' .claude/statusline.sh && ok "statusline reads loop.json" || bad "statusline missing loop awareness"
+grep -q 'attempt_id' scripts/append-loop-event.py && ok "events have attempt_id" || bad "append-loop-event missing attempt_id"
+[ -f "scripts/query-events.py" ] && ok "query-events.py present" || bad "missing query-events.py"
 
 GATE_DIR="$TMP_ROOT/gate-proj"
 mkdir -p "$GATE_DIR/.master/state" "$GATE_DIR/.master/docs" "$GATE_DIR/src"

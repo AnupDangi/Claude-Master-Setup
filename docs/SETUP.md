@@ -1,6 +1,6 @@
 # Setup
 
-**Product version:** 1.0.2 (stable). Prefer **one** install path: npm **or** plugin — never both.
+**Product version:** 1.0.3 (stable). Prefer **one** install path: npm **or** plugin — never both.
 Dual install double-fires hooks. Prefer npm; use `--repair` if both are active.
 If switching to npm after using the plugin: `claude plugin uninstall master@claude-master-setup`, then `npx claude-master-setup@latest`.
 If you previously used npm `0.6.x`, re-run `npx claude-master-setup@latest`.
@@ -164,6 +164,24 @@ hints only — never auto-installed.
 `/loop` discovery order: project `.claude/skills` + `.agents/skills` →
 `~/.claude/skills` → plugin skills. Ranking uses token match + catalog aliases
 from the allowlist; at most three skills are injected.
+
+## Desktop notifications and statusline
+
+On Stop, Master can show a macOS Notification Center banner when a loop
+**completes**, **pauses** (needs you), hits **max iterations**, **errors**, or has
+**validation pending**. Disable with `MASTER_DESKTOP_NOTIFY=0`.
+
+The user statusline (`~/.claude/statusline.sh`) shows an active/paused/completed
+loop segment (`phase · iteration/max · mode · status`) from `.master/state/loop.json`.
+
+Attempt history lives in `.master/state/history/events.jsonl` (with `attempt_id` /
+`parent_event` / optional `worktree`). Inspect with:
+
+```bash
+python3 ~/.claude/claude-master-setup/scripts/query-events.py --last 10
+```
+
+SQLite graph memory is **not** shipped yet (design deferred).
 
 ## Doctor and repair
 

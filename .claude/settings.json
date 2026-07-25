@@ -130,6 +130,19 @@
         ],
         "description": "Remind to run the validation gate if source changed but validate did not run",
         "id": "harness:stop-validate-reminder"
+      },
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/notify-stop.sh\"",
+            "async": true,
+            "timeout": 10
+          }
+        ],
+        "description": "Desktop notification when loop completes, pauses, errors, or validation is pending (MASTER_DESKTOP_NOTIFY=0 to disable)",
+        "id": "harness:notify-stop"
       }
     ]
   }

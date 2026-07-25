@@ -95,6 +95,28 @@ test ! -e "$CFG/skills/capability-orchestrator" || fail 'old skill survived upgr
 export CLAUDE_PROJECT_DIR="$TMP/sample-checkout" HOME="$TMP/home"
 mkdir -p "$HOME"
 bash "$PACK/scripts/setup-loop.sh" 'fix tax rounding' >/dev/null
+test -f "$PACK/hooks/notify-stop.sh" || fail 'notify-stop.sh not shipped to framework'
+test -f "$PACK/scripts/query-events.py" || fail 'query-events.py not shipped'
+python3 - "$CFG/settings.json" <<'PY' || fail 'notify-stop not wired in settings'
+import json, sys
+s = json.load(open(sys.argv[1]))
+ids = [e.get("id") for e in (s.get("hooks") or {}).get("Stop") or [] if e.get("id")]
+assert "harness:notify-stop" in ids, ids
+assert ids.count("harness:notify-stop") == 1, ids
+PY
+python3 - <<'PY' || fail 'event missing attempt_id'
+import json
+from pathlib import Path
+lines = Path('.master/state/history/events.jsonl').read_text().strip().splitlines()
+assert lines, 'no events'
+row = json.loads(lines[-1])
+assert row.get('attempt_id'), row
+assert row.get('type') in {'loop_start', 'steer', 'resume'}, row
+PY
+printf '%s' '{"model":{"display_name":"Test"},"workspace":{"current_dir":"'"$TMP"'/sample-checkout"},"context_window":{"used_percentage":12}}' \
+  | CLAUDE_PROJECT_DIR="$TMP/sample-checkout" python3 "$CFG/statusline.sh" \
+  | grep -q '🔄' \
+  || fail 'statusline missing loop segment'
 python3 - <<'PY' || fail 'installed loop defaults'
 import json
 from pathlib import Path
@@ -133,6 +155,7 @@ expected = {
     "harness:post-edit-track",
     "harness:loop-stop",
     "harness:stop-validate-reminder",
+    "harness:notify-stop",
 }
 assert set(c) == expected, (set(c), expected)
 assert all(n == 1 for n in c.values()), c

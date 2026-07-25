@@ -83,8 +83,33 @@ const hasLocal = args.includes('--local') || args.includes('-l');
 const hasFrameworkOnly = args.includes('--framework-only') || args.includes('-F');
 const hasHelp = args.includes('--help') || args.includes('-h');
 const hasForce = args.includes('--force') || args.includes('-f');
+const hasDoctor = args.includes('--doctor');
+const hasRepair = args.includes('--repair');
 const scaffoldIdx = args.findIndex((a) => a === '--scaffold' || a === '-s');
 const wantsScaffold = scaffoldIdx !== -1;
+
+/** Known harness hook script basenames (used to detect legacy duplicates). */
+const HARNESS_HOOK_SCRIPTS = [
+  'session-start.sh',
+  'pre-bash-guard.sh',
+  'protect-paths.sh',
+  'require-agents-before-edit.sh',
+  'post-edit-track.sh',
+  'loop-stop-hook.sh',
+  'stop-validate-reminder.sh',
+];
+
+const EXPECTED_HARNESS_IDS = [
+  'harness:session-start',
+  'harness:pre-bash-guard',
+  'harness:protect-paths',
+  'harness:require-agents-before-edit',
+  'harness:post-edit-track',
+  'harness:loop-stop',
+  'harness:stop-validate-reminder',
+];
+
+const MASTER_PLUGIN_KEY = 'master@claude-master-setup';
 
 /**
  * Resolve config dir: --config-dir flag → CLAUDE_CONFIG_DIR env → ~/.claude
@@ -230,8 +255,14 @@ function printHelp() {
     ${cyan}--local, -l${reset}               Alias for default (framework + seed current project)
     ${cyan}-c, --config-dir <path>${reset}   Custom Claude config dir (overrides CLAUDE_CONFIG_DIR env)
     ${cyan}-s, --scaffold [dir]${reset}      Legacy: copy full harness into a directory
+    ${cyan}--doctor${reset}                  Check install health (hooks, dual path, framework files)
+    ${cyan}--repair${reset}                  Deduplicate hooks, restore framework, enforce single path
     ${cyan}-f, --force${reset}               Install even if Claude Code CLI is missing
     ${cyan}-h, --help${reset}                Show this help
+
+  ${yellow}Install rule:${reset}
+    Use ${cyan}npm${reset} (shared framework) ${yellow}or${reset} the ${cyan}plugin${reset} — never both.
+    Dual install double-fires hooks. Prefer npm; ${cyan}--repair${reset} disables the plugin when both exist.
 
   ${yellow}Config dir resolution (in order):${reset}
     1. ${cyan}--config-dir <path>${reset}    explicit flag
@@ -703,26 +734,146 @@ function harnessHooksBlock() {
 
 
 /**
+ * True if a settings.json hook entry belongs to this harness (current or legacy).
+ * Detects: harness:* ids, CLAUDE_MASTER_ROOT / HARNESS_FRAMEWORK_ROOT commands,
+ * and known harness script names under those roots (covers ID-less duplicates).
+ */
+function isMasterOwnedHookEntry(entry) {
+  if (!entry || typeof entry !== 'object') return false;
+  if (typeof entry.id === 'string' && entry.id.startsWith('harness:')) return true;
+
+  const commands = [];
+  if (Array.isArray(entry.hooks)) {
+    for (const h of entry.hooks) {
+      if (h && typeof h.command === 'string') commands.push(h.command);
+    }
+  }
+  if (typeof entry.command === 'string') commands.push(entry.command);
+
+  for (const cmd of commands) {
+    if (
+      cmd.includes('$CLAUDE_MASTER_ROOT/hooks/') ||
+      cmd.includes('${CLAUDE_MASTER_ROOT}/hooks/') ||
+      cmd.includes('$HARNESS_FRAMEWORK_ROOT/hooks/') ||
+      cmd.includes('${HARNESS_FRAMEWORK_ROOT}/hooks/')
+    ) {
+      return true;
+    }
+    for (const script of HARNESS_HOOK_SCRIPTS) {
+      if (
+        (cmd.includes('CLAUDE_MASTER_ROOT') || cmd.includes('HARNESS_FRAMEWORK_ROOT')) &&
+        cmd.includes(script)
+      ) {
+        return true;
+      }
+      // Absolute path under a claude-master-setup install
+      if (cmd.includes(`/claude-master-setup/hooks/${script}`)) return true;
+    }
+  }
+  return false;
+}
+
+/**
  * Merge harness hook phases without wiping user hooks.
- * Replaces only entries whose id starts with "harness:"; keeps all other hooks.
+ * Replaces all Master-owned entries (by id, env token, or script path), then
+ * appends exactly one fresh harnessHooksBlock() set.
  */
 function mergeHookPhases(existingHooks, harnessHooks) {
   const out = { ...(existingHooks || {}) };
   for (const [phase, harnessEntries] of Object.entries(harnessHooks || {})) {
     const prev = Array.isArray(out[phase]) ? out[phase] : [];
-    const nonHarness = prev.filter(
-      (e) => !(e && typeof e.id === 'string' && e.id.startsWith('harness:'))
-    );
+    const nonHarness = prev.filter((e) => !isMasterOwnedHookEntry(e));
     out[phase] = [...nonHarness, ...(harnessEntries || [])];
+  }
+  // Also strip Master-owned entries from phases the harness no longer uses
+  for (const phase of Object.keys(out)) {
+    if (harnessHooks && Object.prototype.hasOwnProperty.call(harnessHooks, phase)) continue;
+    if (!Array.isArray(out[phase])) continue;
+    const cleaned = out[phase].filter((e) => !isMasterOwnedHookEntry(e));
+    if (cleaned.length === 0) delete out[phase];
+    else out[phase] = cleaned;
   }
   return out;
 }
 
+/** Count harness:* ids across all hook phases (for doctor / tests). */
+function countHarnessIds(hooks) {
+  const counts = Object.create(null);
+  for (const entries of Object.values(hooks || {})) {
+    if (!Array.isArray(entries)) continue;
+    for (const e of entries) {
+      if (e && typeof e.id === 'string' && e.id.startsWith('harness:')) {
+        counts[e.id] = (counts[e.id] || 0) + 1;
+      }
+    }
+  }
+  return counts;
+}
+
+/** Whether settings or installed_plugins mark the master plugin as active. */
+function isMasterPluginEnabled(configDir) {
+  try {
+    const settingsPath = path.join(configDir, 'settings.json');
+    if (fs.existsSync(settingsPath)) {
+      const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf8'));
+      const enabled = settings.enabledPlugins || {};
+      if (enabled[MASTER_PLUGIN_KEY]) return true;
+    }
+  } catch {
+    /* ignore */
+  }
+  try {
+    const installed = path.join(os.homedir(), '.claude', 'plugins', 'installed_plugins.json');
+    if (fs.existsSync(installed)) {
+      const data = JSON.parse(fs.readFileSync(installed, 'utf8'));
+      const plugins = data.plugins || data;
+      if (plugins && typeof plugins === 'object') {
+        if (
+          Object.keys(plugins).some(
+            (k) => k.includes(MASTER_PLUGIN_KEY) || k === MASTER_PLUGIN_KEY
+          )
+        ) {
+          // Installed alone is not dual-fire; only enabledPlugins causes plugin hooks.
+          // Still report installed for doctor context via separate helper.
+        }
+      }
+    }
+  } catch {
+    /* ignore */
+  }
+  return false;
+}
+
+function isMasterPluginInstalled() {
+  try {
+    const installed = path.join(os.homedir(), '.claude', 'plugins', 'installed_plugins.json');
+    if (!fs.existsSync(installed)) return false;
+    const data = JSON.parse(fs.readFileSync(installed, 'utf8'));
+    const plugins = data.plugins || data;
+    if (!plugins || typeof plugins !== 'object') return false;
+    return Object.keys(plugins).some(
+      (k) => k.includes(MASTER_PLUGIN_KEY) || k === MASTER_PLUGIN_KEY
+    );
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Disable master plugin in settings when npm framework is present (single-path).
+ * Returns true if a change was made.
+ */
+function disableMasterPluginInSettings(settings) {
+  if (!settings.enabledPlugins || typeof settings.enabledPlugins !== 'object') return false;
+  if (!settings.enabledPlugins[MASTER_PLUGIN_KEY]) return false;
+  settings.enabledPlugins[MASTER_PLUGIN_KEY] = false;
+  return true;
+}
+
 /**
  * Merge the shared framework root and hooks into settings.json. Never deletes unrelated keys.
- * Note: if the `master` Claude Code plugin is ALSO installed on this machine,
- * hooks fire twice (Claude Code doesn't dedupe hooks from two sources) — the
- * npm path and the plugin path are meant to be mutually exclusive per machine
+ * Enforces single path: npm framework wins; disables master@claude-master-setup when both exist.
+ * Strips legacy HARNESS_FRAMEWORK_ROOT from env.
  */
 function mergeFrameworkSettings(configDir, frameworkRoot) {
   const settingsPath = path.join(configDir, 'settings.json');
@@ -747,14 +898,21 @@ function mergeFrameworkSettings(configDir, frameworkRoot) {
     },
   };
 
+  const prevEnv = { ...(settings.env || {}) };
+  delete prevEnv.HARNESS_FRAMEWORK_ROOT;
   settings.env = {
-    ...(settings.env || {}),
+    ...prevEnv,
     CLAUDE_MASTER_ROOT: frameworkRoot,
   };
   settings.hooks = mergeHookPhases(settings.hooks, harnessHooksBlock());
 
-  fs.writeFileSync(settingsPath, `${JSON.stringify(settings, null, 2)}
-`, 'utf8');
+  if (disableMasterPluginInSettings(settings)) {
+    console.log(
+      `  ${yellow}!${reset} Disabled plugin ${cyan}${MASTER_PLUGIN_KEY}${reset} — npm framework is the active path (hooks must not double-fire)`
+    );
+  }
+
+  fs.writeFileSync(settingsPath, `${JSON.stringify(settings, null, 2)}\n`, 'utf8');
   console.log(`  ${green}✓${reset} Updated settings.json (framework root, hooks)`);
 }
 
@@ -876,41 +1034,195 @@ function installDefaultSkills(frameworkRoot) {
 
 /**
  * Warn when both npm shared framework and the Claude Code plugin are active
- * (hooks can double-fire).
+ * (hooks can double-fire). Prefer --repair which disables the plugin.
  */
 function warnDualInstall(configDir) {
   const frameworkDir = path.join(configDir, 'claude-master-setup');
   const hasNpmFramework = fs.existsSync(frameworkDir);
-  let hasPlugin = false;
-  try {
-    const installed = path.join(os.homedir(), '.claude', 'plugins', 'installed_plugins.json');
-    if (fs.existsSync(installed)) {
-      const data = JSON.parse(fs.readFileSync(installed, 'utf8'));
-      const plugins = data.plugins || data;
-      if (plugins && typeof plugins === 'object') {
-        hasPlugin = Object.keys(plugins).some((k) => k.includes('master@claude-master-setup') || k === 'master@claude-master-setup');
-      }
-    }
-  } catch {
-    /* ignore */
-  }
-  try {
-    const settingsPath = path.join(configDir, 'settings.json');
-    if (fs.existsSync(settingsPath)) {
-      const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf8'));
-      const enabled = settings.enabledPlugins || {};
-      if (enabled['master@claude-master-setup']) hasPlugin = true;
-    }
-  } catch {
-    /* ignore */
-  }
-  if (hasNpmFramework && hasPlugin) {
+  const pluginEnabled = isMasterPluginEnabled(configDir);
+  if (hasNpmFramework && pluginEnabled) {
     console.log(`
   ${yellow}! Dual install detected${reset}: npm framework at ${cyan}${frameworkDir.replace(os.homedir(), '~')}${reset}
-    AND plugin ${cyan}master@claude-master-setup${reset}. Hooks may double-fire.
-    Prefer one path: uninstall the plugin, or remove the npm framework + CLAUDE_MASTER_ROOT hooks.
+    AND plugin ${cyan}${MASTER_PLUGIN_KEY}${reset} enabled. Hooks may double-fire.
+    Run ${cyan}npx claude-master-setup --repair${reset} to keep npm and disable the plugin.
 `);
   }
+}
+
+/**
+ * Read-only health check. Exit 0 = healthy, 1 = problems.
+ */
+function runDoctor(configDir) {
+  const label = configDir.replace(os.homedir(), '~');
+  console.log(`  ${yellow}Doctor${reset} — checking ${cyan}${label}${reset}\n`);
+
+  const problems = [];
+  const warnings = [];
+  const frameworkDir = path.join(configDir, 'claude-master-setup');
+  const settingsPath = path.join(configDir, 'settings.json');
+
+  if (!fs.existsSync(frameworkDir)) {
+    problems.push(`Missing framework dir: ${label}/claude-master-setup/`);
+  } else {
+    for (const script of HARNESS_HOOK_SCRIPTS) {
+      const p = path.join(frameworkDir, 'hooks', script);
+      if (!fs.existsSync(p)) problems.push(`Missing hook: hooks/${script}`);
+    }
+    for (const name of ['setup-loop.sh', 'validate.sh', 'classify-task.py']) {
+      const p = path.join(frameworkDir, 'scripts', name);
+      if (!fs.existsSync(p)) problems.push(`Missing script: scripts/${name}`);
+    }
+  }
+
+  let settings = null;
+  if (!fs.existsSync(settingsPath)) {
+    problems.push(`Missing settings.json at ${label}/`);
+  } else {
+    try {
+      settings = JSON.parse(fs.readFileSync(settingsPath, 'utf8'));
+    } catch (err) {
+      problems.push(`settings.json parse error: ${err.message}`);
+    }
+  }
+
+  if (settings) {
+    const env = settings.env || {};
+    if (!env.CLAUDE_MASTER_ROOT) {
+      problems.push('settings.env.CLAUDE_MASTER_ROOT is not set');
+    } else if (
+      fs.existsSync(frameworkDir) &&
+      path.resolve(env.CLAUDE_MASTER_ROOT) !== path.resolve(frameworkDir)
+    ) {
+      warnings.push(
+        `CLAUDE_MASTER_ROOT (${env.CLAUDE_MASTER_ROOT}) ≠ framework dir (${frameworkDir})`
+      );
+    }
+    if (env.HARNESS_FRAMEWORK_ROOT) {
+      problems.push('Legacy settings.env.HARNESS_FRAMEWORK_ROOT still set — run --repair');
+    }
+
+    const hooks = settings.hooks || {};
+    const idCounts = countHarnessIds(hooks);
+    for (const id of EXPECTED_HARNESS_IDS) {
+      const n = idCounts[id] || 0;
+      if (n === 0) problems.push(`Missing harness hook id: ${id}`);
+      else if (n > 1) problems.push(`Duplicate harness hook id ${id} (count=${n}) — run --repair`);
+    }
+    // Legacy / ID-less master hooks
+    let legacy = 0;
+    for (const entries of Object.values(hooks)) {
+      if (!Array.isArray(entries)) continue;
+      for (const e of entries) {
+        if (!isMasterOwnedHookEntry(e)) continue;
+        const id = e && e.id;
+        if (typeof id !== 'string' || !id.startsWith('harness:')) legacy += 1;
+        else {
+          const cmds = (e.hooks || []).map((h) => h.command || '').join(' ');
+          if (cmds.includes('HARNESS_FRAMEWORK_ROOT')) legacy += 1;
+        }
+      }
+    }
+    if (legacy > 0) {
+      problems.push(`Found ${legacy} legacy Master hook entr(y/ies) — run --repair`);
+    }
+
+    if (fs.existsSync(frameworkDir) && (settings.enabledPlugins || {})[MASTER_PLUGIN_KEY]) {
+      problems.push(
+        `Dual install: npm framework present AND ${MASTER_PLUGIN_KEY} enabled — run --repair`
+      );
+    }
+  }
+
+  // Project-level stale foreign hooks (warn only)
+  const projectSettings = path.join(process.cwd(), '.claude', 'settings.json');
+  if (fs.existsSync(projectSettings)) {
+    try {
+      const raw = fs.readFileSync(projectSettings, 'utf8');
+      if (
+        raw.includes('plugin-hook-bootstrap.js') ||
+        /"id"\s*:\s*"pre:bash:dispatcher"/.test(raw) ||
+        /"id"\s*:\s*"post:bash:dispatcher"/.test(raw)
+      ) {
+        warnings.push(
+          `Project .claude/settings.json has stale foreign (ECC-like) hooks — remove manually; do not embed foreign harnesses in project settings`
+        );
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+
+  if (isMasterPluginInstalled() && !isMasterPluginEnabled(configDir) && fs.existsSync(frameworkDir)) {
+    warnings.push(
+      `Plugin ${MASTER_PLUGIN_KEY} is installed but disabled (OK with npm path)`
+    );
+  }
+
+  for (const w of warnings) {
+    console.log(`  ${yellow}warn${reset}  ${w}`);
+  }
+  for (const p of problems) {
+    console.log(`  ${yellow}FAIL${reset}  ${p}`);
+  }
+  if (problems.length === 0) {
+    console.log(`  ${green}✓ Healthy${reset} — single-path npm framework, hooks deduped\n`);
+    return 0;
+  }
+  console.log(
+    `\n  ${yellow}${problems.length} problem(s)${reset}. Fix with: ${cyan}npx claude-master-setup --repair${reset}\n`
+  );
+  return 1;
+}
+
+/**
+ * Re-install framework + rewrite hooks + enforce single path.
+ */
+function runRepair(configDir) {
+  const label = configDir.replace(os.homedir(), '~');
+  console.log(`  ${yellow}Repair${reset} — ${cyan}${label}${reset}\n`);
+
+  const settingsPath = path.join(configDir, 'settings.json');
+  let before = { harnessIds: {}, pluginEnabled: false, legacyEnv: false };
+  if (fs.existsSync(settingsPath)) {
+    try {
+      const s = JSON.parse(fs.readFileSync(settingsPath, 'utf8'));
+      before.harnessIds = countHarnessIds(s.hooks || {});
+      before.pluginEnabled = !!(s.enabledPlugins || {})[MASTER_PLUGIN_KEY];
+      before.legacyEnv = !!(s.env || {}).HARNESS_FRAMEWORK_ROOT;
+    } catch {
+      /* ignore */
+    }
+  }
+  const beforeDupes = Object.values(before.harnessIds).filter((n) => n > 1).length;
+  console.log(
+    `  ${dim}before:${reset} harness id dupes=${beforeDupes}, pluginEnabled=${before.pluginEnabled}, legacyEnv=${before.legacyEnv}`
+  );
+
+  const frameworkRoot = ensureFrameworkInstalled(configDir);
+  installStatusline(configDir);
+  // Skills are best-effort; skip by default on repair unless user wants them
+  if (process.env.MASTER_SKIP_SKILLS !== '0') {
+    process.env.MASTER_SKIP_SKILLS = process.env.MASTER_SKIP_SKILLS || '1';
+  }
+  installDefaultSkills(frameworkRoot);
+  warnDualInstall(configDir);
+
+  let after = { harnessIds: {}, pluginEnabled: false, legacyEnv: false };
+  if (fs.existsSync(settingsPath)) {
+    try {
+      const s = JSON.parse(fs.readFileSync(settingsPath, 'utf8'));
+      after.harnessIds = countHarnessIds(s.hooks || {});
+      after.pluginEnabled = !!(s.enabledPlugins || {})[MASTER_PLUGIN_KEY];
+      after.legacyEnv = !!(s.env || {}).HARNESS_FRAMEWORK_ROOT;
+    } catch {
+      /* ignore */
+    }
+  }
+  const afterDupes = Object.values(after.harnessIds).filter((n) => n > 1).length;
+  console.log(
+    `  ${dim}after:${reset}  harness id dupes=${afterDupes}, pluginEnabled=${after.pluginEnabled}, legacyEnv=${after.legacyEnv}`
+  );
+  console.log(`  ${green}Done!${reset} Re-run ${cyan}--doctor${reset} to verify.\n`);
 }
 
 function printCompanionNextSteps() {
@@ -1051,6 +1363,17 @@ function main() {
     return;
   }
 
+  if (hasDoctor && hasRepair) {
+    console.error(`  ${yellow}Cannot combine --doctor with --repair${reset}`);
+    process.exit(1);
+  }
+  if ((hasDoctor || hasRepair) && (hasGlobal || hasFrameworkOnly || hasLocal || wantsScaffold)) {
+    console.error(
+      `  ${yellow}Cannot combine --doctor/--repair with install flags (--framework-only/--local/--scaffold)${reset}`
+    );
+    process.exit(1);
+  }
+
   if ((hasGlobal || hasFrameworkOnly) && hasLocal) {
     console.error(`  ${yellow}Cannot combine --framework-only/--global with --local${reset}`);
     process.exit(1);
@@ -1061,6 +1384,19 @@ function main() {
   }
 
   console.log(banner);
+
+  const configDir = expandTilde(explicitConfigDir) || path.join(os.homedir(), '.claude');
+
+  if (hasDoctor) {
+    const code = runDoctor(configDir);
+    process.exit(code);
+  }
+
+  if (hasRepair) {
+    requireClaudeCodeOrExit();
+    runRepair(configDir);
+    return;
+  }
 
   if (wantsScaffold) {
     const target = args[scaffoldIdx + 1] && !args[scaffoldIdx + 1].startsWith('-')

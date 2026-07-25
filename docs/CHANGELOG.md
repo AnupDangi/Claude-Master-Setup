@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased — Install harden: single path + hook dedupe
+
+- Wider hook merge: strip legacy Master hooks by `harness:` id, `$CLAUDE_MASTER_ROOT` /
+  `$HARNESS_FRAMEWORK_ROOT`, and known script paths (stops 4× hook accumulation).
+- Install/`--repair` enforces single path: keeps npm framework, disables
+  `master@claude-master-setup` when both are active; drops `HARNESS_FRAMEWORK_ROOT`.
+- New CLI: `--doctor` (health check) and `--repair` (dedupe + restore).
+- Ship-install tests re-install + repair; self-check asserts doctor/repair help.
+
+
 ## 1.0.1 — README diagrams for npm
 
 - Pre-render Mermaid as PNGs (`docs/*.mmd` → `docs/*.png`) so npm README shows diagrams

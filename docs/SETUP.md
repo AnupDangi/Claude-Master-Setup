@@ -1,8 +1,8 @@
 # Setup
 
-**Product version:** 1.0.0 (stable). If you previously used npm `0.6.x`, re-run
-`npx claude-master-setup@latest` in each project and prefer **one** install path
-(npm **or** plugin).
+**Product version:** 1.0.1 (stable). Prefer **one** install path: npm **or** plugin — never both.
+Dual install double-fires hooks. Prefer npm; use `--repair` if both are active.
+If you previously used npm `0.6.x`, re-run `npx claude-master-setup@latest`.
 
 ## Marketplace updates (git-backed)
 
@@ -160,10 +160,38 @@ hints only — never auto-installed.
 `~/.claude/skills` → plugin skills. Ranking uses token match + catalog aliases
 from the allowlist; at most three skills are injected.
 
+## Doctor and repair
+
+```bash
+npx claude-master-setup --doctor          # exit 0 = healthy
+npx claude-master-setup --repair          # dedupe hooks, restore framework, disable plugin if dual
+npx claude-master-setup --doctor --config-dir /path/to/claude-config
+```
+
+`--doctor` checks: framework files, exactly one `harness:*` hook id each, no legacy
+`HARNESS_FRAMEWORK_ROOT`, and dual install (npm + enabled plugin). It also **warns**
+(does not delete) if the current project’s `.claude/settings.json` contains stale
+foreign hooks (e.g. ECC `plugin-hook-bootstrap.js`).
+
+`--repair` reinstalls the shared framework, rewrites hooks to one clean set, drops
+legacy env keys, and disables `master@claude-master-setup` when the npm framework
+is present.
+
+## Project settings hygiene
+
+Keep project `.claude/settings.json` free of foreign harness hooks. Claude Master
+Setup never requires embedding its hooks in the project — they live in the global
+config. Leftover hooks from other tools (Everything Claude Code, etc.) can flood
+sessions with `MODULE_NOT_FOUND` errors after those tools are uninstalled; remove
+them manually.
+
 ## Update or uninstall
 
-npm: rerun `npx claude-master-setup@latest`.
-Plugin: refresh the marketplace and update/reinstall `master`.
+**Hard rule:** use npm **or** the plugin — never both.
+
+npm: rerun `npx claude-master-setup@latest` (or `--repair` to fix hook drift).
+Plugin: refresh the marketplace and update/reinstall `master` — and do **not** keep
+the npm `claude-master-setup` framework + hooks active on the same machine.
 To uninstall npm runtime, remove the shared `claude-master-setup` directory and its
 identified hook entries from Claude settings. Remove `.master/` only if project state
 is no longer needed. To remove default skills: `npx skills remove --global …`.

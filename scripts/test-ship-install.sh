@@ -110,4 +110,88 @@ import json
 assert json.load(open('.master/state/loop.json'))['status']=='cancelled'
 PY
 
+# --- Idempotent re-install: exactly one harness:* id per phase ---
+MASTER_SKIP_SKILLS=1 node "$ROOT/bin/cli.js" --force --config-dir "$CFG" >/dev/null
+python3 - "$CFG/settings.json" <<'PY' || fail 'hook ids not unique after second install'
+import json, sys
+from collections import Counter
+s = json.load(open(sys.argv[1]))
+ids = []
+for entries in (s.get("hooks") or {}).values():
+    if not isinstance(entries, list):
+        continue
+    for e in entries:
+        i = e.get("id") if isinstance(e, dict) else None
+        if isinstance(i, str) and i.startswith("harness:"):
+            ids.append(i)
+c = Counter(ids)
+expected = {
+    "harness:session-start",
+    "harness:pre-bash-guard",
+    "harness:protect-paths",
+    "harness:require-agents-before-edit",
+    "harness:post-edit-track",
+    "harness:loop-stop",
+    "harness:stop-validate-reminder",
+}
+assert set(c) == expected, (set(c), expected)
+assert all(n == 1 for n in c.values()), c
+assert "HARNESS_FRAMEWORK_ROOT" not in json.dumps(s.get("env") or {})
+# No leftover ID-less master hooks
+for entries in (s.get("hooks") or {}).values():
+    if not isinstance(entries, list):
+        continue
+    for e in entries:
+        cmd = " ".join(h.get("command", "") for h in (e.get("hooks") or []))
+        if "HARNESS_FRAMEWORK_ROOT" in cmd:
+            raise SystemExit("legacy HARNESS_FRAMEWORK_ROOT hook survived")
+PY
+
+# --- --repair collapses duplicates + disables plugin ---
+python3 - "$CFG/settings.json" <<'PY'
+import json, sys
+p = sys.argv[1]
+s = json.load(open(p))
+# Seed legacy duplicate hooks + plugin enabled
+s.setdefault("hooks", {})
+s["hooks"].setdefault("PreToolUse", [])
+s["hooks"]["PreToolUse"].append({
+    "matcher": "Bash",
+    "hooks": [{"type": "command", "command": 'bash "$HARNESS_FRAMEWORK_ROOT/hooks/pre-bash-guard.sh"'}],
+})
+s["hooks"]["PreToolUse"].append({
+    "matcher": "Bash",
+    "hooks": [{"type": "command", "command": 'bash "$CLAUDE_MASTER_ROOT/hooks/pre-bash-guard.sh"'}],
+    "id": "harness:pre-bash-guard",
+})
+s.setdefault("env", {})["HARNESS_FRAMEWORK_ROOT"] = "/tmp/legacy"
+s.setdefault("enabledPlugins", {})["master@claude-master-setup"] = True
+open(p, "w").write(json.dumps(s, indent=2) + "\n")
+PY
+MASTER_SKIP_SKILLS=1 node "$ROOT/bin/cli.js" --force --repair --config-dir "$CFG" >/dev/null
+python3 - "$CFG/settings.json" <<'PY' || fail 'repair did not collapse hooks / disable plugin'
+import json, sys
+from collections import Counter
+s = json.load(open(sys.argv[1]))
+ids = []
+for entries in (s.get("hooks") or {}).values():
+    if not isinstance(entries, list):
+        continue
+    for e in entries:
+        i = e.get("id") if isinstance(e, dict) else None
+        if isinstance(i, str) and i.startswith("harness:"):
+            ids.append(i)
+        cmd = " ".join(h.get("command", "") for h in (e.get("hooks") or []))
+        assert "HARNESS_FRAMEWORK_ROOT" not in cmd, cmd
+c = Counter(ids)
+assert c["harness:pre-bash-guard"] == 1, c
+assert all(n == 1 for n in c.values()), c
+assert not (s.get("env") or {}).get("HARNESS_FRAMEWORK_ROOT")
+assert (s.get("enabledPlugins") or {}).get("master@claude-master-setup") is False
+assert (s.get("env") or {}).get("CLAUDE_MASTER_ROOT")
+PY
+
+MASTER_SKIP_SKILLS=1 node "$ROOT/bin/cli.js" --force --doctor --config-dir "$CFG" >/dev/null \
+  || fail 'doctor should exit 0 after repair'
+
 echo 'Clean install smoke test: OK'

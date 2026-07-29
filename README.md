@@ -2,6 +2,8 @@
 
 **v1.1.0** — Portable project state, validation evidence, and reliable handoffs across Claude Code, Codex, Cursor, and other coding agents.
 
+<img width="1600" height="900" alt="image" src="https://github.com/user-attachments/assets/adfd0f0e-3e84-497e-9906-80541395f20a" />
+
 Agent Master lets one coding agent begin a task and another continue it without shared chat history. Each agent keeps its native memory, goals, skills, plugins, approvals, and orchestration. They exchange only durable task facts through the repository-local `.master/` contract.
 
 ```bash

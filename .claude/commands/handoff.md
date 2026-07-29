@@ -1,29 +1,15 @@
 ---
-description: Refresh and summarize structured cross-session handoff
-argument-hint: ""
-allowed-tools: Read, Bash(git:*), Bash(python3 */scripts/write-handoff.py:*)
-model: haiku
+description: Checkpoint and hand off the active Agent Master run
+argument-hint: "[--run ID] [--next TEXT]"
+allowed-tools: Bash(node:*), Bash(git:*)
 ---
 
-# Handoff
+# Agent Master Handoff
 
-!`python3 ${CLAUDE_PLUGIN_ROOT}/scripts/write-handoff.py "${CLAUDE_PROJECT_DIR:-$PWD}" 2>/dev/null || echo ".master/state/handoff.json unavailable"`
+Record completed work, decisions, remaining tasks, blockers, and the next action with `checkpoint`, then run:
 
-## Role
+```bash
+node "${CLAUDE_PLUGIN_ROOT}/bin/cli.js" handoff "$ARGUMENTS" --agent claude-code --format json
+```
 
-You refresh **cross-session memory**. Repository handoff beats chat and optional claude-mem.
-
-## Report (from handoff.json + loop.json)
-
-- Task + status
-- Phase, iteration
-- Validation
-- Branch / last commit hint
-- Assigned agents
-- Correction log (brief)
-- Blockers / last_error
-- Recovery: `/loop` with steer text, or resume after pause
-
-No Markdown PROJECT_STATE/SESSION/CHANGELOG writes.
-
-If `memory-pending.json` exists and claude-mem is available, record that one observation and remove the pending file; otherwise continue.
+Return the JSON handoff summary. Do not claim validation is current unless Agent Master reports `green`.

@@ -37,21 +37,39 @@ test -f "$CFG/claude-master-setup/scripts/install-skill.sh" || fail 'install-ski
 test -f "$CFG/claude-master-setup/scripts/ensure-skills.sh" || fail 'ensure-skills.sh not shipped'
 
 test -f CLAUDE.md || fail 'CLAUDE.md missing'
+test -f AGENTS.md || fail 'AGENTS.md missing'
+test -f .cursor/rules/master-protocol.mdc || fail 'Cursor adapter missing'
+test -f .master/README.md || fail '.master/README.md missing'
 test -f .master/project.json || fail 'project.json missing'
-test -f .master/state/loop.json || fail 'loop.json missing'
+test ! -f .master/state/loop.json || fail 'new install must not seed legacy loop.json'
+test -d .master/runs || fail 'runs directory missing'
+test -d .master/events || fail 'events directory missing'
+test -d .master/evidence || fail 'evidence directory missing'
+test -d .master/locks || fail 'locks directory missing'
 test -d .master/docs || fail '.master/docs missing'
 # Docs are generate-on-demand: installer must NOT copy ROADMAP/DESIGN stubs
 test ! -f .master/docs/ROADMAP.md || fail 'installer must not copy ROADMAP.md (bootstrap generates)'
-test -f "$CFG/claude-master-setup/scripts/append-loop-event.py" || fail 'append-loop-event.py not shipped'
+test -f "$CFG/claude-master-setup/templates/AGENTS.md.starter" || fail 'AGENTS adapter template not shipped'
+test -f "$CFG/claude-master-setup/templates/CURSOR.mdc.starter" || fail 'Cursor adapter template not shipped'
+test -f "$CFG/claude-master-setup/templates/MASTER_README.md" || fail 'protocol template not shipped'
+test -f "$CFG/claude-master-setup/bin/cli.js" || fail 'universal CLI not shipped to Claude adapter'
+test -f "$CFG/claude-master-setup/lib/agent-master.js" || fail 'universal core not shipped to Claude adapter'
+test -f "$CFG/claude-master-setup/adapters/codex/capabilities.json" || fail 'adapter manifests not shipped'
 grep -q 'sample-checkout' CLAUDE.md || fail 'project name not inferred'
-grep -q 'Calculates checkout totals' CLAUDE.md || fail 'mission not inferred'
+grep -q 'Follow `AGENTS.md`' CLAUDE.md || fail 'CLAUDE adapter does not point at AGENTS.md'
+grep -q 'agent-master status --format json' AGENTS.md || fail 'AGENTS adapter missing portable status workflow'
+grep -q 'agent-master status --format json' .cursor/rules/master-protocol.mdc || fail 'Cursor adapter missing portable status workflow'
+grep -q 'agent-neutral source of truth' .master/README.md || fail 'protocol README missing neutral contract'
 ! grep -qi 'AI OS\|subagent table\|harness architecture' CLAUDE.md || fail 'harness prose leaked'
 python3 - <<'PY' || fail 'project metadata'
 import json
 p=json.load(open('.master/project.json'))
 assert p['name']=='sample-checkout'
+assert p['schema_version']==2
 assert p['maturity'] in {'existing','production'}
-assert p['stack']['detected'].startswith('Node.js')
+assert p['test_commands']==['npm run test']
+assert p['build_command']=='npm run build'
+assert 'README.md' in p['sources_of_truth']
 PY
 
 test ! -e .env || fail '.env created'
@@ -59,10 +77,15 @@ test ! -e .github || fail '.github created'
 test ! -e .claude || fail '.claude copied into project'
 
 PACK="$CFG/claude-master-setup"
-for f in scripts/setup-loop.sh scripts/cancel-loop.sh scripts/classify-task.py scripts/write-handoff.py hooks/loop-stop-hook.sh; do
+for f in scripts/install-skill.sh scripts/ensure-skills.sh scripts/select-skills.sh scripts/sync-project-docs.sh; do
   test -f "$PACK/$f" || fail "shared runtime missing $f"
 done
-for f in COMPANIONS.md scripts/budget-check.sh scripts/loop-event.sh scripts/lease.sh scripts/mcp-catalog.json commands/plan.md agents/docs-writer.md agents/security.md; do
+for f in scripts/setup-loop.sh scripts/cancel-loop.sh scripts/validate.sh scripts/worktree-fanout.sh \
+  scripts/classify-task.py scripts/write-handoff.py scripts/append-loop-event.py scripts/query-events.py \
+  COMPANIONS.md scripts/budget-check.sh scripts/loop-event.sh scripts/lease.sh scripts/mcp-catalog.json commands/plan.md \
+  agents/docs-writer.md agents/security.md \
+  agents/architect.md agents/implementer.md agents/implementer-opus.md agents/orchestrator.md agents/planner.md agents/reviewer.md agents/validator.md \
+  hooks/loop-stop-hook.sh hooks/post-edit-track.sh hooks/require-agents-before-edit.sh hooks/stop-validate-reminder.sh; do
   test ! -e "$PACK/$f" || fail "dead runtime shipped: $f"
 done
 
@@ -94,9 +117,8 @@ test ! -e "$CFG/skills/capability-orchestrator" || fail 'old skill survived upgr
 
 export CLAUDE_PROJECT_DIR="$TMP/sample-checkout" HOME="$TMP/home"
 mkdir -p "$HOME"
-bash "$PACK/scripts/setup-loop.sh" 'fix tax rounding' >/dev/null
 test -f "$PACK/hooks/notify-stop.sh" || fail 'notify-stop.sh not shipped to framework'
-test -f "$PACK/scripts/query-events.py" || fail 'query-events.py not shipped'
+grep -Evq '(^|[^A-Za-z0-9_])eval ' "$PACK/hooks/notify-stop.sh" || fail 'shipped notify-stop still contains eval'
 python3 - "$CFG/settings.json" <<'PY' || fail 'notify-stop not wired in settings'
 import json, sys
 s = json.load(open(sys.argv[1]))
@@ -104,33 +126,23 @@ ids = [e.get("id") for e in (s.get("hooks") or {}).get("Stop") or [] if e.get("i
 assert "harness:notify-stop" in ids, ids
 assert ids.count("harness:notify-stop") == 1, ids
 PY
-python3 - <<'PY' || fail 'event missing attempt_id'
+
+# Universal core smoke: start → cancel
+CLI="$ROOT/bin/cli.js"
+RUN_ID="$(node "$CLI" start "fix tax rounding" --agent claude-code --format json | python3 -c 'import json,sys; print(json.load(sys.stdin)["run_id"])')"
+node "$CLI" cancel --run "$RUN_ID" --agent claude-code --format json >/tmp/ship-cancel.json
+python3 - <<'PY' || fail 'universal cancel'
 import json
 from pathlib import Path
-lines = Path('.master/state/history/events.jsonl').read_text().strip().splitlines()
-assert lines, 'no events'
-row = json.loads(lines[-1])
-assert row.get('attempt_id'), row
-assert row.get('type') in {'loop_start', 'steer', 'resume'}, row
+runs = list(Path(".master/runs").glob("*.json"))
+assert runs, "no runs"
+assert any(json.loads(p.read_text()).get("status") == "cancelled" for p in runs)
+print("OK cancel")
 PY
 printf '%s' '{"model":{"display_name":"Test"},"workspace":{"current_dir":"'"$TMP"'/sample-checkout"},"context_window":{"used_percentage":12}}' \
   | CLAUDE_PROJECT_DIR="$TMP/sample-checkout" python3 "$CFG/statusline.sh" \
-  | grep -q '🔄' \
-  || fail 'statusline missing loop segment'
-python3 - <<'PY' || fail 'installed loop defaults'
-import json
-from pathlib import Path
-s=json.load(open('.master/state/loop.json'))
-proj=json.loads(Path('.master/project.json').read_text())
-budget=proj.get('iteration_budget')
-expected=budget if isinstance(budget,int) and budget>=1 else 2
-assert s['max_iterations']==expected and s['execution_mode']=='direct', (s['max_iterations'], expected, s['execution_mode'])
-PY
-bash "$PACK/scripts/cancel-loop.sh" >/dev/null
-python3 - <<'PY' || fail 'installed cancel'
-import json
-assert json.load(open('.master/state/loop.json'))['status']=='cancelled'
-PY
+  | grep -q '📁 sample-checkout' \
+  || fail 'statusline missing project after run'
 
 # --- Idempotent re-install: exactly one harness:* id per phase ---
 MASTER_SKIP_SKILLS=1 node "$ROOT/bin/cli.js" --force --config-dir "$CFG" >/dev/null
@@ -151,10 +163,6 @@ expected = {
     "harness:session-start",
     "harness:pre-bash-guard",
     "harness:protect-paths",
-    "harness:require-agents-before-edit",
-    "harness:post-edit-track",
-    "harness:loop-stop",
-    "harness:stop-validate-reminder",
     "harness:notify-stop",
 }
 assert set(c) == expected, (set(c), expected)

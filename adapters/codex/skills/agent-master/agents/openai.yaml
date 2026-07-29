@@ -1,0 +1,4 @@
+interface:
+  display_name: "Agent Master"
+  short_description: "Continue portable cross-agent repository work"
+  default_prompt: "Use $agent-master to resume the active repository run from shared state."

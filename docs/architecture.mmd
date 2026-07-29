@@ -1,23 +1,47 @@
 flowchart TB
-  subgraph shared ["Shared framework — once per machine"]
-    Agents["agents/"]
-    Commands["commands/"]
-    Hooks["hooks/"]
-    Scripts["scripts/"]
-    Outlines["templates/master-docs/ outlines only"]
-    Status["statusline.sh"]
+  subgraph native ["Native agent harnesses remain in control"]
+    Claude["Claude Code<br/>commands · hooks · subagents"]
+    Codex["Codex<br/>/goal · memory · skills · plugins"]
+    Cursor["Cursor<br/>rules · sessions · terminal"]
+    Others["Copilot · Antigravity · Hermes<br/>AGENTS.md · terminal"]
   end
 
-  subgraph project ["Per project — lives in the repo"]
-    ClaudeMd["CLAUDE.md"]
-    ProjectJson[".master/project.json"]
-    State[".master/state/\nloop.json · handoff.json · events.jsonl"]
-    Docs[".master/docs/\ngenerated from evidence"]
+  subgraph adapters ["Thin provider adapters"]
+    ClaudeAdapter["Claude command wrappers"]
+    CodexAdapter["AGENTS.md + optional Codex skill"]
+    CursorAdapter["AGENTS.md + Cursor project rule"]
+    UniversalAdapter["AGENTS.md + direct CLI"]
   end
 
-  Install["npx claude-master-setup"] --> shared
-  Install --> project
-  Commands --> State
-  Hooks --> State
-  Scripts --> State
-  Agents --> Docs
+  Core["Agent Master CLI<br/>init · start · status · checkpoint · validate · handoff · complete"]
+
+  subgraph project ["Repository-local source of truth"]
+    Stable["Committed context<br/>project.json · docs · adapters"]
+    Runtime["Portable runtime state<br/>runs · events · evidence · locks"]
+  end
+
+  Claude --> ClaudeAdapter
+  Codex --> CodexAdapter
+  Cursor --> CursorAdapter
+  Others --> UniversalAdapter
+  ClaudeAdapter --> Core
+  CodexAdapter --> Core
+  CursorAdapter --> Core
+  UniversalAdapter --> Core
+  Core --> Stable
+  Core --> Runtime
+  Runtime -->|"handoff"| native
+
+  classDef nativeNode fill:#E8F1FF,stroke:#2F6FEB,color:#172B4D
+  classDef adapterNode fill:#EAF7EE,stroke:#2A7C4F,color:#173B2A
+  classDef coreNode fill:#FFF4CC,stroke:#A56A00,color:#4A3400
+  classDef stableNode fill:#F2F4F7,stroke:#59636E,color:#20262D
+  classDef runtimeNode fill:#FDECE7,stroke:#B5472D,color:#4A2117
+  class Claude,Codex,Cursor,Others nativeNode
+  class ClaudeAdapter,CodexAdapter,CursorAdapter,UniversalAdapter adapterNode
+  class Core coreNode
+  class Stable stableNode
+  class Runtime runtimeNode
+  style native fill:#F8FAFC,stroke:#94A3B8
+  style adapters fill:#F8FAFC,stroke:#94A3B8
+  style project fill:#F8FAFC,stroke:#94A3B8

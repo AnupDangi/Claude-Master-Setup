@@ -1,29 +1,15 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
+  "project_id": null,
   "name": null,
   "maturity": "new",
-  "iteration_budget": 3,
-  "stack": {},
-  "entrypoints": [],
-  "commands": [],
-  "validate_cmd": "bash ${CLAUDE_PLUGIN_ROOT}/scripts/validate.sh",
+  "install_command": null,
+  "test_commands": [],
+  "build_command": null,
   "runtime_check": null,
-  "source_of_truth": [
-    "README.md",
-    "project manifests",
-    "source code",
+  "sources_of_truth": [
+    "src",
     "tests",
-    "PRD.md and PTR.md when present"
-  ],
-  "read_order": [
-    "CLAUDE.md",
-    ".master/project.json",
-    ".master/state/handoff.json",
-    ".master/state/loop.json"
-  ],
-  "allow_no_stack": false,
-  "docs": {
-    "manifest": [],
-    "load_for_loop": false
-  }
+    "README.md"
+  ]
 }

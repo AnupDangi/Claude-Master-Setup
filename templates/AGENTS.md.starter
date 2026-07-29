@@ -1,0 +1,26 @@
+# {{PROJECT_NAME}}
+
+## Repository
+
+Read `.master/project.json` for stable project facts. Read only relevant `.master/docs/*` files when durable detail is needed.
+
+## Commands
+
+Use the install, test, build, and runtime commands recorded in `.master/project.json`.
+
+## Non-Obvious Constraints
+
+Repository evidence overrides stale Agent Master state. Keep durable project facts in `.master/docs/`, not in this adapter.
+
+## Agent Master
+
+Before continuing existing work:
+
+1. Run `agent-master status --format json`.
+2. Verify the recorded branch, commit, changed files, and working tree against git.
+3. Continue from `next_action`.
+4. Record important decisions and completed work with `agent-master checkpoint`.
+5. Run `agent-master validate` before completion.
+6. Checkpoint or hand off before ending the session.
+
+Personal agent memory is supplementary. `.master/` is the shared cross-agent task record.

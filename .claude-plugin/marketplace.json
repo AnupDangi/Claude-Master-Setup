@@ -4,14 +4,14 @@
   "owner": {
     "name": "Anup Dangi"
   },
-  "description": "Official marketplace for Claude Master Setup \u2014 fail-closed adaptive coding loops for Claude Code.",
+  "description": "Claude Code adapter marketplace for Agent Master portable project state and cross-agent handoffs.",
   "plugins": [
     {
       "name": "master",
       "source": "./",
-      "displayName": "Claude Master Setup",
-      "description": "Fail-closed adaptive /loop for Claude Code: project-first bootstrap, JSON state, validation gates, direct/delegated/parallel agents, and resumable handoffs.",
-      "version": "1.0.3",
+      "displayName": "Agent Master — Claude Adapter",
+      "description": "Claude Code commands and optional hooks backed by the universal Agent Master CLI.",
+      "version": "1.1.0",
       "author": {
         "name": "Anup Dangi"
       },
@@ -21,17 +21,16 @@
       "category": "development",
       "keywords": [
         "claude-code",
-        "adaptive-loop",
-        "agents",
+        "agent-master",
+        "cross-agent",
         "validation",
-        "harness",
-        "subagents"
+        "harness"
       ],
       "tags": [
         "loop",
         "bootstrap",
         "validation",
-        "orchestration"
+        "handoff"
       ]
     }
   ]

@@ -15,7 +15,7 @@ fi
 render() {
   local in="$1" out="$2"
   echo "→ ${in} → ${out}"
-  "${MMDC[@]}" -i "$in" -o "$out" -b transparent -w 1800
+  "${MMDC[@]}" -i "$in" -o "$out" -b white -w 1800
 }
 
 render docs/architecture.mmd docs/architecture.png

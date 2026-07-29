@@ -1,5 +1,31 @@
 # Changelog
 
+## 1.1.0 — Universal Agent Master
+
+- Rename the primary npm package to `agent-master-setup`; add a separately publishable
+  `claude-master-setup@1.0.4` compatibility wrapper.
+- Add the universal `agent-master` CLI with init, run lifecycle, inspection,
+  checkpoint, validation, handoff, completion, pause/cancel, claims, doctor, and pack
+  interfaces.
+- Add schema v2 run-specific state, append-only events, atomic writes, process locks,
+  file leases, repository verification, and evidence-backed validation staleness.
+- Migrate legacy loop/handoff/history without deleting old state.
+- Add first-class Claude Code, Codex, and Cursor adapters plus capability manifests.
+- Keep Codex `/goal` and memory native; ship an optional `$agent-master` Codex skill.
+- Remove the planner/architect/implementer/orchestrator/reviewer/validator subagents
+  and their unwired enforcement hooks (require-agents-before-edit, loop-stop-hook,
+  post-edit-track, stop-validate-reminder) — the universal core does not require
+  subagents, and nothing in the new command set invoked them. Retain thin `/loop` and
+  `/bootstrap` compatibility aliases. Upgrading installs retire any of these files left
+  over from a prior install.
+- Replace Claude-centered diagrams and documentation with the cross-agent architecture.
+- Security: rewrite `notify-stop.sh` to eliminate bash `eval` of Python output (injection);
+  validate `active-run` IDs and reject path traversal in `notify-stop.sh` / `session-start.sh`.
+- Quote `"$ARGUMENTS"` in all Claude command wrappers.
+- Remove dead loop.json orchestration scripts (`setup-loop`, `cancel-loop`, `validate`,
+  `worktree-fanout`, `classify-task`, `write-handoff`, `append-loop-event`, `query-events`)
+  and their package/installer/CI references. Skill-discovery scripts remain.
+
 ## 1.0.3 — Desktop notify + loop statusline + event graph fields
 
 - Stop hook `notify-stop.sh`: macOS banner on loop complete / pause / max / error /

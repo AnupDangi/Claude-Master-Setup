@@ -1,23 +1,26 @@
 #!/usr/bin/env node
 'use strict';
 /**
- * Installs the Claude Master Setup harness into Claude Code.
+ * Agent Master universal CLI plus the optional Claude Code provider installer.
  *
  * Framework files (agents, commands, skills, scripts, docs, hooks) live once,
  * shared, at the resolved config dir — never duplicated per project.
- * A project only ever gets `.master/` (state + its own docs) + `CLAUDE.md`.
+ * A project only ever gets `.master/` (protocol, state, its own docs) and thin
+ * root/IDE adapters that point back to `.master/`.
  *
  * Usage:
- *   npx claude-master-setup                   # install framework + seed current project
- *   npx claude-master-setup --framework-only  # install shared framework only (no project seed)
- *   npx claude-master-setup --global          # alias for --framework-only
- *   npx claude-master-setup --local           # alias for default (framework + seed)
- *   npx claude-master-setup --scaffold [dir]  # legacy: copy harness into a folder
+ *   agent-master init
+ *   agent-master start "goal"
+ *   agent-master status --format json
+ *   agent-master install claude
+ *
+ * Legacy claude-master-setup flags remain available during migration.
  */
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const { spawnSync } = require('child_process');
+const { AgentMasterError, initProject, runUniversalCli } = require('../lib/agent-master');
 // Install is filesystem copy + settings merge only; companion install is printed.
 
 const PKG_ROOT = path.resolve(__dirname, '..');
@@ -37,8 +40,8 @@ ${cyan}  ███╗   ███╗ █████╗ ███████╗
   ██║ ╚═╝ ██║██║  ██║███████║   ██║   ███████╗██║  ██║
   ╚═╝     ╚═╝╚═╝  ╚═╝╚══════╝   ╚═╝   ╚══════╝╚═╝  ╚═╝${reset}
 
-  Claude Master Setup ${dim}v${pkg.version}${reset}
-  Adaptive coding loops for Claude Code
+  Agent Master ${dim}v${pkg.version}${reset}
+  Portable project state and reliable cross-agent handoffs
 `;
 
 const SKIP_RELATIVE = new Set([
@@ -64,18 +67,10 @@ const FRAMEWORK_SCRIPTS = [
   'detect-stack.sh',
   'list-local-skills.sh',
   'select-skills.sh',
-  'validate.sh',
-  'worktree-fanout.sh',
-  'setup-loop.sh',
-  'cancel-loop.sh',
-  'classify-task.py',
-  'write-handoff.py',
   'sync-project-docs.sh',
   'install-default-skills.sh',
   'install-skill.sh',
   'ensure-skills.sh',
-  'append-loop-event.py',
-  'query-events.py',
 ];
 
 const args = process.argv.slice(2);
@@ -94,10 +89,6 @@ const HARNESS_HOOK_SCRIPTS = [
   'session-start.sh',
   'pre-bash-guard.sh',
   'protect-paths.sh',
-  'require-agents-before-edit.sh',
-  'post-edit-track.sh',
-  'loop-stop-hook.sh',
-  'stop-validate-reminder.sh',
   'notify-stop.sh',
 ];
 
@@ -105,10 +96,6 @@ const EXPECTED_HARNESS_IDS = [
   'harness:session-start',
   'harness:pre-bash-guard',
   'harness:protect-paths',
-  'harness:require-agents-before-edit',
-  'harness:post-edit-track',
-  'harness:loop-stop',
-  'harness:stop-validate-reminder',
   'harness:notify-stop',
 ];
 
@@ -249,7 +236,7 @@ function printHelp() {
 
   ${yellow}Default (no flags):${reset}
     Install the shared framework once into Claude Code config, then seed this
-    project's ${cyan}.master/${reset} + ${cyan}CLAUDE.md${reset}. Skip seed when run inside the harness
+    project's ${cyan}.master/${reset} + thin adapters. Skip seed when run inside the harness
     source repo itself. This is the recommended path for every new project.
 
   ${yellow}Options:${reset}
@@ -274,7 +261,7 @@ function printHelp() {
 
   ${yellow}What gets installed:${reset}
     ${dim}Shared framework${reset}   agents/  commands/  statusline.sh  claude-master-setup/ (scripts, hooks, docs, templates)
-    ${dim}Per-project${reset}        .master/ (state + starter docs, gitignored state)  CLAUDE.md
+    ${dim}Per-project${reset}        .master/ (protocol + docs + gitignored state)  AGENTS.md  CLAUDE.md  .cursor/rules/
 
   ${yellow}Five-minute tour (plugin path):${reset}
     ${cyan}claude plugin marketplace add AnupDangi/Claude-Master-Setup${reset}
@@ -284,8 +271,25 @@ function printHelp() {
   ${yellow}Uninstall:${reset}
     Remove ${cyan}~/.claude/claude-master-setup/${reset}, ${cyan}~/.claude/agents/</cyan>, ${cyan}~/.claude/commands/${reset}
     Remove the master blocks from ${cyan}~/.claude/settings.json${reset} (hooks, CLAUDE_MASTER_ROOT)
-    In project: delete ${cyan}CLAUDE.md${reset} and ${cyan}.master/${reset}
+    In project: delete ${cyan}AGENTS.md${reset}, ${cyan}CLAUDE.md${reset}, ${cyan}.cursor/rules/master-protocol.mdc${reset}, and ${cyan}.master/${reset}
 `);
+}
+
+/**
+ * If `dest` already exists as a symlink, remove it first. `fs.copyFileSync`
+ * and `fs.writeFileSync` follow symlinks by default, so writing straight to
+ * an attacker-planted symlink at a config path would write through it to an
+ * arbitrary file with the installing user's privileges. Always call this
+ * immediately before copying/writing to a destination path.
+ */
+function removeIfSymlink(dest) {
+  let st;
+  try {
+    st = fs.lstatSync(dest);
+  } catch {
+    return;
+  }
+  if (st.isSymbolicLink()) fs.unlinkSync(dest);
 }
 
 function copyRecursive(src, dest) {
@@ -300,6 +304,7 @@ function copyRecursive(src, dest) {
     }
   } else {
     fs.mkdirSync(path.dirname(dest), { recursive: true });
+    removeIfSymlink(dest);
     fs.copyFileSync(src, dest);
   }
 }
@@ -326,6 +331,7 @@ function copyWithTokenSubstitution(src, dest, replacement) {
   }
 
   fs.mkdirSync(path.dirname(dest), { recursive: true });
+  removeIfSymlink(dest);
   if (src.endsWith('.md') || src.endsWith('.json')) {
     const content = fs.readFileSync(src, 'utf8');
     const replaced = content.split('${CLAUDE_PLUGIN_ROOT}').join(replacement);
@@ -355,8 +361,10 @@ function copyDirContents(srcDir, destDir, replacement) {
       copyWithTokenSubstitution(src, dest, replacement);
     } else if (entry.endsWith('.md') || entry.endsWith('.json')) {
       const content = fs.readFileSync(src, 'utf8');
+      removeIfSymlink(dest);
       fs.writeFileSync(dest, content.split('${CLAUDE_PLUGIN_ROOT}').join(replacement), 'utf8');
     } else {
+      removeIfSymlink(dest);
       fs.copyFileSync(src, dest);
     }
     n += 1;
@@ -372,6 +380,7 @@ function copyDirContentsIfAbsent(srcDir, destDir) {
   for (const entry of fs.readdirSync(srcDir)) {
     const dest = path.join(destDir, entry);
     if (fs.existsSync(dest)) continue;
+    removeIfSymlink(dest); // clears a dangling symlink existsSync missed
     fs.copyFileSync(path.join(srcDir, entry), dest);
     n += 1;
   }
@@ -474,90 +483,35 @@ function inferProjectMetadata(projectRoot) {
 }
 
 /**
- * Seed a project's `.master/` (state + starter docs) and `./CLAUDE.md` — the
- * only things this harness ever puts in a project. Never overwrites existing
- * files. `frameworkRoot` is the shared install (for CLAUDE.md.starter's own
- * ${CLAUDE_PLUGIN_ROOT} references, which get the same copy-time substitution).
+ * Seed a project's `.master/` (protocol, state, starter docs) and thin adapters.
+ * Never overwrites existing files. `frameworkRoot` is the shared install (for
+ * adapter templates' own ${CLAUDE_PLUGIN_ROOT} references, which get the same
+ * copy-time substitution).
  *
  * Returns an array of strings describing what was touched (for success summary).
  */
 function seedMasterFolder(projectRoot, frameworkRoot) {
   console.log('  Seeding .master/…');
-  const touched = [];
-  const metadata = inferProjectMetadata(projectRoot);
-
-  const stateDir = path.join(projectRoot, '.master', 'state');
-  fs.mkdirSync(stateDir, { recursive: true });
-  const loopPath = path.join(stateDir, 'loop.json');
-  if (!fs.existsSync(loopPath)) {
-    fs.writeFileSync(loopPath, loopStateJson(), 'utf8');
-    touched.push('.master/state/loop.json');
+  const before = new Set([
+    '.master/README.md',
+    'AGENTS.md',
+    'CLAUDE.md',
+    '.cursor/rules/master-protocol.mdc',
+  ].filter((rel) => fs.existsSync(path.join(projectRoot, rel))));
+  const result = initProject(projectRoot, path.join(PKG_ROOT, 'templates'));
+  const touched = [...result.created];
+  if (!before.has('.master/README.md') && fs.existsSync(path.join(projectRoot, '.master', 'README.md'))) {
+    touched.push('.master/README.md');
   }
-  console.log(`  ${green}✓${reset} .master/state/ initialized`);
-
-  // Docs are generate-on-demand (bootstrap / SHIP), never copied from templates.
-  const docsDir = path.join(projectRoot, '.master', 'docs');
-  fs.mkdirSync(docsDir, { recursive: true });
-  console.log(`  ${green}✓${reset} .master/docs/ ready (empty — bootstrap writes evidence-backed docs)`);
-
-  const projectJsonSrc = path.join(PKG_ROOT, 'templates', 'project.json');
-  const projectJsonDest = path.join(projectRoot, '.master', 'project.json');
-  if (!fs.existsSync(projectJsonDest) && fs.existsSync(projectJsonSrc)) {
-    const pj = fs.readFileSync(projectJsonSrc, 'utf8');
-    const project = JSON.parse(pj);
-    project.validate_cmd = String(project.validate_cmd || '').replace(
-      '${CLAUDE_PLUGIN_ROOT}',
-      frameworkRoot
-    );
-    project.name = metadata.name;
-    project.maturity = metadata.maturity;
-    project.stack = { detected: metadata.stack };
-    project.commands = metadata.commands;
-    fs.writeFileSync(projectJsonDest, `${JSON.stringify(project, null, 2)}\n`, 'utf8');
-    touched.push('.master/project.json');
-    console.log(`  ${green}✓${reset} .master/project.json created`);
-  }
-
-  const claudeMdDest = path.join(projectRoot, 'CLAUDE.md');
-  if (!fs.existsSync(claudeMdDest)) {
-    const starterSrc = path.join(PKG_ROOT, 'templates', 'CLAUDE.md.starter');
-    if (fs.existsSync(starterSrc)) {
-      const content = fs
-        .readFileSync(starterSrc, 'utf8')
-        .split('${CLAUDE_PLUGIN_ROOT}').join(frameworkRoot)
-        .split('{{PROJECT_NAME}}').join(metadata.name)
-        .split('{{MISSION}}').join(metadata.mission)
-        .split('{{STACK}}').join(metadata.stack)
-        .split('{{RUN_COMMANDS}}').join(metadata.commands.length ? metadata.commands.map((c) => `- ${c}`).join('\n') : '- Inspect project configuration');
-      fs.writeFileSync(claudeMdDest, content, 'utf8');
-      touched.push('CLAUDE.md');
-      console.log(`  ${green}✓${reset} CLAUDE.md created`);
-    }
-  } else {
-    console.log(`  ${dim}skip (already exists): CLAUDE.md${reset}`);
-  }
-
-  const giPath = path.join(projectRoot, '.gitignore');
-  if (!fs.existsSync(giPath)) fs.writeFileSync(giPath, '', 'utf8');
-  let gi = fs.readFileSync(giPath, 'utf8');
-  const lines = gi.split(/\r?\n/);
-  // Ignore secrets + loop state if the project later creates them — do not seed .env files.
-  const patterns = ['.env', '.env.*', '.master/state/'];
-  let changed = false;
-  for (const pat of patterns) {
-    if (!lines.includes(pat)) {
-      gi = gi.endsWith('\n') || gi === '' ? `${gi}${pat}\n` : `${gi}\n${pat}\n`;
-      changed = true;
-    }
-  }
-  if (changed) {
-    fs.writeFileSync(giPath, gi, 'utf8');
-    touched.push('.gitignore (updated)');
-  }
-  console.log(`  ${green}✓${reset} .gitignore updated (.env* and .master/state/ excluded)`);
+  touched.push('.master/project.json');
+  if (result.migrated_run) touched.push(`.master/runs/${result.migrated_run}.json (migrated)`);
+  console.log(`  ${green}✓${reset} schema v2 project contract ready`);
+  console.log(`  ${green}✓${reset} runtime dirs ready (runs, events, evidence, locks)`);
+  console.log(`  ${green}✓${reset} thin AGENTS.md, CLAUDE.md, and Cursor adapters ready`);
+  console.log(`  ${green}✓${reset} .gitignore updated (runtime state and .env excluded)`);
   console.log(`  ${green}✓${reset} node ${process.version}`);
 
-  return touched;
+  return [...new Set(touched)];
 }
 
 /**
@@ -574,8 +528,13 @@ function ensureFrameworkInstalled(configDir) {
 
   const packDest = path.join(configDir, 'claude-master-setup');
   const frameworkRoot = path.resolve(packDest);
-  const obsoleteCommands = ['decide', 'evaluate', 'go', 'init', 'mcp-add', 'plan', 'review', 'ship', 'validate'];
-  const obsoleteAgents = ['docs-writer', 'evaluator', 'mcp-scout', 'security'];
+  const obsoleteCommands = ['decide', 'evaluate', 'go', 'mcp-add', 'plan', 'review', 'ship'];
+  const obsoleteAgents = [
+    'docs-writer', 'evaluator', 'mcp-scout', 'security',
+    // v1.1: retired the heavy multi-agent loop roles — the universal core
+    // (init/start/checkpoint/validate/handoff) does not require subagents.
+    'architect', 'implementer', 'implementer-opus', 'orchestrator', 'planner', 'reviewer', 'validator',
+  ];
   const retireIfManaged = (target) => {
     if (!fs.existsSync(target)) return;
     const stat = fs.statSync(target);
@@ -622,12 +581,13 @@ function ensureFrameworkInstalled(configDir) {
     if (!fs.existsSync(src)) continue;
     fs.copyFileSync(src, path.join(docsDest, name));
   }
-  for (const item of ['MASTER-PROMPT.md', 'templates']) {
+  for (const item of ['templates', 'bin', 'lib', 'adapters']) {
     const src = path.join(PKG_ROOT, item);
     if (!fs.existsSync(src)) continue;
     const dest = path.join(packDest, item);
-    copyRecursive(src, dest);
+      copyRecursive(src, dest);
   }
+  fs.copyFileSync(path.join(PKG_ROOT, 'package.json'), path.join(packDest, 'package.json'));
 
   // Hooks are shared runtime files.
   for (const item of ['.claude/hooks']) {
@@ -670,7 +630,7 @@ function ensureFrameworkInstalled(configDir) {
       }
     }
   }
-  console.log(`  ${green}✓${reset} Installed claude-master-setup/ (shared framework: docs, scripts, hooks, templates)`);
+  console.log(`  ${green}✓${reset} Installed Claude adapter (universal CLI, commands, hooks, templates)`);
 
   mergeFrameworkSettings(configDir, frameworkRoot);
   return frameworkRoot;
@@ -702,40 +662,12 @@ function harnessHooksBlock() {
           'BLOCK .env*/lockfiles/CI/control-plane unless HARNESS_ALLOW_PROTECTED_EDITS=1',
         id: 'harness:protect-paths',
       },
-      {
-        matcher: 'Write|Edit|MultiEdit',
-        hooks: [{ type: 'command', command: h('require-agents-before-edit') }],
-        description:
-          'In active delegated/parallel loops with empty assigned_agents, block product Write/Edit until Task spawn',
-        id: 'harness:require-agents-before-edit',
-      },
-    ],
-    PostToolUse: [
-      {
-        matcher: 'Write|Edit|MultiEdit',
-        hooks: [{ type: 'command', command: h('post-edit-track'), async: true, timeout: 15 }],
-        description: 'Record edited source files so the loop knows validation is pending',
-        id: 'harness:post-edit-track',
-      },
     ],
     Stop: [
       {
         matcher: '*',
-        hooks: [{ type: 'command', command: h('loop-stop-hook') }],
-        description: 'Re-feed /loop task on Stop until max iterations or completion promise',
-        id: 'harness:loop-stop',
-      },
-      {
-        matcher: '*',
-        hooks: [{ type: 'command', command: h('stop-validate-reminder'), async: true, timeout: 10 }],
-        description: 'Remind to run the validation gate if source changed but validate did not run',
-        id: 'harness:stop-validate-reminder',
-      },
-      {
-        matcher: '*',
         hooks: [{ type: 'command', command: h('notify-stop'), async: true, timeout: 10 }],
-        description:
-          'Desktop notification when loop completes, pauses, errors, or validation is pending (MASTER_DESKTOP_NOTIFY=0 to disable)',
+        description: 'Optional desktop notification for terminal Agent Master run states',
         id: 'harness:notify-stop',
       },
     ],
@@ -1078,9 +1010,13 @@ function runDoctor(configDir) {
       const p = path.join(frameworkDir, 'hooks', script);
       if (!fs.existsSync(p)) problems.push(`Missing hook: hooks/${script}`);
     }
-    for (const name of ['setup-loop.sh', 'validate.sh', 'classify-task.py']) {
+    for (const name of ['install-skill.sh', 'ensure-skills.sh', 'select-skills.sh']) {
       const p = path.join(frameworkDir, 'scripts', name);
       if (!fs.existsSync(p)) problems.push(`Missing script: scripts/${name}`);
+    }
+    for (const name of ['setup-loop.sh', 'validate.sh', 'classify-task.py', 'append-loop-event.py']) {
+      const p = path.join(frameworkDir, 'scripts', name);
+      if (fs.existsSync(p)) warnings.push(`Legacy script still present: scripts/${name}`);
     }
   }
 
@@ -1255,9 +1191,9 @@ function printCompanionNextSteps() {
 
 function printUninstallHint(configDir) {
   const label = configDir.replace(os.homedir(), '~');
-  console.log(`  ${dim}Uninstall: remove ${label}/claude-master-setup and the six master command files${reset}`);
+  console.log(`  ${dim}Uninstall: remove ${label}/claude-master-setup and the Agent Master command files${reset}`);
   console.log(`  ${dim}           plus master agent/hook entries from ${label}/settings.json${reset}`);
-  console.log(`  ${dim}In project: delete CLAUDE.md and .master/${reset}`);
+  console.log(`  ${dim}In project: delete AGENTS.md, CLAUDE.md, .cursor/rules/master-protocol.mdc, and .master/${reset}`);
 }
 
 /**
@@ -1334,12 +1270,12 @@ function installDefault() {
   if (!isSourceRepo) {
     console.log(`  ${yellow}Next steps:${reset}`);
     console.log(`    ${cyan}claude${reset}           # open Claude Code`);
-    console.log(`    ${cyan}/bootstrap${reset}       # or /master:bootstrap — understand repo → minimal .master/`);
-    console.log(`    ${cyan}/loop${reset}            # or /master:loop — adaptive build until done or max-iterations`);
-    console.log(`    ${cyan}/status${reset}          # or /master:status — where are we`);
-    console.log(`    ${cyan}/handoff${reset}         # or /master:handoff — before ending a session`);
+    console.log(`    ${cyan}/init${reset}            # initialize shared project context`);
+    console.log(`    ${cyan}/start "goal"${reset}    # start a portable run`);
+    console.log(`    ${cyan}/status${reset}          # inspect repository-backed state`);
+    console.log(`    ${cyan}/handoff${reset}         # preserve context before ending a session`);
   } else {
-    console.log(`  Run ${cyan}claude${reset} in any project, then ${cyan}/bootstrap${reset} (or ${cyan}/master:bootstrap${reset}) to scaffold and foundation that project's ${cyan}.master/${reset}.`);
+    console.log(`  Run ${cyan}claude${reset} in any project, then ${cyan}/init${reset} to initialize that project's shared ${cyan}.master/${reset} state.`);
   }
   console.log();
   printUninstallHint(configDir);
@@ -1362,6 +1298,86 @@ function installScaffold(target) {
 }
 
 function main() {
+  const first = args[0];
+  const universalCommands = new Set([
+    'init',
+    'start',
+    'status',
+    'inspect',
+    'checkpoint',
+    'validate',
+    'handoff',
+    'complete',
+    'pause',
+    'cancel',
+    'claim',
+    'release',
+    'doctor',
+    'pack',
+    'help',
+  ]);
+
+  // Only route to the universal project CLI when an explicit subcommand is
+  // given. Bare invocation (no args) and bare --help/-h fall through to the
+  // installer below, matching the documented default: "no flags installs
+  // the shared framework". Previously `args.length === 0` routed here too,
+  // which silently replaced the framework install with a local `init`
+  // scaffold for every existing `npx claude-master-setup` user.
+  if (universalCommands.has(first)) {
+    try {
+      const response = runUniversalCli(args, {
+        packageRoot: PKG_ROOT,
+        templatesRoot: path.join(PKG_ROOT, 'templates'),
+        packageName: pkg.name,
+      });
+      if (response.output) console.log(response.output);
+      process.exitCode = response.exitCode;
+    } catch (error) {
+      if (error instanceof AgentMasterError) {
+        console.error(`Agent Master: ${error.message}`);
+        if (error.details) console.error(JSON.stringify(error.details, null, 2));
+        process.exitCode = error.exitCode;
+        return;
+      }
+      throw error;
+    }
+    return;
+  }
+
+  if (first === 'install') {
+    const provider = args[1];
+    if (!['claude', 'claude-code', 'codex', 'cursor'].includes(provider)) {
+      console.error(`  ${yellow}Unknown provider: ${provider || '(missing)'}. v1.1 supports: claude, codex, cursor${reset}`);
+      process.exitCode = 2;
+      return;
+    }
+    console.log(banner);
+    if (provider === 'claude' || provider === 'claude-code') {
+      requireClaudeCodeOrExit();
+      installFrameworkOnly();
+      return;
+    }
+    if (provider === 'codex') {
+      const codexHome = process.env.CODEX_HOME
+        ? expandTilde(process.env.CODEX_HOME)
+        : path.join(os.homedir(), '.codex');
+      const source = path.join(PKG_ROOT, 'adapters', 'codex', 'skills', 'agent-master');
+      const destination = path.join(codexHome, 'skills', 'agent-master');
+      if (fs.existsSync(destination)) {
+        const backup = backupIfExists(destination);
+        console.log(`  ${dim}↳ backed up existing Codex skill → ${path.basename(backup)}${reset}`);
+      }
+      copyRecursive(source, destination);
+      console.log(`  ${green}✓${reset} Installed Codex skill at ${cyan}${destination}${reset}`);
+      console.log(`  Start a new Codex task, then use ${cyan}$agent-master${reset} in a repository initialized with Agent Master.`);
+      return;
+    }
+    const result = initProject(process.cwd(), path.join(PKG_ROOT, 'templates'));
+    console.log(`  ${green}✓${reset} Cursor project rule ready in ${cyan}${result.root}${reset}`);
+    console.log(`  Cursor uses AGENTS.md, its native session lifecycle, and the Agent Master CLI.`);
+    return;
+  }
+
   if (process.platform === 'win32') {
     console.error(
       `  ${yellow}Hooks/scripts expect a Unix shell. Prefer macOS/Linux or WSL.${reset}`

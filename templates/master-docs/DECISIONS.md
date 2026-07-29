@@ -2,7 +2,7 @@
 # Architecture Decisions
 
 <!-- Record significant architecture decisions here using ADR format. -->
-<!-- Created at bootstrap. Add entries via architect agent. -->
+<!-- Created at bootstrap. Add entries as decisions are made. -->
 
 ## Format
 

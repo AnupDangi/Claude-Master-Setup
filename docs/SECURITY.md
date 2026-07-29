@@ -1,35 +1,58 @@
 # Security
 
-The extension reduces risk with narrow project output, explicit package allowlists,
-shell guards, protected control-plane files, isolated parallel writers, and binary
-validation.
+Agent Master stores repository-local task state and command evidence. It does not make autonomous coding inherently safe.
 
-## Boundaries
+## State and Evidence
 
-- `.env`, `.env.*`, common secret paths, and private keys are denied to read tools.
-- Dangerous shell patterns and piped remote installers are blocked by the Bash hook.
-- Framework hooks, commands, agents, settings, and validation are protected from
-  accidental edits. The maintainer override is explicit and local.
-- In active delegated/parallel loops with empty `assigned_agents`, product Write/Edit
-  is blocked until agents are assigned (control-plane prep paths remain allowed).
-- `git push`, GitHub CLI, Docker, and web fetches require user confirmation in shipped
-  settings.
-- The package and project installer exclude `.env`, `.github`, local state, worktrees,
-  and maintainer-only files.
+- `.master/runs/`, `events/`, `evidence/`, `locks/`, and `active-run` are gitignored.
+- Validation output may contain paths, test data, or accidental secrets. Review logs before sharing them.
+- `.env`, `.env.*`, private keys, and common secret paths are excluded by project and Claude-provider guards.
+- Stable `.master/project.json`, docs, and thin adapters may be committed.
 
-## Parallel work
+## Repository Evidence
 
-Parallel writers require a valid git repository, sanitized slice/branch names,
-file-disjoint ownership, worktrees below the repository parent, and a hard maximum of
-three slices. Integration refuses a dirty tree and never force-merges conflicts.
+Status refreshes branch, HEAD, dirty state, and changed files from git. Recorded handoff state never overrides current repository evidence.
 
-## Validation and review
+Validation is bound to:
 
-A completion signal is ignored unless the stored validation result is GREEN. Important
-or security-sensitive changes should receive the combined reviewer pass for access
-control, injection, secrets, network/file input, data exposure, dependencies,
-correctness, and test coverage.
+- The validated commit
+- A working-tree fingerprint
+- The configured validation-command hash
+- Required runtime-check execution
 
-No guard makes autonomous code inherently safe. Review permissions and diffs before
-shipping sensitive changes, and report vulnerabilities privately to the repository
-maintainer rather than opening a public exploit issue.
+Completion fails when evidence is missing, RED, or stale.
+
+`.master/project.json` is repo-committed, so its `test_commands`, `build_command`,
+and `runtime_check` can be edited by anyone with write access to the repo —
+including a clone of an untrusted repo or a peer agent. `agent-master validate`
+runs them locally with your privileges, so the first time a project's exact
+command set is seen on a machine, validate refuses to run and prints the
+commands for review. Re-run with `--trust` to approve that exact command set
+on this machine (the approval is keyed to a hash of the commands and stored in
+`~/.claude/agent-master-trust.json`, not in the repo); any later edit to the
+commands requires trusting again. CI can set `AGENT_MASTER_TRUST_PROJECT=1` to
+skip the prompt for a pipeline that already reviews the commit before running.
+
+## Concurrency
+
+Run files are written atomically under short process locks. File claims use repository-local leases and reject active ownership conflicts. This prevents common same-checkout collisions but is not a distributed lock across clones or machines.
+
+## Native Providers
+
+Provider integrations do not copy native memories, credentials, or chat history into `.master/`. Claude hooks are optional enhancements; the universal core (init/start/checkpoint/validate/handoff) does not ship or require any Claude subagents.
+
+Provider sandboxes, approvals, tool permissions, and service authentication still apply. Review provider configuration before enabling hooks, skills, plugins, or non-interactive execution.
+
+## Publishing
+
+The package allowlist excludes `.env`, local runtime state, `.github`, caches, and generated user data. Always inspect `npm pack --dry-run` before publishing both the primary and compatibility packages.
+
+Report vulnerabilities privately to the repository maintainer rather than opening a public exploit issue.
+
+## Hooks
+
+- `notify-stop.sh` never `eval`s model- or state-derived strings into the shell; desktop
+  notifications are invoked from Python with list-form `subprocess` arguments.
+- `session-start.sh` and `notify-stop.sh` accept only safe `active-run` IDs
+  (`[a-zA-Z0-9._-]{1,64}`) and refuse path escape outside `.master/runs/`.
+

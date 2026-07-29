@@ -22,3 +22,9 @@ target/
 *.log
 .cursor/
 *.tgz
+.master/active-run
+.master/runs/
+.master/events/
+.master/evidence/
+.master/locks/
+.master/files/ß

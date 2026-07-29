@@ -1,0 +1,19 @@
+---
+description: Continue Agent Master work from portable repository state
+alwaysApply: true
+---
+
+# {{PROJECT_NAME}} Agent Master Adapter
+
+Follow `AGENTS.md`.
+
+When `.master/active-run` exists:
+
+1. Run `agent-master status --format json`.
+2. Verify branch, commit, changed files, and working-tree state with git.
+3. Continue from `next_action`.
+4. Record progress with `agent-master checkpoint --agent cursor`.
+5. Checkpoint or hand off before ending the task.
+6. Never complete a run without current GREEN validation evidence.
+
+Use Cursor's native session and agent features where useful. Do not duplicate durable context in Cursor rules.

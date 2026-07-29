@@ -1,17 +1,15 @@
 ---
-description: Cancel the active iterative loop
-argument-hint: ""
-allowed-tools: Bash(bash */scripts/cancel-loop.sh:*)
-model: haiku
-hide-from-slash-command-tool: "true"
+description: Cancel the active Agent Master run
+argument-hint: "[--run ID] [--reason TEXT]"
+allowed-tools: Bash(node:*), Bash(git:*)
 ---
 
-# Cancel loop
+# Agent Master Cancel
 
-!`bash ${CLAUDE_PLUGIN_ROOT}/scripts/cancel-loop.sh`
+Run:
 
-## Role
+```bash
+node "${CLAUDE_PLUGIN_ROOT}/bin/cli.js" cancel "$ARGUMENTS" --agent claude-code --format json
+```
 
-Confirm cancellation from durable state. If no loop was active, say so in one line.
-
-Handoff is written by cancel-loop when applicable — mention that the next session should read `.master/state/handoff.json`.
+Report the cancelled run ID and preserved repository state.

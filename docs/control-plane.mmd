@@ -1,14 +1,14 @@
 flowchart LR
-  Setup["setup-loop.sh\nclassify + skills"] --> Mode{execution_mode}
-  Mode -->|direct| BuildD["Main agent builds"]
-  Mode -->|delegated / parallel| Gate["PreToolUse Write gate"]
-  Gate -->|assigned_agents empty| Block["BLOCK product edits"]
-  Gate -->|agents set| Task["Task → implementer / orchestrator"]
-  Task --> BuildA["Build in owned files"]
-  BuildD --> Val["validate.sh"]
-  BuildA --> Val
-  Val -->|RED| Retry["Continue / fix"]
-  Val -->|GREEN| Ship["SHIP + docs"]
-  Ship --> Stop["Stop hook"]
-  Stop -->|gates pass| Done["completed + handoff"]
-  Stop -->|fail / stall| Pause["paused / max_iterations"]
+  Start["start goal"] --> Run["run-specific state"]
+  Run --> Verify["status verifies<br/>branch · HEAD · dirty files"]
+  Verify --> Work["native agent works"]
+  Work --> Checkpoint["checkpoint<br/>decisions · completed · remaining · blockers"]
+  Checkpoint --> Validate["run configured checks<br/>save evidence logs"]
+  Validate -->|RED| Work
+  Validate -->|GREEN| Fresh{"Evidence still current?"}
+  Fresh -->|commit / files / commands changed| Stale["STALE<br/>completion rejected"]
+  Stale --> Validate
+  Fresh -->|yes| Finish{"Next action"}
+  Finish -->|another agent| Handoff["handoff<br/>release lease"]
+  Handoff --> Verify
+  Finish -->|done| Complete["complete"]

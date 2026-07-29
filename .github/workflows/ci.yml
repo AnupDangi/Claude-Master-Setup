@@ -1,4 +1,4 @@
-# Single CI for Claude Master Setup: tests + marketplace validate/tag.
+# Agent Master tests, package checks, and Claude adapter marketplace tag.
 name: CI
 
 on:
@@ -27,10 +27,11 @@ jobs:
       - name: Self-check
         run: bash scripts/self-check.sh
 
-      - name: npm test + package dry-run
+      - name: npm test + package dry-runs
         run: |
           npm test
           npm pack --dry-run
+          npm pack ./compat/claude-master-setup --dry-run
 
       - name: Skills allowlist snapshot
         run: bash scripts/check-skills-allowlist.sh
@@ -38,36 +39,31 @@ jobs:
       - name: Golden loop smoke
         run: bash scripts/test-golden-loop.sh
 
-      - name: Loop setup / cancel / classify smoke
+      - name: Universal CLI start / cancel smoke
         run: |
-          export CLAUDE_PROJECT_DIR="$(mktemp -d)"
-          mkdir -p "$CLAUDE_PROJECT_DIR"
-          bash scripts/setup-loop.sh "fix typo" | tee /tmp/setup.out
-          python3 - <<'PY'
-          import json, os
-          from pathlib import Path
-          state = json.loads(Path(os.environ["CLAUDE_PROJECT_DIR"], ".master/state/loop.json").read_text())
-          assert state["max_iterations"] == 2
-          assert state["execution_mode"] == "direct"
-          assert state["active"] is True
-          PY
-          bash scripts/cancel-loop.sh
-          python3 - <<'PY'
-          import json, os
-          from pathlib import Path
-          state = json.loads(Path(os.environ["CLAUDE_PROJECT_DIR"], ".master/state/loop.json").read_text())
-          assert state["status"] == "cancelled"
-          assert state["active"] is False
-          PY
-          python3 scripts/classify-task.py "implement authentication feature" | python3 -c 'import json,sys; assert json.load(sys.stdin)["execution_mode"]=="delegated"'
-
-      - name: Worktree fan-out rejects bad manifest
-        run: |
-          printf '%s\n' '{"slices":[{"id":"../x","branch":"fanout/a","files":["a.ts"]}]}' > /tmp/bad.json
-          if bash scripts/worktree-fanout.sh status /tmp/bad.json; then
-            echo "expected failure" >&2
-            exit 1
+          PROJ="$(mktemp -d)"
+          cd "$PROJ"
+          git init -q
+          git config user.email "ci@example.test"
+          git config user.name "CI"
+          printf '%s\n' '{"name":"ci-fixture","scripts":{"test":"node -e \"process.exit(0)\""}}' > package.json
+          echo '# fixture' > README.md
+          git add -A && git commit -q -m init
+          node "$GITHUB_WORKSPACE/bin/cli.js" init --force >/dev/null || node "$GITHUB_WORKSPACE/bin/cli.js" init >/dev/null || true
+          # seed minimal project if init needs cwd package
+          if [ ! -f .master/project.json ]; then
+            mkdir -p .master/runs .master/events .master/evidence .master/locks .master/docs
+            printf '%s\n' '{"schema_version":2,"name":"ci-fixture","maturity":"new","test_commands":[],"sources_of_truth":["README.md"]}' > .master/project.json
           fi
+          RUN_ID="$(node "$GITHUB_WORKSPACE/bin/cli.js" start "ci smoke" --agent claude-code --format json | python3 -c 'import json,sys; print(json.load(sys.stdin)["run_id"])')"
+          node "$GITHUB_WORKSPACE/bin/cli.js" cancel --run "$RUN_ID" --agent claude-code --format json >/dev/null
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          runs = list(Path(".master/runs").glob("*.json"))
+          assert runs and any(json.loads(p.read_text()).get("status") == "cancelled" for p in runs)
+          print("OK universal cancel")
+          PY
 
       - name: Select-skills + ensure-skills JSON
         run: |
@@ -92,12 +88,11 @@ jobs:
           echo '{"file_path":"/tmp/proj/.env"}' | HARNESS_ALLOW_PROTECTED_EDITS=0 bash .claude/hooks/protect-paths.sh && exit 1 || true
           echo '{"file_path":"/tmp/proj/.env"}' | HARNESS_ALLOW_PROTECTED_EDITS=1 bash .claude/hooks/protect-paths.sh
 
-      - name: Validate.sh reports a gate
+      - name: notify-stop has no eval
         run: |
-          set +e
-          bash scripts/validate.sh | tee /tmp/validate.log
-          set -e
-          grep -qE "GATE: (GREEN|RED)" /tmp/validate.log
+          ! grep -Eq '(^|[^A-Za-z0-9_])eval ' .claude/hooks/notify-stop.sh
+          grep -q RUN_ID_RE .claude/hooks/notify-stop.sh
+          grep -q RUN_ID_RE .claude/hooks/session-start.sh
 
       - name: Marketplace manifests agree
         run: |
@@ -156,6 +151,6 @@ jobs:
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git tag -a "$TAG" -m "Claude Master Setup ${VERSION}"
+          git tag -a "$TAG" -m "Agent Master Claude adapter ${VERSION}"
           git push origin "refs/tags/${TAG}"
           echo "Pushed $TAG"

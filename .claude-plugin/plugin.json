@@ -1,9 +1,9 @@
 {
   "$schema": "https://json.schemastore.org/claude-code-plugin.json",
   "name": "master",
-  "displayName": "Claude Master Setup",
-  "description": "Fail-closed adaptive /loop for Claude Code: project-first bootstrap, JSON state, validation gates, direct/delegated/parallel agents, and resumable handoffs.",
-  "version": "1.0.3",
+  "displayName": "Agent Master — Claude Adapter",
+  "description": "Claude Code adapter for Agent Master portable runs, validation evidence, checkpoints, and cross-agent handoffs.",
+  "version": "1.1.0",
   "author": {
     "name": "Anup Dangi"
   },
@@ -12,22 +12,13 @@
   "license": "MIT",
   "keywords": [
     "claude-code",
-    "adaptive-loop",
-    "ralph-wiggum",
-    "subagents",
-    "validation"
+    "agent-master",
+    "cross-agent",
+    "validation",
+    "handoff"
   ],
   "commands": [
     "./.claude/commands/"
-  ],
-  "agents": [
-    "./.claude/agents/architect.md",
-    "./.claude/agents/implementer-opus.md",
-    "./.claude/agents/implementer.md",
-    "./.claude/agents/orchestrator.md",
-    "./.claude/agents/planner.md",
-    "./.claude/agents/reviewer.md",
-    "./.claude/agents/validator.md"
   ],
   "hooks": {
     "SessionStart": [
@@ -65,59 +56,9 @@
         ],
         "description": "BLOCK .env*/lockfiles/CI/control-plane (.claude hooks/settings/agents/commands, validate.sh) unless HARNESS_ALLOW_PROTECTED_EDITS=1",
         "id": "harness:protect-paths"
-      },
-      {
-        "matcher": "Write|Edit|MultiEdit",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/.claude/hooks/require-agents-before-edit.sh\""
-          }
-        ],
-        "description": "In active delegated/parallel loops with empty assigned_agents, block product Write/Edit until Task spawn",
-        "id": "harness:require-agents-before-edit"
-      }
-    ],
-    "PostToolUse": [
-      {
-        "matcher": "Write|Edit|MultiEdit",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/.claude/hooks/post-edit-track.sh\"",
-            "async": true,
-            "timeout": 15
-          }
-        ],
-        "description": "Record edited source files so the loop knows validation is pending",
-        "id": "harness:post-edit-track"
       }
     ],
     "Stop": [
-      {
-        "matcher": "*",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/.claude/hooks/loop-stop-hook.sh\""
-          }
-        ],
-        "description": "Re-feed /loop task on Stop until max iterations or completion promise",
-        "id": "harness:loop-stop"
-      },
-      {
-        "matcher": "*",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/.claude/hooks/stop-validate-reminder.sh\"",
-            "async": true,
-            "timeout": 10
-          }
-        ],
-        "description": "Remind to run the validation gate if source changed but validate did not run",
-        "id": "harness:stop-validate-reminder"
-      },
       {
         "matcher": "*",
         "hooks": [
@@ -128,7 +69,7 @@
             "timeout": 10
           }
         ],
-        "description": "Desktop notification when loop completes, pauses, errors, or validation is pending (MASTER_DESKTOP_NOTIFY=0 to disable)",
+        "description": "Optional desktop notification for terminal Agent Master run states",
         "id": "harness:notify-stop"
       }
     ]

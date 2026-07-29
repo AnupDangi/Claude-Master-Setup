@@ -14,8 +14,11 @@ Project name + git always resolve from the Claude project root
 
 import json
 import os
+import re
 import subprocess
 import sys
+
+RUN_ID_RE = re.compile(r"^[a-zA-Z0-9._-]{1,64}$")
 
 try:
     data = json.load(sys.stdin)
@@ -174,39 +177,38 @@ if branch:
     parts.append(f"🌿 {branch}")
 parts.append(f"📁 {project}")
 
-# Loop awareness from .master/state/loop.json (Master harness)
+# Portable run awareness from Agent Master schema v2, with legacy fallback.
 loop_seg = ""
 try:
-    loop_path = os.path.join(root, ".master", "state", "loop.json")
-    if os.path.isfile(loop_path):
-        with open(loop_path, encoding="utf-8") as fh:
-            loop = json.load(fh)
-        st = str(loop.get("status") or "idle")
-        active = bool(loop.get("active"))
-        phase = str(loop.get("phase") or "")
-        mode = str(loop.get("execution_mode") or "")
-        it = loop.get("iteration")
-        mx = loop.get("max_iterations")
-        show = active or st in {
-            "running",
-            "paused",
-            "completed",
-            "max_iterations",
-            "error",
-            "cancelled",
-        }
-        if show and st not in {"idle", ""}:
-            bits = []
-            if phase:
-                bits.append(phase)
-            if it is not None and mx is not None:
-                bits.append(f"{it}/{mx}")
-            elif it is not None:
-                bits.append(str(it))
-            if mode and mode != "unclassified":
-                bits.append(mode)
-            bits.append(st)
-            loop_seg = "🔄 " + " · ".join(bits)
+    master = os.path.join(root, ".master")
+    active_path = os.path.join(master, "active-run")
+    if os.path.isfile(active_path):
+        with open(active_path, encoding="utf-8") as fh:
+            run_id = fh.read().strip()
+        if not RUN_ID_RE.match(run_id):
+            raise ValueError(f"invalid run id: {run_id!r}")
+        with open(os.path.join(master, "runs", f"{run_id}.json"), encoding="utf-8") as fh:
+            run = json.load(fh)
+        status = str(run.get("status") or "")
+        phase = str(run.get("phase") or "")
+        validation = str((run.get("validation") or {}).get("status") or "not_run")
+        bits = [bit for bit in [run_id, phase, status, f"validation:{validation}"] if bit]
+        loop_seg = "🔄 " + " · ".join(bits)
+    else:
+        loop_path = os.path.join(master, "state", "loop.json")
+        if os.path.isfile(loop_path):
+            with open(loop_path, encoding="utf-8") as fh:
+                loop = json.load(fh)
+            status = str(loop.get("status") or "idle")
+            if bool(loop.get("active")) or status not in {"idle", ""}:
+                phase = str(loop.get("phase") or "")
+                iteration = loop.get("iteration")
+                maximum = loop.get("max_iterations")
+                bits = [phase]
+                if iteration is not None:
+                    bits.append(f"{iteration}/{maximum}" if maximum is not None else str(iteration))
+                bits.append(status)
+                loop_seg = "🔄 " + " · ".join(bit for bit in bits if bit)
 except Exception:
     loop_seg = ""
 if loop_seg:

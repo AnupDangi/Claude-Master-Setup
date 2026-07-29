@@ -1,4 +1,25 @@
 flowchart LR
-  GATE --> PLAN --> BUILD --> VALIDATE
-  VALIDATE -->|RED| BUILD
-  VALIDATE -->|GREEN| REVIEW --> SHIP --> COMPLETE
+  Start(("start")) --> Active["ACTIVE"]
+  Active --> Validate["validate"]
+  Validate -->|GREEN| Validated["VALIDATED"]
+  Validate -->|RED| Active
+  Validated -->|complete| Completed(("COMPLETED"))
+  Validated -->|repo or checks changed| Stale["STALE"]
+  Stale -->|validate again| Validate
+
+  Active --> Checkpoint["checkpoint"]
+  Checkpoint --> Active
+  Active --> Handoff["handoff"]
+  Handoff -->|next agent| Active
+  Active --> Paused["paused"]
+  Paused -->|resume| Active
+  Active -->|cancel| Cancelled(("CANCELLED"))
+
+  classDef active fill:#e8f0fe,stroke:#3568b8,color:#172b4d
+  classDef good fill:#e7f6ec,stroke:#2f855a,color:#173d2a
+  classDef warn fill:#fff4d6,stroke:#b7791f,color:#5f3b00
+  classDef stop fill:#fbe9e7,stroke:#c94c40,color:#5f211b
+  class Active,Checkpoint,Handoff,Paused active
+  class Validated,Completed good
+  class Validate,Stale warn
+  class Cancelled stop

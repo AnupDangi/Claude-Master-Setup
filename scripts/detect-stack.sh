@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Detects the project's stack and package manager. Sourced by validate.sh.
+# Detects the project's stack and package manager. Used by stack detection / skill install helpers.
 # Prints one token: node-pnpm | node-yarn | node-npm | python-poetry | python-uv | python-pip | rust | go | make | unknown
 detect_stack() {
   if [ -f package.json ]; then

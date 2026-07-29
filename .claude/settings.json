@@ -78,59 +78,9 @@
         ],
         "description": "BLOCK .env*/lockfiles/CI/control-plane (.claude hooks/settings/agents/commands, validate.sh) unless HARNESS_ALLOW_PROTECTED_EDITS=1",
         "id": "harness:protect-paths"
-      },
-      {
-        "matcher": "Write|Edit|MultiEdit",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/require-agents-before-edit.sh\""
-          }
-        ],
-        "description": "In active delegated/parallel loops with empty assigned_agents, block product Write/Edit until Task spawn",
-        "id": "harness:require-agents-before-edit"
-      }
-    ],
-    "PostToolUse": [
-      {
-        "matcher": "Write|Edit|MultiEdit",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/post-edit-track.sh\"",
-            "async": true,
-            "timeout": 15
-          }
-        ],
-        "description": "Record edited source files so the loop knows validation is pending",
-        "id": "harness:post-edit-track"
       }
     ],
     "Stop": [
-      {
-        "matcher": "*",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/loop-stop-hook.sh\""
-          }
-        ],
-        "description": "Continue an active adaptive loop until completion or its iteration cap",
-        "id": "harness:loop-stop"
-      },
-      {
-        "matcher": "*",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/stop-validate-reminder.sh\"",
-            "async": true,
-            "timeout": 10
-          }
-        ],
-        "description": "Remind to run the validation gate if source changed but validate did not run",
-        "id": "harness:stop-validate-reminder"
-      },
       {
         "matcher": "*",
         "hooks": [
@@ -141,7 +91,7 @@
             "timeout": 10
           }
         ],
-        "description": "Desktop notification when loop completes, pauses, errors, or validation is pending (MASTER_DESKTOP_NOTIFY=0 to disable)",
+        "description": "Optional desktop notification for terminal Agent Master run states",
         "id": "harness:notify-stop"
       }
     ]

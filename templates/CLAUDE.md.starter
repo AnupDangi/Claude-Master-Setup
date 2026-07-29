@@ -1,25 +1,17 @@
-# {{PROJECT_NAME}}
+# {{PROJECT_NAME}} Claude Code Adapter
 
-{{MISSION}}
+Follow `AGENTS.md`. Agent Master state and transitions are implemented by the portable CLI.
 
-## Stack
+Plugin commands:
 
-{{STACK}}
+- `/master:init`
+- `/master:start "goal"`
+- `/master:status`
+- `/master:checkpoint`
+- `/master:validate`
+- `/master:handoff`
+- `/master:complete`
+- `/master:pause`
+- `/master:cancel`
 
-## Run and verify
-
-{{RUN_COMMANDS}}
-
-## Conventions
-
-- Follow the patterns already present in the repository.
-- Keep changes scoped; update tests with behavior changes.
-- Never commit credentials or generated secrets.
-
-## Working context
-
-- Project facts: `.master/project.json`
-- Active loop: `.master/state/loop.json`
-- Resume context: `.master/state/handoff.json`
-- Start work: `/loop "task"` (plugin: `/master:loop`)
-- Default iterations: `iteration_budget` in `.master/project.json` (override with `--max-iterations`)
+Compatibility aliases `/bootstrap` and `/loop` remain available during migration. Claude skills, hooks, subagents, teams, and worktrees are optional enhancements; they are not the shared source of truth.
